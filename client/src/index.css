@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body, #root {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: '"Fredoka One"', cursive, sans-serif;
+  }
+}
+
+@layer components {
+  .retro-card {
+    @apply bg-white border-3 border-black shadow-retro p-4;
+  }
+
+  .retro-btn {
+    @apply px-6 py-3 font-body font-bold text-white border-3 border-black
+           shadow-retro transition-all duration-100 ease-out
+           hover:shadow-retro-hover hover:-translate-y-0.5
+           active:shadow-retro-active active:translate-y-0.5
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none
+           disabled:hover:translate-y-0 disabled:hover:shadow-retro;
+  }
+
+  .retro-btn-primary {
+    @apply retro-btn bg-ocean-mid hover:bg-ocean-light;
+  }
+
+  .retro-btn-danger {
+    @apply retro-btn bg-warning-red hover:bg-red-600;
+  }
+
+  .retro-btn-success {
+    @apply retro-btn bg-accent-green text-storm-dark hover:bg-green-500;
+  }
+
+  .retro-input {
+    @apply bg-white border-3 border-black px-4 py-2 font-body text-storm-dark
+           focus:outline-none focus:ring-2 focus:ring-ocean-light;
+  }
+}
