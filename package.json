@@ -1,0 +1,25 @@
+{
+  "private": true,
+  "name": "unos-game",
+  "version": "1.0.0",
+  "description": "UNOS: Birth of the Typhoon — 2D educational game about tropical cyclone formation",
+  "workspaces": [
+    "client",
+    "server",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
+    "dev:client": "npm -w client run dev",
+    "dev:server": "npm -w server run dev",
+    "build": "npm -w shared run build && npm -w client run build && npm -w server run build",
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "npm -w client run test && npm -w server run test",
+    "seed": "npm -w server run seed"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "prettier": "^3.3.0",
+    "typescript": "^5.5.0"
+  }
+}

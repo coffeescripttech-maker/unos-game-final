@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git --version)",
+      "Bash(npm --version)",
+      "Bash(npx --version)",
+      "Bash(npm install *)",
+      "Bash(wmic logicaldisk *)",
+      "Bash(npm cache *)",
+      "Bash(ls -la /tmp/)",
+      "PowerShell(npm install --no-optional 2>&1)",
+      "PowerShell(npx -w client tsc --noEmit 2>&1)",
+      "PowerShell(npx -w client vite build 2>&1)",
+      "Bash(npx -w client vite build)",
+      "Bash(python3 -c \"from PIL import Image; img = Image.open\\('client/public/images/Main Menu BG.png'\\); print\\(f'{img.size[0]}x{img.size[1]}'\\)\")",
+      "Bash(magick identify *)",
+      "Bash(powershell -Command \"\\(Get-Item 'client/public/images/Main Menu BG.png'\\).Length\")",
+      "Bash(npm run *)",
+      "Bash(Get-ChildItem -Recurse -Depth 2 -Name)",
+      "Bash(Select-Object -First 60)",
+      "Bash(npx tsc *)",
+      "Bash(npx vite *)",
+      "Bash(timeout 5 npx tsx src/index.ts)",
+      "Bash(npx tsx *)",
+      "Bash(curl -s http://localhost:3001/api/health)",
+      "Bash(kill %1)",
+      "Bash(wait)",
+      "Bash(npm -w client run build)"
+    ]
+  }
+}
