@@ -50,12 +50,12 @@ export default function HomePage() {
             <Gamepad2 size={26} />
             Start Game
           </Link>
-          <Link
+          {/* <Link
             to="/multiplayer"
             className="retro-btn bg-storm-mid text-white text-center flex items-center justify-center gap-2">
             <Users size={26} />
             Multiplayer
-          </Link>
+          </Link> */}
           <Link
             to="/dashboard"
             className="retro-btn bg-ocean-mid text-white text-center flex items-center justify-center gap-2">
