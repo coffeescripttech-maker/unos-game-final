@@ -1,7 +1,6 @@
 import HUDTopBar from './hud/HUDTopBar';
 import HUDObjectiveBar from './hud/HUDObjectiveBar';
 import HUDHealth from './hud/HUDHealth';
-import HUDWeatherBar from './hud/HUDWeatherBar';
 import LevelSelectCards from './hud/LevelSelectCards';
 import WorldMapHeader from './hud/WorldMapHeader';
 import ResultOverlay from './hud/ResultOverlay';
@@ -26,9 +25,6 @@ export default function GameHUD() {
 
       {/* ── Level selection cards (world map) ── */}
       <LevelSelectCards />
-
-      {/* ── Bottom bar: Weather conditions ── */}
-      <HUDWeatherBar />
 
       {/* ── Result overlay (win/fail) ── */}
       <ResultOverlay />

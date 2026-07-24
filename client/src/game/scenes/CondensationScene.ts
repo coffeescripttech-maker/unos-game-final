@@ -53,6 +53,7 @@ export class CondensationScene extends Phaser.Scene {
   private nextVaporId = 0;
 
   // ── Game objects ──
+  private mistLayer!: Phaser.GameObjects.Image;
   private cloudGlow!: Phaser.GameObjects.Image;
   private cloudMeter!: Phaser.GameObjects.Graphics;
   private meterLabel!: Phaser.GameObjects.Text;
@@ -124,17 +125,21 @@ export class CondensationScene extends Phaser.Scene {
     this.emitObjective();
     this.drawCloudMeter();
 
-    // Fade in cloud
-    this.tweens.add({
-      targets: this.cloudGlow,
-      alpha: 1,
-      duration: 800
-    });
-
+    // Fade in meter label immediately
     this.tweens.add({
       targets: this.meterLabel,
       alpha: 1,
       duration: 500
+    });
+
+    // Fade in mist layer (gentle pulse)
+    this.tweens.add({
+      targets: this.mistLayer,
+      alpha: { from: 0, to: 0.5 },
+      duration: 3000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
     });
 
     // Spawn initial vapors
@@ -245,9 +250,16 @@ export class CondensationScene extends Phaser.Scene {
       ease: 'Sine.easeInOut'
     });
 
+    // Depth 1.5: Mist layer (between ocean and vapor, fades in after game starts)
+    this.mistLayer = this.add
+      .image(GAME_WIDTH / 2, OCEAN_Y - 130, 'mist_layer')
+      .setDepth(1.5)
+      .setAlpha(0)
+      .setDisplaySize(GAME_WIDTH, 260);
+
     // Depth 4: Growing cloud (starts small, alpha 0)
     this.cloudGlow = this.add
-      .image(CLOUD_X, CLOUD_Y, 'cloud_small')
+      .image(CLOUD_X, CLOUD_Y, 'cloud_glow')
       .setDepth(4)
       .setAlpha(0)
       .setScale(0.1);
@@ -683,7 +695,7 @@ export class CondensationScene extends Phaser.Scene {
       if (!vapor.active || !vapor.sprite.active) continue;
 
       for (const zone of this.coolZones) {
-        if (!zone.sprite.active) continue;
+        if (!zone.sprite.active || zone.isOverheated) continue;
 
         const dist = Phaser.Math.Distance.Between(
           vapor.sprite.x,
@@ -811,6 +823,16 @@ export class CondensationScene extends Phaser.Scene {
   // ═══════════════════════════════════════════════
 
   private updateCloudVisual() {
+    // First time appearing: fade in the cloud
+    if (this.cloudGlow.alpha === 0 && this.cloudProgress > 0) {
+      this.tweens.add({
+        targets: this.cloudGlow,
+        alpha: 1,
+        duration: 500,
+        ease: 'Sine.easeOut'
+      });
+    }
+
     // Smooth continuous growth: 0.1 at 0% → 1.0 at 100%
     const targetScale = 0.1 + (this.cloudProgress / 100) * 0.9;
 

@@ -45,12 +45,12 @@ export default function HUDWeatherBar() {
   if (!levelName || levelName === 'World Map') return null;
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-30 flex items-center justify-center gap-5 sm:gap-8 px-5 py-3 bg-storm-dark/85 border-t-3 border-black/30 shadow-lg shadow-black/30">
+    <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-center gap-2.5 px-3 py-1 bg-storm-dark/70 border-b border-black/20">
       {weather?.temperature !== undefined && (
-        <div className="flex items-center gap-2 drop-shadow-[1px_1px_0_rgba(0,0,0,0.5)]">
-          <span className="text-xl">🌡</span>
+        <div className="flex items-center gap-1 drop-shadow-[1px_1px_0_rgba(0,0,0,0.5)]">
+          <span className="text-sm">🌡</span>
           {/* Spectrum bar */}
-          <div className="relative w-28 sm:w-36 h-4 rounded-full overflow-hidden border-1.5 border-white/20 bg-black/30">
+          <div className="relative w-16 sm:w-20 h-2.5 rounded-full overflow-hidden border border-white/20 bg-black/30">
             {/* Full spectrum background */}
             <div className="absolute inset-0 rounded-full" style={{ background: SPECTRUM_GRADIENT }} />
             {/* Fill mask — right side darkens the unfilled portion */}
@@ -60,44 +60,44 @@ export default function HUDWeatherBar() {
             />
             {/* Glowing knob */}
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-1.5 border-white shadow-[0_0_6px_rgba(255,255,255,0.6)] transition-all duration-300"
+              className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full border border-white shadow-[0_0_4px_rgba(255,255,255,0.6)] transition-all duration-300"
               style={{
-                left: `calc(${tempBarValue}% - 6px)`,
+                left: `calc(${tempBarValue}% - 4px)`,
                 backgroundColor: `hsl(${fillHue}, 100%, 55%)`,
               }}
             />
           </div>
-          <span className="font-display text-sm text-white tabular-nums min-w-[3.5rem]">{weather.temperature}°C</span>
+          <span className="font-display text-[11px] text-white tabular-nums min-w-[2.5rem]">{weather.temperature}°C</span>
         </div>
       )}
       {weather?.humidity !== undefined && (
-        <div className="flex items-center gap-1.5 drop-shadow-[1px_1px_0_rgba(0,0,0,0.5)]">
-          <span className="text-xl">💧</span>
-          <span className="font-display text-base text-ocean-surface tabular-nums">{weather.humidity}%</span>
+        <div className="flex items-center gap-0.5 drop-shadow-[1px_1px_0_rgba(0,0,0,0.5)]">
+          <span className="text-sm">💧</span>
+          <span className="font-display text-[11px] text-ocean-surface tabular-nums">{weather.humidity}%</span>
         </div>
       )}
       {weather?.windSpeed !== undefined && (
-        <div className="flex items-center gap-1.5 drop-shadow-[1px_1px_0_rgba(0,0,0,0.5)]">
-          <span className="text-xl">💨</span>
-          <span className="font-display text-base text-white tabular-nums">{weather.windSpeed} km/h</span>
+        <div className="flex items-center gap-0.5 drop-shadow-[1px_1px_0_rgba(0,0,0,0.5)]">
+          <span className="text-sm">💨</span>
+          <span className="font-display text-[11px] text-white tabular-nums">{weather.windSpeed}</span>
         </div>
       )}
       {weather?.stormLevel !== undefined && (
-        <div className="flex items-center gap-1.5 drop-shadow-[1px_1px_0_rgba(0,0,0,0.5)]">
-          <span className="text-xl">🌀</span>
-          <span className="font-display text-base text-warning-orange tabular-nums">Lv.{weather.stormLevel}</span>
+        <div className="flex items-center gap-0.5 drop-shadow-[1px_1px_0_rgba(0,0,0,0.5)]">
+          <span className="text-sm">🌀</span>
+          <span className="font-display text-[11px] text-warning-orange tabular-nums">{weather.stormLevel}</span>
         </div>
       )}
       {weather?.powerup && (
-        <div className="flex items-center gap-1.5 drop-shadow-[1px_1px_0_rgba(0,0,0,0.5)]">
-          <span className="text-xl">⚡</span>
-          <span className="font-display text-base text-accent-yellow">{weather.powerup}</span>
+        <div className="flex items-center gap-0.5 drop-shadow-[1px_1px_0_rgba(0,0,0,0.5)]">
+          <span className="text-sm">⚡</span>
+          <span className="font-display text-[11px] text-accent-yellow">{weather.powerup}</span>
         </div>
       )}
 
       {/* If no weather data yet, show a simple hint */}
       {!weather && (
-        <span className="font-display text-xs text-storm-light/60">Waiting for weather data...</span>
+        <span className="font-display text-[10px] text-storm-light/60">Waiting for weather data...</span>
       )}
     </div>
   );
