@@ -688,6 +688,18 @@ export class EvaporationScene extends Phaser.Scene {
     });
   }
 
+  /** Map 0–100 to a hue value (240 = blue, 0 = red) for smooth spectrum. */
+  private heatToHue(value: number): number {
+    return Math.max(0, Math.min(240, 240 - (value / 100) * 240));
+  }
+
+  /** Convert HSL values to a Phaser hex colour number. */
+  private hslToColor(h: number, s: number, l: number): number {
+    // Phaser's Color.HSLToRGB returns { r, g, b, a } or we can compute manually
+    const rgb = Phaser.Display.Color.HSLToColor(h / 360, s / 100, l / 100);
+    return rgb.color;
+  }
+
   private drawHeatBar() {
     this.heatBar.clear();
 
@@ -696,20 +708,45 @@ export class EvaporationScene extends Phaser.Scene {
     const barW = 200;
     const barH = 12;
 
+    // Background
     this.heatBar.fillStyle(0x000000, 0.5);
     this.heatBar.fillRoundedRect(barX, barY, barW, barH, 6);
     this.heatBar.lineStyle(1, 0xffffff, 0.2);
     this.heatBar.strokeRoundedRect(barX, barY, barW, barH, 6);
 
     const fill = this.sunHeat / 100;
-    let color: number = COLORS.OCEAN_LIGHT;
-    if (this.sunHeat >= 60) color = COLORS.ACCENT_YELLOW;
-    if (this.sunHeat >= 90) color = COLORS.WARNING_ORANGE;
-    if (this.sunHeat >= 100) color = COLORS.WARNING_RED;
 
     if (fill > 0) {
-      this.heatBar.fillStyle(color, 0.8);
-      this.heatBar.fillRoundedRect(barX + 2, barY + 2, (barW - 4) * fill, barH - 4, 4);
+      // Draw the filled portion as thin vertical strips for a smooth gradient
+      const innerX = barX + 2;
+      const innerY = barY + 2;
+      const innerW = barW - 4;
+      const innerH = barH - 4;
+      const fillW = innerW * fill;
+      const stripCount = Math.max(1, Math.floor(fillW));
+      const stripW = fillW / stripCount;
+
+      for (let i = 0; i < stripCount; i++) {
+        // Position within the fill = left edge of this strip / total fill width
+        const pos = i / Math.max(1, stripCount - 1);
+        // Map to 0–100 heat scale
+        const heatVal = pos * this.sunHeat;
+        const hue = this.heatToHue(heatVal);
+        const color = this.hslToColor(hue, 100, 55);
+        this.heatBar.fillStyle(color, 0.85);
+        this.heatBar.fillRect(innerX + i * stripW, innerY, Math.max(1, stripW + 0.5), innerH);
+      }
+
+      // Glow overlay on the right edge of the fill
+      if (fill > 0.05) {
+        const glowHue = this.heatToHue(this.sunHeat);
+        const glowColor = this.hslToColor(glowHue, 100, 60);
+        this.heatBar.fillStyle(glowColor, 0.25);
+        this.heatBar.fillRoundedRect(
+          innerX + fillW - 10, innerY - 1,
+          14, innerH + 2, 3
+        );
+      }
     }
   }
 

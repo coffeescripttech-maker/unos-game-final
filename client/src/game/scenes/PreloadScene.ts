@@ -63,6 +63,16 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('evap_ocean', 'images/Stage 1/ocean.png');
     this.load.image('evap_vapor', 'images/Stage 1/water vapor.jpg');
 
+    // Stage 2 — Condensation assets (actual PNG files)
+    this.load.image('condensation_sky', 'images/Stage 2/backgrounds/condensation_sky.png');
+    this.load.image('ocean_strip', 'images/Stage 2/environment/ocean_strip.png');
+    this.load.image('cloud_small', 'images/Stage 2/sprites/cloud_small.png');
+    this.load.image('vapor_particle', 'images/Stage 2/gameplay/vapor_particle.png');
+    this.load.image('cool_zone', 'images/Stage 2/gameplay/cool_zone.png');
+    this.load.image('wind_stream', 'images/Stage 2/gameplay/wind_stream.png');
+    this.load.image('condensation_effect', 'images/Stage 2/gameplay/condensation_effect.png');
+    this.load.image('cloud_glow', 'images/Stage 2/gameplay/cloud_glow.png');
+
     // Generate placeholder textures
     this.generatePlaceholderAssets();
   }
@@ -80,13 +90,13 @@ export class PreloadScene extends Phaser.Scene {
 
     const gfx = this.add.graphics();
 
-    // Vapor particle
+    // Vapor particle (fallback — actual file loaded above)
     gfx.clear();
     gfx.fillStyle(0xffffff, 0.7);
     gfx.fillCircle(8, 8, 8);
-    gfx.generateTexture('vapor_particle', 16, 16);
+    gfx.generateTexture('vapor_particle_fallback', 16, 16);
 
-    // Cloud
+    // Cloud (generic, for other scenes)
     gfx.clear();
     gfx.fillStyle(COLORS.STORM_LIGHT, 1);
     gfx.fillCircle(24, 20, 20);
@@ -132,6 +142,26 @@ export class PreloadScene extends Phaser.Scene {
     gfx.lineStyle(3, COLORS.UI_BLACK, 1);
     gfx.strokeRect(0, 0, 200, 50);
     gfx.generateTexture('btn_primary', 200, 50);
+
+    // ── Condensation placeholder textures (for missing assets) ──
+    // cloud_medium (no file exists)
+    gfx.clear();
+    gfx.fillStyle(0xffffff, 0.85);
+    gfx.fillCircle(30, 24, 20);
+    gfx.fillCircle(55, 18, 26);
+    gfx.fillCircle(80, 24, 22);
+    gfx.fillRect(28, 18, 54, 28);
+    gfx.generateTexture('cloud_medium', 100, 50);
+
+    // cloud_large (no file exists)
+    gfx.clear();
+    gfx.fillStyle(0xffffff, 0.8);
+    gfx.fillCircle(40, 32, 28);
+    gfx.fillCircle(75, 24, 36);
+    gfx.fillCircle(115, 32, 30);
+    gfx.fillCircle(135, 30, 22);
+    gfx.fillRect(38, 24, 100, 38);
+    gfx.generateTexture('cloud_large', 150, 66);
 
     gfx.destroy();
   }

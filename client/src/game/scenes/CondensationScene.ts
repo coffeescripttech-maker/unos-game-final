@@ -1,121 +1,1045 @@
 import Phaser from 'phaser';
 import { SCENES } from '@shared/constants';
 import { GAME_EVENTS } from '@shared/events';
-import type { HUDTimerPayload, HUDObjectivePayload, HUDResultPayload, HUDLevelInfoPayload, HUDScorePayload, HUDWeatherPayload } from '@shared/events';
+import type {
+  HUDTimerPayload,
+  HUDObjectivePayload,
+  HUDLevelInfoPayload,
+  HUDWeatherPayload,
+  HUDLevelIntroPayload,
+  HUDScorePayload
+} from '@shared/events';
 import { COLORS, FONTS, GAME_WIDTH, GAME_HEIGHT, DEPTH } from '../constants';
 import { GameManager } from '../managers/GameManager';
 
-interface DriftingVapor {
-  sprite: Phaser.GameObjects.Arc;
-  connected: boolean;
+// ── Layout (compact) ──
+const OCEAN_Y = 580; // centre of ocean strip (moved up)
+const CLOUD_X = GAME_WIDTH / 2;
+const CLOUD_Y = 130;
+const METER_X = CLOUD_X;
+const METER_Y = CLOUD_Y + 70;
+const METER_W = 160;
+const METER_H = 10;
+const VAPOR_SPAWN_Y = OCEAN_Y - 15;
+const VAPOR_TARGET_Y = 100;
+const ZONE_DETECTION_R = 48;
+const CONDENSATION_INTERVAL = 150; // ms between proximity checks
+
+interface RisingVapor {
+  sprite: Phaser.GameObjects.Image;
   id: number;
+  active: boolean;
+}
+
+interface CoolZoneData {
+  sprite: Phaser.GameObjects.Image;
+  label: Phaser.GameObjects.Text;
+  glow: Phaser.GameObjects.Arc;
+  heatBar: Phaser.GameObjects.Graphics;
+  heatLevel: number; // 0–100
+  isOverheated: boolean;
+  detectionRadius: number;
 }
 
 export class CondensationScene extends Phaser.Scene {
-  private vapors: DriftingVapor[] = [];
-  private connections!: Phaser.GameObjects.Graphics;
+  // ── State ──
+  private vapors: RisingVapor[] = [];
+  private coolZones: CoolZoneData[] = [];
+  private cloudProgress = 0;
   private timeRemaining = 75;
-  private totalTime = 75;
-  private cloudCoverage = 0;
-  private cloudTarget = 70;
+  private readonly TOTAL_TIME = 75;
   private isComplete = false;
+  private gameStarted = false;
   private nextVaporId = 0;
-  private dragStart: DriftingVapor | null = null;
-  private tempLine!: Phaser.GameObjects.Graphics;
+
+  // ── Game objects ──
+  private cloudGlow!: Phaser.GameObjects.Image;
+  private cloudMeter!: Phaser.GameObjects.Graphics;
+  private meterLabel!: Phaser.GameObjects.Text;
+  private urgencyOverlay!: Phaser.GameObjects.Rectangle;
   private vaporSpawnTimer!: Phaser.Time.TimerEvent;
-  private clouds: Phaser.GameObjects.Arc[] = [];
+  private condensationCheckTimer!: Phaser.Time.TimerEvent;
+  private windStreamTimer!: Phaser.Time.TimerEvent;
+  private windGustActive = false;
+  private windGustDirection = 0;
+  private windGustStrength = 0;
+  private windGustTimerEvent!: Phaser.Time.TimerEvent;
 
   constructor() {
     super({ key: SCENES.CONDENSATION });
   }
 
+  // ═══════════════════════════════════════════════
+  //  CREATE
+  // ═══════════════════════════════════════════════
+
   create() {
     this.cameras.main.fadeIn(500);
     this.cameras.main.setBackgroundColor(COLORS.OCEAN_DEEP);
+
+    // Reset state
     this.isComplete = false;
+    this.gameStarted = false;
     this.vapors = [];
-    this.clouds = [];
-    this.cloudCoverage = 0;
-    this.timeRemaining = 75;
-    this.totalTime = 75;
-    this.dragStart = null;
+    this.coolZones = [];
+    this.cloudProgress = 0;
+    this.timeRemaining = this.TOTAL_TIME;
+    this.nextVaporId = 0;
 
-    // Sky gradient background
-    const bg = this.add.graphics();
-    bg.fillGradientStyle(0x1a1a3e, 0x1a1a3e, COLORS.OCEAN_DEEP, COLORS.OCEAN_DEEP);
-    bg.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    this.buildScene();
+    this.showIntroOverlay();
+  }
 
-    // Title
-    this.add.text(GAME_WIDTH / 2, 20, 'Condensation', {
-      fontFamily: FONTS.DISPLAY,
-      fontSize: '28px',
-      color: '#FFD166',
-      stroke: '#000000',
-      strokeThickness: 3,
-    }).setOrigin(0.5);
+  // ═══════════════════════════════════════════════
+  //  INTRO OVERLAY
+  // ═══════════════════════════════════════════════
 
-    this.add.text(GAME_WIDTH / 2, 50, 'Connect vapor particles to form clouds', {
-      fontFamily: FONTS.BODY,
-      fontSize: '14px',
-      color: '#FFFFFF',
-    }).setOrigin(0.5);
+  private showIntroOverlay() {
+    this.game.events.emit(GAME_EVENTS.HUD_LEVEL_INTRO, {
+      levelId: 'condensation',
+      badge: '☁️ LEVEL 2',
+      title: 'Build the Clouds',
+      subtitle: 'Cool the rising vapor to form clouds!',
+      mechanics: [
+        { icon: '❄️', text: 'Drag Cool Air Zones into the vapor path' },
+        { icon: '💨', text: '⚠️ Wind gusts push vapor — react fast!' },
+        { icon: '🔥', text: 'Zones overheat with use — rotate them!' },
+        { icon: '✨', text: 'Vapor + cool air = condensation' },
+        { icon: '☁️', text: 'Reach 100% cloud growth to win!' }
+      ]
+    } satisfies HUDLevelIntroPayload);
 
-    // Emit init level info
+    this.game.events.once(GAME_EVENTS.HUD_INTRO_DISMISS, this.startGame);
+  }
+
+  private startGame = () => {
+    this.gameStarted = true;
+
     this.game.events.emit(GAME_EVENTS.HUD_LEVEL_INFO, {
       name: 'Condensation',
-      description: 'Connect vapor particles to form clouds',
+      description: 'Place cool air → condense vapor!'
     } satisfies HUDLevelInfoPayload);
 
+    this.game.events.on(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
     this.emitObjective();
+    this.drawCloudMeter();
 
-    // Drawing graphics layers
-    this.connections = this.add.graphics().setDepth(DEPTH.GAME_OBJECTS);
-    this.tempLine = this.add.graphics().setDepth(DEPTH.GAME_OBJECTS);
+    // Fade in cloud
+    this.tweens.add({
+      targets: this.cloudGlow,
+      alpha: 1,
+      duration: 800
+    });
+
+    this.tweens.add({
+      targets: this.meterLabel,
+      alpha: 1,
+      duration: 500
+    });
 
     // Spawn initial vapors
-    for (let i = 0; i < 12; i++) {
-      this.spawnVapor();
+    for (let i = 0; i < 6; i++) {
+      this.time.delayedCall(i * 400, () => this.spawnVapor());
     }
 
-    // Continuous vapor spawning
+    // Continuous vapor spawn
     this.vaporSpawnTimer = this.time.addEvent({
-      delay: 1500,
-      callback: () => { if (!this.isComplete) this.spawnVapor(); },
-      loop: true,
+      delay: 900,
+      callback: () => {
+        if (!this.isComplete) this.spawnVapor();
+      },
+      loop: true
+    });
+
+    // Condensation proximity check (also handles heat dissipation)
+    this.condensationCheckTimer = this.time.addEvent({
+      delay: CONDENSATION_INTERVAL,
+      callback: () => {
+        this.checkCondensation();
+        this.updateZoneHeat();
+      },
+      loop: true
     });
 
     // Timer tick
     this.time.addEvent({
       delay: 1000,
-      callback: () => {
-        if (this.isComplete) return;
-        this.timeRemaining--;
-        this.game.events.emit(GAME_EVENTS.HUD_TIMER, {
-          remaining: this.timeRemaining,
-          total: this.totalTime,
-        } satisfies HUDTimerPayload);
-
-        // Emit weather data
-        const humidity = Math.round((this.cloudCoverage / 100) * 90);
-        this.game.events.emit(GAME_EVENTS.HUD_WEATHER, {
-          temperature: 26,
-          humidity,
-          windSpeed: 8 + Math.round(this.vapors.length / 4),
-          stormLevel: this.cloudCoverage > 60 ? 2 : 1,
-        } satisfies HUDWeatherPayload);
-
-        if (this.timeRemaining <= 0) this.failLevel();
-      },
-      loop: true,
+      callback: () => this.onTick(),
+      loop: true
     });
 
-    // Input handling
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => this.handlePointerDown(pointer));
-    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => this.handlePointerMove(pointer));
-    this.input.on('pointerup', () => this.handlePointerUp());
+    // Extra vapor bursts
+    this.time.addEvent({
+      delay: 5000,
+      callback: () => {
+        if (!this.isComplete) {
+          this.spawnVapor();
+          this.spawnVapor();
+        }
+      },
+      loop: true
+    });
 
-    // Listen for HUD continue from React
-    this.game.events.on(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
+    // Wind streams
+    this.spawnWindStream();
+    this.windStreamTimer = this.time.addEvent({
+      delay: 2500,
+      callback: () => {
+        if (!this.isComplete) this.spawnWindStream();
+      },
+      loop: true
+    });
+
+    // Wind gust events (every 12–18s with jitter)
+    const firstGustDelay = Phaser.Math.Between(6000, 10000);
+    this.time.delayedCall(firstGustDelay, () => {
+      if (!this.isComplete) this.startWindGust();
+      this.scheduleNextGust();
+    });
+  };
+
+  // ═══════════════════════════════════════════════
+  //  BUILD SCENE  (depths per user spec)
+  // ═══════════════════════════════════════════════
+
+  private buildScene() {
+    // Depth 0: Sky
+    this.add
+      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'condensation_sky')
+      .setDisplaySize(GAME_WIDTH, GAME_HEIGHT)
+      .setDepth(0);
+
+    // Dark overlay for atmosphere (behind ocean)
+    this.add
+      .rectangle(
+        GAME_WIDTH / 2,
+        GAME_HEIGHT / 2,
+        GAME_WIDTH,
+        GAME_HEIGHT,
+        0x0a0a2e,
+        0.2
+      )
+      .setDepth(0);
+
+    this.urgencyOverlay = this.add
+      .rectangle(
+        GAME_WIDTH / 2,
+        GAME_HEIGHT / 2,
+        GAME_WIDTH,
+        GAME_HEIGHT,
+        0x000000,
+        0
+      )
+      .setDepth(0);
+
+    // Depth 1: Ocean strip (with gentle wave sway)
+    const ocean = this.add
+      .image(GAME_WIDTH / 2, OCEAN_Y, 'ocean_strip')
+      .setDepth(1);
+    this.tweens.add({
+      targets: ocean,
+      x: GAME_WIDTH / 2 + 10,
+      duration: 1400,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    // Depth 4: Growing cloud (starts small, alpha 0)
+    this.cloudGlow = this.add
+      .image(CLOUD_X, CLOUD_Y, 'cloud_small')
+      .setDepth(4)
+      .setAlpha(0)
+      .setScale(0.1);
+
+    // Depth 5: Cloud meter
+    this.cloudMeter = this.add.graphics().setDepth(5);
+    this.meterLabel = this.add
+      .text(METER_X, METER_Y + METER_H + 6, '☁️ Cloud 0%', {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '12px',
+        color: '#FFFFFF',
+        stroke: '#000000',
+        strokeThickness: 2
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(5)
+      .setAlpha(0);
+
+    // Depth 3: Cool Air Zones (3 draggable, compact spacing)
+    this.createCoolZone(350, 340);
+    this.createCoolZone(640, 380);
+    this.createCoolZone(930, 320);
+
+    // Hint text
+    const hint = this.add
+      .text(
+        GAME_WIDTH / 2,
+        GAME_HEIGHT - 30,
+        '❄️ Drag cool air zones into the vapor path',
+        {
+          fontFamily: FONTS.DISPLAY,
+          fontSize: '14px',
+          color: '#87CEEB',
+          stroke: '#000000',
+          strokeThickness: 3
+        }
+      )
+      .setOrigin(0.5)
+      .setDepth(DEPTH.UI)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: hint,
+      alpha: 0.7,
+      duration: 600,
+      delay: 1200
+    });
+
+    // Title
+    this.add
+      .text(GAME_WIDTH / 2, 18, '☁️ Build the Clouds', {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '18px',
+        color: '#FFD166',
+        stroke: '#000000',
+        strokeThickness: 3
+      })
+      .setOrigin(0.5)
+      .setDepth(DEPTH.UI)
+      .setAlpha(0.6);
+  }
+
+  // ═══════════════════════════════════════════════
+  //  COOL AIR ZONES  (Depth 3)
+  // ═══════════════════════════════════════════════
+
+  private createCoolZone(x: number, y: number) {
+    const SCALE = 0.15;
+    const sprite = this.add
+      .image(x, y, 'cool_zone')
+      .setDepth(3)
+      .setScale(SCALE)
+      .setInteractive({ useHandCursor: true, draggable: true });
+
+    const label = this.add
+      .text(x, y, '❄', {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '14px',
+        color: '#E3F2FD',
+        stroke: '#000000',
+        strokeThickness: 2
+      })
+      .setOrigin(0.5)
+      .setDepth(3);
+
+    // Glow ring behind
+    const glow = this.add.circle(x, y, 35, 0x4fc3f7, 0.08).setDepth(2);
+    this.tweens.add({
+      targets: glow,
+      alpha: 0.2,
+      scale: 1.1,
+      duration: 1500,
+      yoyo: true,
+      repeat: -1
+    });
+
+    // Heat bar above zone
+    const heatBar = this.add.graphics().setDepth(3);
+    this.drawZoneHeatBar(heatBar, x, y, 0);
+
+    // Drag events
+    sprite.on(
+      'drag',
+      (_ptr: Phaser.Input.Pointer, dragX: number, dragY: number) => {
+        const cx = Phaser.Math.Clamp(dragX, 50, GAME_WIDTH - 50);
+        const cy = Phaser.Math.Clamp(dragY, 120, OCEAN_Y - 50);
+        sprite.setPosition(cx, cy);
+        label.setPosition(cx, cy);
+        glow.setPosition(cx, cy);
+        heatBar.setPosition(0, 0);
+        this.drawZoneHeatBar(heatBar, cx, cy, 0);
+      }
+    );
+
+    sprite.on('dragstart', () => {
+      sprite.setScale(SCALE * 1.12);
+      label.setScale(1.12);
+      sprite.setDepth(4);
+    });
+
+    sprite.on('dragend', () => {
+      sprite.setScale(SCALE);
+      label.setScale(1);
+      sprite.setDepth(3);
+    });
+
+    this.coolZones.push({
+      sprite,
+      label,
+      glow,
+      heatBar,
+      heatLevel: 0,
+      isOverheated: false,
+      detectionRadius: ZONE_DETECTION_R
+    });
+  }
+
+  // ═══════════════════════════════════════════════
+  //  ZONE HEAT BAR
+  // ═══════════════════════════════════════════════
+
+  private drawZoneHeatBar(
+    gfx: Phaser.GameObjects.Graphics,
+    x: number,
+    y: number,
+    heat: number
+  ) {
+    gfx.clear();
+    const barW = 36;
+    const barH = 4;
+    const bx = x - barW / 2;
+    const by = y - 38;
+
+    // Background
+    gfx.fillStyle(0x000000, 0.5);
+    gfx.fillRoundedRect(bx, by, barW, barH, 2);
+
+    // Fill (blue → yellow → red based on heat)
+    const fill = Math.min(heat, 100) / 100;
+    if (fill > 0) {
+      let color: number;
+      if (heat < 50) {
+        // Blue → white
+        const t = heat / 50;
+        const r = Math.round(80 + t * 175);
+        const g = Math.round(180 + t * 75);
+        const b = Math.round(255 - t * 55);
+        color = (r << 16) | (g << 8) | b;
+      } else {
+        // White → yellow → orange → red
+        const t = (heat - 50) / 50;
+        const r = 255;
+        const g = Math.round(255 - t * 200);
+        const b = Math.round(200 - t * 200);
+        color = (r << 16) | (Math.max(0, g) << 8) | Math.max(0, b);
+      }
+      gfx.fillStyle(color, 0.85);
+      gfx.fillRoundedRect(bx + 1, by + 1, (barW - 2) * fill, barH - 2, 1.5);
+    }
+  }
+
+  // ═══════════════════════════════════════════════
+  //  OVERHEAT SYSTEM
+  // ═══════════════════════════════════════════════
+
+  private updateZoneHeat() {
+    if (!this.gameStarted || this.isComplete) return;
+    for (const zone of this.coolZones) {
+      if (zone.isOverheated) continue;
+      // Natural cooldown: -1 per 150ms
+      zone.heatLevel = Math.max(0, zone.heatLevel - 1);
+      this.drawZoneHeatBar(
+        zone.heatBar,
+        zone.sprite.x,
+        zone.sprite.y,
+        zone.heatLevel
+      );
+      this.applyZoneHeatVisual(zone);
+    }
+  }
+
+  private applyZoneHeatVisual(zone: CoolZoneData) {
+    const h = zone.heatLevel;
+    let tint: number;
+    let labelColor: string;
+
+    if (h < 30) {
+      tint = 0xffffff; // pure cool blue-white
+      labelColor = '#E3F2FD';
+    } else if (h < 60) {
+      tint = 0xffeedd; // warming
+      labelColor = '#FFF9C4';
+    } else if (h < 85) {
+      tint = 0xffcc88; // getting hot
+      labelColor = '#FFD54F';
+    } else {
+      tint = 0xff6633; // near overheat!
+      labelColor = '#FF8A65';
+    }
+
+    zone.sprite.setTint(tint);
+    zone.label.setColor(labelColor);
+  }
+
+  private overheatZone(zone: CoolZoneData) {
+    zone.isOverheated = true;
+    zone.heatLevel = 100;
+    zone.sprite.setTint(0xff3300);
+    zone.label.setColor('#FF1744');
+    zone.label.setText('🔥');
+
+    // Steam particles
+    for (let i = 0; i < 4; i++) {
+      const steam = this.add
+        .circle(
+          zone.sprite.x + Phaser.Math.Between(-15, 15),
+          zone.sprite.y - 10,
+          5,
+          0xffffff,
+          0.3
+        )
+        .setDepth(5);
+      this.tweens.add({
+        targets: steam,
+        y: steam.y - Phaser.Math.Between(25, 45),
+        x: steam.x + Phaser.Math.Between(-15, 15),
+        alpha: 0,
+        scale: 2,
+        duration: Phaser.Math.Between(600, 1000),
+        delay: i * 150,
+        onComplete: () => steam.destroy()
+      });
+    }
+
+    // Recovery after 3s
+    this.time.delayedCall(3000, () => {
+      zone.isOverheated = false;
+      zone.heatLevel = 0;
+      zone.label.setText('❄');
+      zone.sprite.clearTint();
+      zone.label.setColor('#E3F2FD');
+      this.drawZoneHeatBar(zone.heatBar, zone.sprite.x, zone.sprite.y, 0);
+    });
+  }
+
+  // ═══════════════════════════════════════════════
+  //  WIND GUST SYSTEM
+  // ═══════════════════════════════════════════════
+
+  private startWindGust() {
+    if (this.isComplete) return;
+    this.windGustActive = true;
+    this.windGustDirection = Math.random() > 0.5 ? 1 : -1; // 1 = right, -1 = left
+    this.windGustStrength = Phaser.Math.Between(60, 120);
+
+    const dirText =
+      this.windGustDirection === 1 ? '→ WIND GUST →' : '← WIND GUST ←';
+
+    // Warning text
+    const warn = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 60, dirText, {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '26px',
+        color: '#B0E0FF',
+        stroke: '#000000',
+        strokeThickness: 4
+      })
+      .setOrigin(0.5)
+      .setDepth(DEPTH.UI)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: warn,
+      alpha: 1,
+      scale: 1.1,
+      duration: 300,
+      yoyo: true,
+      hold: 600,
+      onComplete: () => {
+        this.tweens.add({
+          targets: warn,
+          alpha: 0,
+          duration: 800,
+          onComplete: () => warn.destroy()
+        });
+      }
+    });
+
+    // Push existing vapors
+    for (const v of this.vapors) {
+      if (!v.active || !v.sprite.active) continue;
+      this.tweens.add({
+        targets: v.sprite,
+        x: v.sprite.x + this.windGustDirection * this.windGustStrength,
+        duration: 2000,
+        ease: 'Sine.easeInOut'
+      });
+    }
+
+    // End gust after 3s
+    this.time.delayedCall(3500, () => {
+      this.windGustActive = false;
+      this.windGustDirection = 0;
+      this.windGustStrength = 0;
+    });
+  }
+
+  private scheduleNextGust() {
+    if (this.isComplete) return;
+    const delay = Phaser.Math.Between(12000, 18000);
+    this.windGustTimerEvent = this.time.delayedCall(delay, () => {
+      if (!this.isComplete) this.startWindGust();
+      this.scheduleNextGust();
+    });
+  }
+
+  // ═══════════════════════════════════════════════
+  //  VAPOR PARTICLES  (Depth 2)
+  // ═══════════════════════════════════════════════
+
+  private spawnVapor() {
+    if (this.isComplete) return;
+    const x = Phaser.Math.Between(80, GAME_WIDTH - 80);
+    const startY = VAPOR_SPAWN_Y + Phaser.Math.Between(-10, 10);
+
+    const sprite = this.add
+      .image(x, startY, 'vapor_particle')
+      .setDepth(2)
+      .setScale(Phaser.Math.FloatBetween(0.04, 0.04))
+      .setAlpha(0.55);
+
+    const id = this.nextVaporId++;
+    const vapor: RisingVapor = { sprite, id, active: true };
+    this.vapors.push(vapor);
+
+    // Float upward with drift
+    const targetX = x + Phaser.Math.Between(-100, 100);
+    const duration = Phaser.Math.Between(5000, 7000);
+
+    this.tweens.add({
+      targets: sprite,
+      y: VAPOR_TARGET_Y + Phaser.Math.Between(-20, 20),
+      x: targetX,
+      duration,
+      ease: 'Sine.easeInOut',
+      onUpdate: tw => {
+        const p = tw.progress;
+        sprite.setAlpha(0.7 * (1 - p * 0.5));
+      },
+      onComplete: () => {
+        sprite.destroy();
+        vapor.active = false;
+        const idx = this.vapors.indexOf(vapor);
+        if (idx >= 0) this.vapors.splice(idx, 1);
+      }
+    });
+  }
+
+  // ═══════════════════════════════════════════════
+  //  WIND STREAMS  (Depth 2, behind vapor)
+  // ═══════════════════════════════════════════════
+
+  private spawnWindStream() {
+    if (this.isComplete) return;
+
+    // Random Y across the playable area (above ocean, below cloud area)
+    const y = Phaser.Math.Between(160, 520);
+    // Random direction: left→right or right→left
+    const fromLeft = Math.random() > 0.5;
+    const startX = fromLeft ? -100 : GAME_WIDTH + 100;
+    const endX = fromLeft ? GAME_WIDTH + 100 : -100;
+
+    const sprite = this.add
+      .image(startX, y, 'wind_stream')
+      .setDepth(2)
+      .setAlpha(0);
+
+    // Randomize appearance
+    const scale = Phaser.Math.FloatBetween(0.08, 0.2);
+    const flipX = Math.random() > 0.5;
+    sprite.setScale(scale);
+    if (flipX) sprite.setFlipX(true);
+
+    // Slight vertical drift
+    const driftY = y + Phaser.Math.Between(-40, 40);
+    const duration = Phaser.Math.Between(4000, 8000);
+
+    // Fade in, drift across, fade out
+    this.tweens.add({
+      targets: sprite,
+      alpha: { from: 0, to: Phaser.Math.FloatBetween(0.12, 0.3) },
+      duration: 600,
+      ease: 'Sine.easeIn'
+    });
+
+    this.tweens.add({
+      targets: sprite,
+      x: endX,
+      y: driftY,
+      alpha: 0,
+      duration,
+      ease: 'Sine.easeInOut',
+      delay: 500,
+      onComplete: () => sprite.destroy()
+    });
+  }
+
+  private checkCondensation() {
+    if (this.isComplete || !this.gameStarted) return;
+
+    for (let vi = this.vapors.length - 1; vi >= 0; vi--) {
+      const vapor = this.vapors[vi];
+      if (!vapor.active || !vapor.sprite.active) continue;
+
+      for (const zone of this.coolZones) {
+        if (!zone.sprite.active) continue;
+
+        const dist = Phaser.Math.Distance.Between(
+          vapor.sprite.x,
+          vapor.sprite.y,
+          zone.sprite.x,
+          zone.sprite.y
+        );
+
+        if (dist < zone.detectionRadius) {
+          this.condenseVapor(vapor, zone);
+          break;
+        }
+      }
+    }
+  }
+
+  private condenseVapor(vapor: RisingVapor, zone: CoolZoneData) {
+    vapor.active = false;
+    const idx = this.vapors.indexOf(vapor);
+    if (idx >= 0) this.vapors.splice(idx, 1);
+
+    const vx = vapor.sprite.x;
+    const vy = vapor.sprite.y;
+
+    // Vapor condense-out animation
+    this.tweens.add({
+      targets: vapor.sprite,
+      scale: 1.8,
+      alpha: 0,
+      duration: 200,
+      onComplete: () => vapor.sprite.destroy()
+    });
+
+    // Depth 5: Condensation effect sprite (smaller)
+    const effect = this.add
+      .image(vx, vy, 'condensation_effect')
+      .setDepth(5)
+      .setScale(0.1)
+      .setAlpha(0.3);
+
+    this.tweens.add({
+      targets: effect,
+      scale: 0.8,
+      alpha: 0,
+      duration: 400,
+      onComplete: () => effect.destroy()
+    });
+
+    // Depth 5: Sparkle burst (smaller radius)
+    for (let i = 0; i < 5; i++) {
+      const angle = (i / 5) * Phaser.Math.PI2;
+      const spark = this.add.circle(vx, vy, 2, 0x06d6a0, 0.8).setDepth(5);
+      this.tweens.add({
+        targets: spark,
+        x: vx + Math.cos(angle) * Phaser.Math.Between(20, 35),
+        y: vy + Math.sin(angle) * Phaser.Math.Between(20, 35),
+        alpha: 0,
+        scale: 0.2,
+        duration: 350,
+        onComplete: () => spark.destroy()
+      });
+    }
+
+    // Depth 5: Expanding ring (tighter)
+    const ring = this.add.circle(vx, vy, 8, 0x4fc3f7, 0).setDepth(5);
+    ring.setStrokeStyle(1.5, 0x4fc3f7, 0.5);
+    this.tweens.add({
+      targets: ring,
+      radius: 25,
+      alpha: 0,
+      duration: 400,
+      onComplete: () => ring.destroy()
+    });
+
+    // ── Zone heat ──
+    if (!zone.isOverheated) {
+      zone.heatLevel = Math.min(100, zone.heatLevel + 15);
+      this.drawZoneHeatBar(
+        zone.heatBar,
+        zone.sprite.x,
+        zone.sprite.y,
+        zone.heatLevel
+      );
+      this.applyZoneHeatVisual(zone);
+      if (zone.heatLevel >= 100) this.overheatZone(zone);
+    }
+
+    // ── Cloud progress ──
+    const gain = Phaser.Math.Between(4, 6);
+    this.cloudProgress = Math.min(100, this.cloudProgress + gain);
+    this.updateCloudVisual();
+    this.drawCloudMeter();
+    this.emitObjective();
+
+    this.game.events.emit(GAME_EVENTS.HUD_SCORE, {
+      score: Math.round((this.cloudProgress / 100) * 2000),
+      label: 'Condensation'
+    } satisfies HUDScorePayload);
+
+    // +X% pop text
+    const popText = this.add
+      .text(vx, vy - 20, `+${gain}% ☁️`, {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '15px',
+        color: '#06D6A0',
+        stroke: '#000000',
+        strokeThickness: 3
+      })
+      .setOrigin(0.5)
+      .setDepth(5);
+
+    this.tweens.add({
+      targets: popText,
+      y: vy - 55,
+      alpha: 0,
+      duration: 700,
+      onComplete: () => popText.destroy()
+    });
+
+    if (this.cloudProgress >= 100) this.completeLevel();
+  }
+
+  // ═══════════════════════════════════════════════
+  //  CLOUD VISUAL  (Depth 4)
+  // ═══════════════════════════════════════════════
+
+  private updateCloudVisual() {
+    // Smooth continuous growth: 0.1 at 0% → 1.0 at 100%
+    const targetScale = 0.1 + (this.cloudProgress / 100) * 0.9;
+
+    // Animate to the new scale (no stage jumps)
+    this.tweens.add({
+      targets: this.cloudGlow,
+      scale: targetScale,
+      duration: 300,
+      ease: 'Sine.easeOut'
+    });
+  }
+
+  // ═══════════════════════════════════════════════
+  //  CLOUD METER  (Depth 5)
+  // ═══════════════════════════════════════════════
+
+  private drawCloudMeter() {
+    this.cloudMeter.clear();
+
+    const x = METER_X - METER_W / 2;
+    const y = METER_Y;
+
+    this.cloudMeter.fillStyle(0x000000, 0.5);
+    this.cloudMeter.fillRoundedRect(x, y, METER_W, METER_H, 7);
+    this.cloudMeter.lineStyle(1, 0xffffff, 0.2);
+    this.cloudMeter.strokeRoundedRect(x, y, METER_W, METER_H, 7);
+
+    const fill = this.cloudProgress / 100;
+    if (fill > 0) {
+      const innerW = METER_W - 4;
+      const innerH = METER_H - 4;
+      const fillW = innerW * fill;
+
+      for (let i = 0; i < Math.max(1, fillW / 2); i++) {
+        const ratio = i / Math.max(1, fillW / 2 - 1);
+        const r = Math.round(80 + ratio * 175);
+        const g = Math.round(160 + ratio * 95);
+        const b = Math.round(220 + ratio * 35);
+        const color = (r << 16) | (g << 8) | b;
+        this.cloudMeter.fillStyle(color, 0.85);
+        this.cloudMeter.fillRect(x + 2 + i * 2, y + 2, 2, innerH);
+      }
+    }
+
+    this.meterLabel.setText(`☁️ Cloud ${Math.round(this.cloudProgress)}%`);
+  }
+
+  // ═══════════════════════════════════════════════
+  //  TIMER & WEATHER
+  // ═══════════════════════════════════════════════
+
+  private onTick() {
+    if (this.isComplete) return;
+    this.timeRemaining--;
+
+    this.game.events.emit(GAME_EVENTS.HUD_TIMER, {
+      remaining: this.timeRemaining,
+      total: this.TOTAL_TIME
+    } satisfies HUDTimerPayload);
+
+    const humidity = Math.round((this.cloudProgress / 100) * 90);
+    this.game.events.emit(GAME_EVENTS.HUD_WEATHER, {
+      temperature: Math.round(22 - this.cloudProgress / 10),
+      humidity,
+      windSpeed: 5 + Math.round(this.cloudProgress / 20)
+    } satisfies HUDWeatherPayload);
+
+    if (this.timeRemaining <= 15 && this.timeRemaining > 0) {
+      const alpha = ((15 - this.timeRemaining) / 15) * 0.35;
+      this.urgencyOverlay.setAlpha(alpha);
+      if (this.timeRemaining <= 10) this.cameras.main.shake(100, 0.003);
+    }
+
+    if (this.timeRemaining <= 0) this.failLevel();
+  }
+
+  private emitObjective() {
+    this.game.events.emit(GAME_EVENTS.HUD_OBJECTIVE, {
+      text: 'Grow the cloud ☁️',
+      progress: Math.min(this.cloudProgress, 100),
+      target: 100
+    } satisfies HUDObjectivePayload);
+  }
+
+  // ═══════════════════════════════════════════════
+  //  RESULTS
+  // ═══════════════════════════════════════════════
+
+  private completeLevel() {
+    if (this.isComplete) return;
+    this.isComplete = true;
+    if (this.vaporSpawnTimer) this.vaporSpawnTimer.remove();
+    if (this.condensationCheckTimer) this.condensationCheckTimer.remove();
+
+    const timeBonus = Math.round((this.timeRemaining / this.TOTAL_TIME) * 500);
+    const score = 2000 + timeBonus;
+    const stars = GameManager.getStars(score, 2500);
+
+    GameManager.getInstance().completeLevel(
+      'condensation',
+      score,
+      stars,
+      this.TOTAL_TIME - this.timeRemaining
+    );
+    const saved = localStorage.getItem('unos_progress');
+    const progress = saved ? JSON.parse(saved) : {};
+    const existing = progress['condensation'] || {};
+    progress['condensation'] = {
+      completed: true,
+      bestScore: Math.max(existing.bestScore ?? 0, score),
+      bestTime: Math.min(
+        existing.bestTime ?? 999,
+        this.TOTAL_TIME - this.timeRemaining
+      ),
+      stars: Math.max(existing.stars ?? 0, stars),
+      attempts: (existing.attempts ?? 0) + 1,
+      factsUnlocked: ['fact_condensation']
+    };
+    localStorage.setItem('unos_progress', JSON.stringify(progress));
+
+    this.cameras.main.flash(500, 255, 255, 255);
+    this.cameras.main.shake(300, 0.008);
+
+    // Cloud pulse
+    this.tweens.add({
+      targets: this.cloudGlow,
+      scaleX: 1.15,
+      scaleY: 1.15,
+      duration: 300,
+      yoyo: true,
+      ease: 'Sine.easeInOut'
+    });
+
+    // Sky sparkles
+    for (let i = 0; i < 25; i++) {
+      this.time.delayedCall(i * 40, () => {
+        const px = Phaser.Math.Between(80, GAME_WIDTH - 80);
+        const py = Phaser.Math.Between(80, 400);
+        const spark = this.add
+          .circle(px, py, Phaser.Math.Between(3, 7), 0xffffff, 0.6)
+          .setDepth(DEPTH.OVERLAY);
+        this.tweens.add({
+          targets: spark,
+          scale: 1.5,
+          alpha: 0,
+          duration: Phaser.Math.Between(600, 1200),
+          onComplete: () => spark.destroy()
+        });
+      });
+    }
+
+    // Wind stream effect on complete
+    for (let w = 0; w < 3; w++) {
+      this.time.delayedCall(w * 100, () => {
+        const wsx = Phaser.Math.Between(100, GAME_WIDTH - 100);
+        const wsy = Phaser.Math.Between(80, 500);
+        const wstream = this.add
+          .image(wsx, wsy, 'wind_stream')
+          .setDepth(DEPTH.OVERLAY)
+          .setAlpha(0.7)
+          .setScale(0.8);
+        this.tweens.add({
+          targets: wstream,
+          x: wsx + Phaser.Math.Between(-200, 200),
+          alpha: 0,
+          duration: 1000,
+          onComplete: () => wstream.destroy()
+        });
+      });
+    }
+
+    const victoryText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 30, 'Cloud Complete! ☁️', {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '36px',
+        color: '#06D6A0',
+        stroke: '#000000',
+        strokeThickness: 4
+      })
+      .setOrigin(0.5)
+      .setDepth(DEPTH.OVERLAY)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: victoryText,
+      alpha: 1,
+      y: GAME_HEIGHT / 2 - 50,
+      duration: 500
+    });
+
+    this.game.events.emit(GAME_EVENTS.HUD_RESULT, {
+      type: 'complete',
+      title: 'Cloud Complete!',
+      subtitle: 'Condensation formed a beautiful cloud',
+      score,
+      stars,
+      levelId: 'condensation',
+      timeUsed: this.TOTAL_TIME - this.timeRemaining,
+      factsUnlocked: ['fact_condensation']
+    });
+  }
+
+  private failLevel() {
+    if (this.isComplete) return;
+    this.isComplete = true;
+    if (this.vaporSpawnTimer) this.vaporSpawnTimer.remove();
+    if (this.condensationCheckTimer) this.condensationCheckTimer.remove();
+
+    this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2, "Time's Up!", {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '36px',
+        color: '#D62828',
+        stroke: '#000000',
+        strokeThickness: 4
+      })
+      .setOrigin(0.5)
+      .setDepth(DEPTH.OVERLAY);
+
+    this.game.events.emit(GAME_EVENTS.HUD_RESULT, {
+      type: 'fail',
+      title: "Time's Up!",
+      subtitle: 'Not enough vapor condensed',
+      score: 0,
+      stars: 0,
+      levelId: 'condensation',
+      timeUsed: this.TOTAL_TIME,
+      factsUnlocked: []
+    });
   }
 
   private onContinue = () => {
@@ -123,220 +1047,10 @@ export class CondensationScene extends Phaser.Scene {
     this.scene.start(SCENES.WORLD_MAP);
   };
 
-  private emitObjective() {
-    this.game.events.emit(GAME_EVENTS.HUD_OBJECTIVE, {
-      text: 'Build cloud coverage',
-      progress: Math.min(this.cloudCoverage, this.cloudTarget),
-      target: this.cloudTarget,
-    } satisfies HUDObjectivePayload);
-  }
-
-  private spawnVapor() {
-    const x = Phaser.Math.Between(50, GAME_WIDTH - 50);
-    const y = GAME_HEIGHT + 20;
-    const sprite = this.add.circle(x, y, 6, 0xffffff, 0.6).setDepth(DEPTH.GAME_OBJECTS);
-
-    const vapor: DriftingVapor = { sprite, connected: false, id: this.nextVaporId++ };
-    this.vapors.push(vapor);
-
-    this.tweens.add({
-      targets: sprite,
-      y: Phaser.Math.Between(-20, 50),
-      x: x + Phaser.Math.Between(-80, 80),
-      alpha: 0.3,
-      duration: Phaser.Math.Between(5000, 8000),
-      onComplete: () => {
-        const idx = this.vapors.indexOf(vapor);
-        if (idx >= 0) this.vapors.splice(idx, 1);
-        sprite.destroy();
-      },
-    });
-  }
-
-  private handlePointerDown(pointer: Phaser.Input.Pointer) {
-    let closest: DriftingVapor | null = null;
-    let closestDist = 50;
-
-    for (const v of this.vapors) {
-      if (v.connected) continue;
-      const dist = Phaser.Math.Distance.Between(pointer.x, pointer.y, v.sprite.x, v.sprite.y);
-      if (dist < closestDist) { closestDist = dist; closest = v; }
-    }
-
-    if (closest) {
-      this.dragStart = closest;
-      closest.sprite.setScale(1.5);
-    }
-  }
-
-  private handlePointerMove(pointer: Phaser.Input.Pointer) {
-    if (!this.dragStart) return;
-    this.tempLine.clear();
-    this.tempLine.lineStyle(3, 0xffffff, 0.5);
-    this.tempLine.beginPath();
-    this.tempLine.moveTo(this.dragStart.sprite.x, this.dragStart.sprite.y);
-    this.tempLine.lineTo(pointer.x, pointer.y);
-    this.tempLine.strokePath();
-  }
-
-  private handlePointerUp() {
-    if (!this.dragStart) return;
-    this.tempLine.clear();
-    this.dragStart.sprite.setScale(1);
-
-    let target: DriftingVapor | null = null;
-    let closestDist = 60;
-
-    for (const v of this.vapors) {
-      if (v === this.dragStart || v.connected) continue;
-      const dist = Phaser.Math.Distance.Between(
-        this.dragStart.sprite.x, this.dragStart.sprite.y, v.sprite.x, v.sprite.y,
-      );
-      if (dist < closestDist) { closestDist = dist; target = v; }
-    }
-
-    if (target) this.connectVapors(this.dragStart, target);
-    this.dragStart = null;
-  }
-
-  private connectVapors(a: DriftingVapor, b: DriftingVapor) {
-    a.connected = true;
-    b.connected = true;
-
-    this.connections.lineStyle(3, 0x87ceeb, 0.6);
-    this.connections.beginPath();
-    this.connections.moveTo(a.sprite.x, a.sprite.y);
-    this.connections.lineTo(b.sprite.x, b.sprite.y);
-    this.connections.strokePath();
-
-    const mx = (a.sprite.x + b.sprite.x) / 2;
-    const my = (a.sprite.y + b.sprite.y) / 2;
-
-    const cloud = this.add.circle(mx, my, 20, 0x8c8f9e, 0.8).setDepth(DEPTH.GAME_OBJECTS);
-    this.clouds.push(cloud);
-
-    let foundExisting = false;
-    for (const c of this.clouds) {
-      if (c === cloud) continue;
-      const dist = Phaser.Math.Distance.Between(mx, my, c.x, c.y);
-      if (dist < 50) {
-        c.setRadius(c.radius + 8);
-        if (c.radius > 35) c.setFillStyle(COLORS.STORM_DARK, 0.9);
-        foundExisting = true;
-        break;
-      }
-    }
-
-    if (!foundExisting) {
-      // Sparkle effect
-      for (let i = 0; i < 5; i++) {
-        const sparkle = this.add.circle(mx, my, 3, 0xffffff, 0.8).setDepth(DEPTH.PARTICLES);
-        this.tweens.add({
-          targets: sparkle,
-          x: mx + Phaser.Math.Between(-30, 30),
-          y: my + Phaser.Math.Between(-30, 30),
-          alpha: 0,
-          duration: 500,
-          onComplete: () => sparkle.destroy(),
-        });
-      }
-
-      this.cloudCoverage = Math.min(100, this.cloudCoverage + 5);
-      this.emitObjective();
-
-      // Emit score update
-      this.game.events.emit(GAME_EVENTS.HUD_SCORE, {
-        score: Math.round(this.cloudCoverage / this.cloudTarget * 2000),
-        label: 'Coverage',
-      } satisfies HUDScorePayload);
-
-      if (this.cloudCoverage >= this.cloudTarget) this.completeLevel();
-    }
-
-    this.time.delayedCall(500, () => {
-      a.sprite.destroy();
-      b.sprite.destroy();
-      const idxA = this.vapors.indexOf(a);
-      if (idxA >= 0) this.vapors.splice(idxA, 1);
-      const idxB = this.vapors.indexOf(b);
-      if (idxB >= 0) this.vapors.splice(idxB, 1);
-    });
-  }
-
-  private completeLevel() {
-    if (this.isComplete) return;
-    this.isComplete = true;
-    this.vaporSpawnTimer.remove();
-
-    const timeBonus = Math.round(this.timeRemaining / this.totalTime * 400);
-    const score = 2000 + timeBonus;
-    const stars = GameManager.getStars(score, 2800);
-
-    // Save progress
-    GameManager.getInstance().completeLevel('condensation', score, stars, this.totalTime - this.timeRemaining);
-    const saved = localStorage.getItem('unos_progress');
-    const progress = saved ? JSON.parse(saved) : {};
-    const existing = progress['condensation'] || {};
-    progress['condensation'] = {
-      completed: true,
-      bestScore: Math.max(existing.bestScore ?? 0, score),
-      bestTime: Math.min(existing.bestTime ?? 999, this.totalTime - this.timeRemaining),
-      stars: Math.max(existing.stars ?? 0, stars),
-      attempts: (existing.attempts ?? 0) + 1,
-      factsUnlocked: ['fact_condensation'],
-    };
-    localStorage.setItem('unos_progress', JSON.stringify(progress));
-
-    this.cameras.main.flash(500, 255, 255, 255);
-
-    const victoryText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Clouds Formed!', {
-      fontFamily: FONTS.DISPLAY,
-      fontSize: '36px',
-      color: '#06D6A0',
-      stroke: '#000000',
-      strokeThickness: 4,
-    }).setOrigin(0.5).setDepth(DEPTH.OVERLAY).setAlpha(0);
-
-    this.tweens.add({ targets: victoryText, alpha: 1, duration: 500 });
-
-    this.game.events.emit(GAME_EVENTS.HUD_RESULT, {
-      type: 'complete',
-      title: 'Clouds Formed!',
-      subtitle: 'Vapor condensed into clouds',
-      score,
-      stars,
-      levelId: 'condensation',
-      timeUsed: this.totalTime - this.timeRemaining,
-      factsUnlocked: ['fact_condensation'],
-    });
-  }
-
-  private failLevel() {
-    if (this.isComplete) return;
-    this.isComplete = true;
-    this.vaporSpawnTimer.remove();
-
-    const failText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Time\'s Up!', {
-      fontFamily: FONTS.DISPLAY,
-      fontSize: '36px',
-      color: '#D62828',
-      stroke: '#000000',
-      strokeThickness: 4,
-    }).setOrigin(0.5).setDepth(DEPTH.OVERLAY);
-
-    this.game.events.emit(GAME_EVENTS.HUD_RESULT, {
-      type: 'fail',
-      title: 'Time\'s Up!',
-      subtitle: 'Not enough clouds formed',
-      score: 0,
-      stars: 0,
-      levelId: 'condensation',
-      timeUsed: this.totalTime,
-      factsUnlocked: [],
-    });
-  }
-
   shutdown() {
     this.game.events.off(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
+    this.game.events.off(GAME_EVENTS.HUD_INTRO_DISMISS, this.startGame);
+    if (this.windStreamTimer) this.windStreamTimer.destroy();
+    if (this.windGustTimerEvent) this.windGustTimerEvent.destroy();
   }
 }
