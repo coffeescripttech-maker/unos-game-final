@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+﻿import Phaser from 'phaser';
 import { SCENES } from '@shared/constants';
 import { GAME_EVENTS } from '@shared/events';
 import type {
@@ -24,6 +24,15 @@ const VAPOR_SPAWN_Y = OCEAN_Y - 15;
 const VAPOR_TARGET_Y = 100;
 const ZONE_DETECTION_R = 48;
 const CONDENSATION_INTERVAL = 150; // ms between proximity checks
+
+// ── Temperature Layers ──
+const ZONE_WARM_TOP = 430; // warm layer up to this Y
+const ZONE_COLD_TOP = 270; // cold layer from here up
+const ZONE_SWEET_SPOT_CENTER = 350; // middle of transition zone
+const SWEET_SPOT_RADIUS = 80; // range for bonus condensation
+const BOUNDARY_BONUS = 1.5; // 50% extra progress in sweet spot
+const WARM_SPEED_MULT = 1.4; // vapor rises faster in warm zone
+const COLD_SPEED_MULT = 0.6; // vapor slows in cold zone
 
 interface RisingVapor {
   sprite: Phaser.GameObjects.Image;
@@ -102,10 +111,12 @@ export class CondensationScene extends Phaser.Scene {
       title: 'Build the Clouds',
       subtitle: 'Cool the rising vapor to form clouds!',
       mechanics: [
+        { icon: '🌡️', text: 'Warm layer (bottom) — vapor rises fast' },
+        { icon: '❄️', text: 'Cold layer (top) — vapor slows down' },
+        { icon: '✨', text: 'Sweet spot (middle) — BONUS cloud growth!' },
         { icon: '❄️', text: 'Drag Cool Air Zones into the vapor path' },
         { icon: '💨', text: '⚠️ Wind gusts push vapor — react fast!' },
         { icon: '🔥', text: 'Zones overheat with use — rotate them!' },
-        { icon: '✨', text: 'Vapor + cool air = condensation' },
         { icon: '☁️', text: 'Reach 100% cloud growth to win!' }
       ]
     } satisfies HUDLevelIntroPayload);
@@ -249,6 +260,15 @@ export class CondensationScene extends Phaser.Scene {
       repeat: -1,
       ease: 'Sine.easeInOut'
     });
+
+    // Depth 1.2: Temperature layer overlay (semi-transparent)
+    const tempLayers = this.add
+      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'temperature_layer_overlay')
+      .setDepth(1.2)
+      .setAlpha(0.25)
+      .setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
+
+    // Zone labels removed — temperature_layer_overlay.png already shows the layers visually
 
     // Depth 1.5: Mist layer (between ocean and vapor, fades in after game starts)
     this.mistLayer = this.add
@@ -604,6 +624,7 @@ export class CondensationScene extends Phaser.Scene {
     if (this.isComplete) return;
     const x = Phaser.Math.Between(80, GAME_WIDTH - 80);
     const startY = VAPOR_SPAWN_Y + Phaser.Math.Between(-10, 10);
+    const finalY = VAPOR_TARGET_Y + Phaser.Math.Between(-20, 20);
 
     const sprite = this.add
       .image(x, startY, 'vapor_particle')
@@ -615,27 +636,63 @@ export class CondensationScene extends Phaser.Scene {
     const vapor: RisingVapor = { sprite, id, active: true };
     this.vapors.push(vapor);
 
-    // Float upward with drift
+    // ── Thermal zone speed control ──
+    // Warm zone (bottom): fast rise  —  hot air rises quickly
+    // Cold zone (top):    slow rise  —  cooling slows the vapor
+    // Sweet spot (middle): normal speed, bonus condensation
     const targetX = x + Phaser.Math.Between(-100, 100);
-    const duration = Phaser.Math.Between(5000, 7000);
 
-    this.tweens.add({
+    // Build a timeline based on thermal zone crossings
+    const segs: Phaser.Types.Tweens.TweenBuilderConfig[] = [];
+
+    // Segment 1: Warm zone (fast)
+    if (startY > ZONE_WARM_TOP) {
+      segs.push({
+        targets: sprite,
+        y: ZONE_WARM_TOP,
+        x: Phaser.Math.Linear(x, targetX, 0.4),
+        duration: Phaser.Math.Between(800, 1200),
+        ease: 'Sine.easeOut'
+      });
+    }
+
+    // Segment 2: Transition / sweet-spot zone (normal speed)
+    const midY = Math.max(
+      startY > ZONE_WARM_TOP ? ZONE_WARM_TOP : startY,
+      ZONE_COLD_TOP + 40
+    );
+    segs.push({
       targets: sprite,
-      y: VAPOR_TARGET_Y + Phaser.Math.Between(-20, 20),
+      y: midY,
+      x: Phaser.Math.Linear(x, targetX, 0.7),
+      duration: Phaser.Math.Between(1600, 2200),
+      ease: 'Sine.easeInOut'
+    });
+
+    // Segment 3: Cold zone (slow)
+    segs.push({
+      targets: sprite,
+      y: finalY,
       x: targetX,
-      duration,
-      ease: 'Sine.easeInOut',
-      onUpdate: tw => {
-        const p = tw.progress;
-        sprite.setAlpha(0.7 * (1 - p * 0.5));
-      },
-      onComplete: () => {
+      duration: Phaser.Math.Between(2500, 3500),
+      ease: 'Sine.easeIn'
+    });
+
+    // Run segments sequentially using onComplete chaining (no Phaser timeline)
+    const runSegments = (index: number) => {
+      if (index >= segs.length) {
         sprite.destroy();
         vapor.active = false;
         const idx = this.vapors.indexOf(vapor);
         if (idx >= 0) this.vapors.splice(idx, 1);
+        return;
       }
-    });
+      this.tweens.add({
+        ...segs[index],
+        onComplete: () => runSegments(index + 1)
+      });
+    };
+    runSegments(0);
   }
 
   // ═══════════════════════════════════════════════
@@ -783,8 +840,18 @@ export class CondensationScene extends Phaser.Scene {
       if (zone.heatLevel >= 100) this.overheatZone(zone);
     }
 
-    // ── Cloud progress ──
-    const gain = Phaser.Math.Between(4, 6);
+    // ── Sweet-spot boundary bonus ──
+    // Condensing in the transition zone (warm↔cold boundary) gives bonus progress!
+    const inSweetSpot =
+      vy >= ZONE_COLD_TOP &&
+      vy <= ZONE_WARM_TOP &&
+      Math.abs(vy - ZONE_SWEET_SPOT_CENTER) < SWEET_SPOT_RADIUS;
+
+    // ── Cloud progress (with potential bonus) ──
+    const baseGain = Phaser.Math.Between(4, 6);
+    const gain = inSweetSpot ? Math.round(baseGain * BOUNDARY_BONUS) : baseGain;
+    const isBonus = gain > baseGain;
+
     this.cloudProgress = Math.min(100, this.cloudProgress + gain);
     this.updateCloudVisual();
     this.drawCloudMeter();
@@ -795,15 +862,20 @@ export class CondensationScene extends Phaser.Scene {
       label: 'Condensation'
     } satisfies HUDScorePayload);
 
-    // +X% pop text
+    // +X% pop text (with bonus indicator)
     const popText = this.add
-      .text(vx, vy - 20, `+${gain}% ☁️`, {
-        fontFamily: FONTS.DISPLAY,
-        fontSize: '15px',
-        color: '#06D6A0',
-        stroke: '#000000',
-        strokeThickness: 3
-      })
+      .text(
+        vx,
+        vy - 20,
+        isBonus ? `✨ +${gain}% SWEET SPOT!` : `+${gain}% ☁️`,
+        {
+          fontFamily: FONTS.DISPLAY,
+          fontSize: isBonus ? '14px' : '15px',
+          color: isBonus ? '#FFD166' : '#06D6A0',
+          stroke: '#000000',
+          strokeThickness: 3
+        }
+      )
       .setOrigin(0.5)
       .setDepth(5);
 
@@ -811,9 +883,26 @@ export class CondensationScene extends Phaser.Scene {
       targets: popText,
       y: vy - 55,
       alpha: 0,
-      duration: 700,
+      duration: isBonus ? 1000 : 700,
       onComplete: () => popText.destroy()
     });
+
+    // Extra sparkle burst for sweet-spot condensation
+    if (isBonus) {
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Phaser.Math.PI2;
+        const star = this.add.circle(vx, vy, 2.5, 0xffd166, 0.9).setDepth(5);
+        this.tweens.add({
+          targets: star,
+          x: vx + Math.cos(angle) * Phaser.Math.Between(30, 50),
+          y: vy + Math.sin(angle) * Phaser.Math.Between(30, 50),
+          alpha: 0,
+          scale: 0.2,
+          duration: 500,
+          onComplete: () => star.destroy()
+        });
+      }
+    }
 
     if (this.cloudProgress >= 100) this.completeLevel();
   }

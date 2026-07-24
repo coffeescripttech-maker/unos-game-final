@@ -73,6 +73,7 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('condensation_effect', 'images/Stage 2/gameplay/condensation_effect.png');
     this.load.image('cloud_glow', 'images/Stage 2/gameplay/cloud_glow.png');
     this.load.image('mist_layer', 'images/Stage 2/gameplay/Mist Layer.png');
+    this.load.image('temperature_layer_overlay', 'images/Stage 2/gameplay/temperature_layer_overlay.png');
 
     // Generate placeholder textures
     this.generatePlaceholderAssets();
