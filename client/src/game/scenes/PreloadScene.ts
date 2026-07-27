@@ -94,6 +94,9 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('wind_particles', 'images/Stage 3/effects/wind_particles.png');
     this.load.image('cloud_glow_s3', 'images/Stage 3/gameplay/cloud_glow.png');
 
+    // Stage 4 — Rotation / Coriolis assets
+    this.load.image('rotation_bg', 'images/Stage 4/backgrounds/background.png');
+
     // Generate placeholder textures
     this.generatePlaceholderAssets();
   }
