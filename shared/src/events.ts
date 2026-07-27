@@ -42,6 +42,13 @@ export const GAME_EVENTS = {
   HUD_PRESSURE_START: 'HUD:PRESSURE_START',
   HUD_PRESSURE_STATE: 'HUD:PRESSURE_STATE',
   HUD_PRESSURE_SLOTS: 'HUD:PRESSURE_SLOTS',
+
+  // Typhoon Controls — React sliders for typhoon formation (Stage 5)
+  HUD_TYPHOON_SLIDER: 'HUD:TYPHOON_SLIDER',
+  HUD_TYPHOON_SLIDER_UPDATE: 'HUD:TYPHOON_SLIDER_UPDATE',
+
+  // Loading screen — React overlay for asset loading progress
+  HUD_LOADING: 'HUD:LOADING',
 } as const;
 
 // ────────────────────────── Event Payload Types ──────────────────────────
@@ -185,6 +192,31 @@ export interface HUDPatternReviewPayload {
   placed?: ('high' | 'low' | null)[];
 }
 
+// ────────────────────────── Typhoon Slider Payloads ──────────────────────────
+
+export interface TyphoonSliderConfig {
+  index: number;
+  label: string;
+  icon: string;
+  min: number;
+  max: number;
+  defaultValue: number;
+  color: string;
+  targetMin: number;
+  targetMax: number;
+}
+
+export interface TyphoonSliderUpdatePayload {
+  index: number;
+  value: number;
+}
+
+// ────────────────────────── Loading Payloads ──────────────────────────
+
+export interface HUDLoadingPayload {
+  progress: number; // 0–1
+}
+
 export type GameEventPayloads = {
   [GAME_EVENTS.SCORE_UPDATE]: ScoreUpdatePayload;
   [GAME_EVENTS.LEVEL_COMPLETE]: LevelCompletePayload;
@@ -217,6 +249,9 @@ export type GameEventPayloads = {
   [GAME_EVENTS.HUD_PRESSURE_START]: undefined;
   [GAME_EVENTS.HUD_PRESSURE_STATE]: HUDPressureStatePayload;
   [GAME_EVENTS.HUD_PRESSURE_SLOTS]: HUDPressureSlotsPayload;
+  [GAME_EVENTS.HUD_TYPHOON_SLIDER]: TyphoonSliderConfig[];
+  [GAME_EVENTS.HUD_TYPHOON_SLIDER_UPDATE]: TyphoonSliderUpdatePayload;
+  [GAME_EVENTS.HUD_LOADING]: HUDLoadingPayload;
 };
 
 // ────────────────────────── Socket.IO Event Names ──────────────────────────

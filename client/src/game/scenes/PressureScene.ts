@@ -7,7 +7,8 @@ import type {
   HUDLevelInfoPayload,
   HUDLevelIntroPayload,
   HUDResultPayload,
-  HUDPatternReviewPayload
+  HUDPatternReviewPayload,
+  HUDPressureSlotsPayload
 } from '@shared/events';
 import { FONTS, GAME_WIDTH, GAME_HEIGHT } from '../constants';
 import { GameManager } from '../managers/GameManager';
@@ -37,7 +38,6 @@ export class PressureScene extends Phaser.Scene {
   private isComplete = false;
   private gameStarted = false;
   private timeRemaining = TOTAL_TIME;
-  private instructionText!: Phaser.GameObjects.Text;
   private roundText!: Phaser.GameObjects.Text;
   private progressBar!: Phaser.GameObjects.Graphics;
   private windArrows: Phaser.GameObjects.Graphics[] = [];
@@ -187,21 +187,6 @@ export class PressureScene extends Phaser.Scene {
 
     this.progressBar = this.add.graphics().setDepth(5);
 
-    // ── Instruction ──
-    this.instructionText = this.add
-      .text(170, 555, '', {
-        fontFamily: FONTS.DISPLAY,
-        fontSize: '13px',
-        color: '#ffffff',
-        align: 'center',
-        wordWrap: { width: 240 }
-      })
-      .setOrigin(0.5)
-      .setDepth(5);
-    const instrBg = this.add.graphics().setDepth(4);
-    instrBg.fillStyle(0x333333, 0.7);
-    instrBg.fillRoundedRect(40, 530, 260, 50, 8);
-
     // ── Title ──
     this.add
       .text(GAME_WIDTH / 2, 100, '🌀 Wind flows from HIGH → LOW pressure', {
@@ -226,23 +211,6 @@ export class PressureScene extends Phaser.Scene {
     // ── React pressure control listeners ──
     this.game.events.on(GAME_EVENTS.HUD_PRESSURE_SELECT, this.onReactSelect);
     this.game.events.on(GAME_EVENTS.HUD_PRESSURE_START, this.onReactStart);
-
-    // ── Bottom hint ──
-    this.add
-      .text(
-        GAME_WIDTH / 2,
-        GAME_HEIGHT - 12,
-        '👻 Bold H/L on circles show what to place — match them all!',
-        {
-          fontFamily: FONTS.DISPLAY,
-          fontSize: '11px',
-          color: '#6aaa8a',
-          stroke: '#000000',
-          strokeThickness: 2
-        }
-      )
-      .setOrigin(0.5)
-      .setDepth(5);
   }
 
   private createSlots() {
@@ -397,25 +365,12 @@ export class PressureScene extends Phaser.Scene {
     this.updateUI();
     this.drawProgress();
     this.emitState();
+    this.emitSlots();
   }
 
   private updateUI() {
     const remaining = 6 - this.placedCount;
     this.roundText.setText(`Round ${this.round}/${ROUNDS_TO_WIN}`);
-
-    if (remaining === 0) {
-      this.instructionText.setText('✅ All filled! Press 💨 START!');
-      return;
-    }
-    if (this.selectedType) {
-      this.instructionText.setText(
-        `👆 Tap a circle to place ${this.selectedType === 'high' ? '🔴 H' : '🔵 L'}`
-      );
-      return;
-    }
-    this.instructionText.setText(
-      `👆 Tap a circle, then choose 🔴 H or 🔵 L (${remaining} left)`
-    );
   }
 
   // ─────────────────────────────────
@@ -453,6 +408,20 @@ export class PressureScene extends Phaser.Scene {
       round: this.round,
       totalRounds: ROUNDS_TO_WIN
     });
+  }
+
+  private emitSlots() {
+    this.game.events.emit(GAME_EVENTS.HUD_PRESSURE_SLOTS, {
+      slots: this.slots.map(s => ({
+        x: s.x,
+        y: s.y,
+        index: this.slots.indexOf(s),
+        correct: s.correct,
+        placed: s.placed
+      })),
+      round: this.round,
+      totalRounds: ROUNDS_TO_WIN
+    } satisfies HUDPressureSlotsPayload);
   }
 
   private playPlaceBurst(x: number, y: number, type: 'high' | 'low') {
@@ -582,6 +551,7 @@ export class PressureScene extends Phaser.Scene {
     this.selectedType = null;
     this.updateUI();
     this.emitState();
+    this.emitSlots();
 
     if (this.placedCount === 6) {
       // All placed — React shows the Start Wind button
@@ -1245,6 +1215,7 @@ export class PressureScene extends Phaser.Scene {
       this.emitObjective();
       this.updateUI();
       this.emitState();
+      this.emitSlots();
       return;
     }
 

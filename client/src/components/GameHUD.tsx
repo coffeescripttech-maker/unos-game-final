@@ -1,3 +1,4 @@
+import LoadingOverlay from './hud/LoadingOverlay';
 import HUDTopBar from './hud/HUDTopBar';
 import HUDObjectiveBar from './hud/HUDObjectiveBar';
 import HUDHealth from './hud/HUDHealth';
@@ -9,10 +10,14 @@ import TutorialBriefingOverlay from './hud/TutorialBriefingOverlay';
 import TutorialStepOverlay from './hud/TutorialStepOverlay';
 import PatternReviewOverlay from './hud/PatternReviewOverlay';
 import PressureControls from './hud/PressureControls';
+import TyphoonControls from './hud/TyphoonControls';
 
 export default function GameHUD() {
   return (
     <>
+      {/* ── Loading overlay (full-screen, hides when assets loaded) ── */}
+      <LoadingOverlay />
+
       {/* ── World map header: Back button + title ── */}
       <WorldMapHeader />
 
@@ -45,6 +50,9 @@ export default function GameHUD() {
 
       {/* ── Pressure Controls (joystick-style H/L buttons, Stage 3) ── */}
       <PressureControls />
+
+      {/* ── Typhoon Controls (React sliders with Lucide icons, Stage 5) ── */}
+      <TyphoonControls />
     </>
   );
 }
