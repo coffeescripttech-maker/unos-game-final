@@ -75,6 +75,25 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('mist_layer', 'images/Stage 2/gameplay/Mist Layer.png');
     this.load.image('temperature_layer_overlay', 'images/Stage 2/gameplay/temperature_layer_overlay.png');
 
+    // Stage 3 — Air Pressure assets
+    this.load.image('pressure_island_bg', 'images/Stage 3/backgrounds/pressure_island.png');
+    this.load.image('clouds_front', 'images/Stage 3/backgrounds/clouds_front.png');
+    this.load.image('airflow_overlay', 'images/Stage 3/backgrounds/airflow_overlay.png');
+    this.load.image('stage3_ocean', 'images/Stage 3/backgrounds/ocean.png');
+    this.load.image('clouds_back', 'images/Stage 3/backgrounds/clouds_back.png');
+    this.load.image('high_pressure_marker', 'images/Stage 3/gameplay/high_pressure.png');
+    this.load.image('low_pressure_marker', 'images/Stage 3/gameplay/low_pressure.png');
+    this.load.image('pressure_node_slot', 'images/Stage 3/gameplay/pressure_node.png');
+    this.load.image('target_zone', 'images/Stage 3/gameplay/target_zone.png');
+    this.load.image('wind_arrow_s3', 'images/Stage 3/gameplay/wind_arrow.png');
+    this.load.image('pressure_wave', 'images/Stage 3/gameplay/pressure_wave.png');
+    this.load.image('wind_stream_s3', 'images/Stage 3/gameplay/wind_stream.png');
+    this.load.image('wind_meter_ui', 'images/Stage 3/wind_meter.png');
+    this.load.image('air_energy', 'images/Stage 3/air_energy.png');
+    this.load.image('wind_gust_effect', 'images/Stage 3/effects/wind_gust.png');
+    this.load.image('wind_particles', 'images/Stage 3/effects/wind_particles.png');
+    this.load.image('cloud_glow_s3', 'images/Stage 3/gameplay/cloud_glow.png');
+
     // Generate placeholder textures
     this.generatePlaceholderAssets();
   }

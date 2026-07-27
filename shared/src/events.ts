@@ -32,6 +32,16 @@ export const GAME_EVENTS = {
   HUD_TUTORIAL_CONTINUE: 'HUD:TUTORIAL_CONTINUE',
   NAVIGATE_HOME: 'NAVIGATE:HOME',
   NAVIGATE_LEVEL: 'NAVIGATE:LEVEL',
+
+  // Pattern Review — React shows correct H/L pattern between rounds
+  HUD_PATTERN_REVIEW: 'HUD:PATTERN_REVIEW',
+  HUD_PATTERN_DISMISS: 'HUD:PATTERN_DISMISS',
+
+  // Pressure Controls — React joystick-style buttons for H/L selection
+  HUD_PRESSURE_SELECT: 'HUD:PRESSURE_SELECT',
+  HUD_PRESSURE_START: 'HUD:PRESSURE_START',
+  HUD_PRESSURE_STATE: 'HUD:PRESSURE_STATE',
+  HUD_PRESSURE_SLOTS: 'HUD:PRESSURE_SLOTS',
 } as const;
 
 // ────────────────────────── Event Payload Types ──────────────────────────
@@ -141,6 +151,40 @@ export interface HUDTutorialStepPayload {
   stepId: string;
 }
 
+export interface HUDPressureStatePayload {
+  selectedType: 'high' | 'low' | null;
+  placedCount: number;
+  roundActive: boolean;
+  gameStarted: boolean;
+  isComplete: boolean;
+  round: number;
+  totalRounds: number;
+}
+
+export interface HUDPressureSlotData {
+  x: number;
+  y: number;
+  index: number;
+  correct: 'high' | 'low';
+  placed: 'high' | 'low' | null;
+}
+
+export interface HUDPressureSlotsPayload {
+  slots: HUDPressureSlotData[];
+  round: number;
+  totalRounds: number;
+}
+
+export interface HUDPatternReviewPayload {
+  round: number;
+  totalRounds: number;
+  pattern: ('high' | 'low')[];
+  /** 'correct' = player succeeded → show wind flow education; 'wrong' = player failed → show what went wrong */
+  type: 'correct' | 'wrong';
+  /** What the player actually placed (for wrong reviews — indices differ from correct) */
+  placed?: ('high' | 'low' | null)[];
+}
+
 export type GameEventPayloads = {
   [GAME_EVENTS.SCORE_UPDATE]: ScoreUpdatePayload;
   [GAME_EVENTS.LEVEL_COMPLETE]: LevelCompletePayload;
@@ -167,6 +211,12 @@ export type GameEventPayloads = {
   [GAME_EVENTS.HUD_TUTORIAL_CONTINUE]: undefined;
   [GAME_EVENTS.HUD_WEATHER]: HUDWeatherPayload;
   [GAME_EVENTS.NAVIGATE_LEVEL]: string;
+  [GAME_EVENTS.HUD_PATTERN_REVIEW]: HUDPatternReviewPayload;
+  [GAME_EVENTS.HUD_PATTERN_DISMISS]: undefined;
+  [GAME_EVENTS.HUD_PRESSURE_SELECT]: 'high' | 'low' | null;
+  [GAME_EVENTS.HUD_PRESSURE_START]: undefined;
+  [GAME_EVENTS.HUD_PRESSURE_STATE]: HUDPressureStatePayload;
+  [GAME_EVENTS.HUD_PRESSURE_SLOTS]: HUDPressureSlotsPayload;
 };
 
 // ────────────────────────── Socket.IO Event Names ──────────────────────────

@@ -1,3 +1,4 @@
 - [HUD Architecture](hud-architecture.md) — React owns UI, Phaser owns game world
 - [Scene Implementation Pattern](scene-implementation-pattern.md) — Standard pattern for Phaser scenes with HUD events
 - [Single Source of Truth Main Menu](single-source-of-truth-main-menu.md) — React HomePage is the main menu; Phaser flow skips to WorldMap
+- [Pressure Scene Redesign](pressure-scene-redesign.md) — Stage 3 compact layout, canvas alpha cleaning, 3-node gameplay

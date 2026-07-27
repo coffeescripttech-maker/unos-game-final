@@ -7,6 +7,8 @@ import ResultOverlay from './hud/ResultOverlay';
 import LevelIntroOverlay from './hud/LevelIntroOverlay';
 import TutorialBriefingOverlay from './hud/TutorialBriefingOverlay';
 import TutorialStepOverlay from './hud/TutorialStepOverlay';
+import PatternReviewOverlay from './hud/PatternReviewOverlay';
+import PressureControls from './hud/PressureControls';
 
 export default function GameHUD() {
   return (
@@ -37,6 +39,12 @@ export default function GameHUD() {
 
       {/* ── Tutorial step overlay (step indicator + instruction text) ── */}
       <TutorialStepOverlay />
+
+      {/* ── Pattern review overlay (shows correct H/L pattern between rounds) ── */}
+      <PatternReviewOverlay />
+
+      {/* ── Pressure Controls (joystick-style H/L buttons, Stage 3) ── */}
+      <PressureControls />
     </>
   );
 }

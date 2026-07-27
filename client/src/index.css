@@ -57,3 +57,8 @@
            focus:outline-none focus:ring-2 focus:ring-ocean-light;
   }
 }
+
+@keyframes startPulse {
+  0%, 100% { opacity: 0.85; box-shadow: 0 4px 15px rgba(45,106,63,0.4); }
+  50% { opacity: 1; box-shadow: 0 4px 30px rgba(45,106,63,0.85), 0 0 15px rgba(45,106,63,0.3); }
+}
