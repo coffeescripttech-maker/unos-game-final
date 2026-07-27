@@ -56,10 +56,15 @@ export class RotationScene extends Phaser.Scene {
   private windGustGfx!: Phaser.GameObjects.Graphics;
   private headwindPenalty = 0;
 
+  // ── Rain Effect ──
+  private rainTimer!: Phaser.Time.TimerEvent;
+  private rainStreakPool: Phaser.GameObjects.Rectangle[] = [];
+
   // ── Lightning & Storm ──
   private stormOverlay!: Phaser.GameObjects.Graphics;
   private lastMilestone = 0;
   private lightningGfx!: Phaser.GameObjects.Graphics;
+  private ringGfx!: Phaser.GameObjects.Graphics;
 
   // ── Coriolis Deflection ──
   private deflectionParticles: DeflectionParticle[] = [];
@@ -98,10 +103,28 @@ export class RotationScene extends Phaser.Scene {
     this.orbBonusScore = 0;
     this.headwindPenalty = 0;
 
-    // ── Background ──
+    // ── Background (with slow zoom + drift animation) ──
     const bg = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'rotation_bg').setDepth(0);
     const bgScale = Math.max(GAME_WIDTH / bg.width, GAME_HEIGHT / bg.height);
     bg.setScale(bgScale);
+    this.tweens.add({
+      targets: bg,
+      scaleX: bgScale * 1.04,
+      scaleY: bgScale * 1.04,
+      duration: 8000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+    // Subtle drift so it feels alive
+    this.tweens.add({
+      targets: bg,
+      x: GAME_WIDTH / 2 + Phaser.Math.Between(-6, 6),
+      duration: 6000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
     const overlay = this.add.graphics().setDepth(0);
     overlay.fillStyle(0x000000, 0.4);
     overlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
@@ -155,13 +178,9 @@ export class RotationScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // ── Guidance circle ──
-    const guideGfx = this.add.graphics();
-    guideGfx.lineStyle(2, 0x4a6fa5, 0.3);
-    guideGfx.strokeCircle(this.centerX, this.centerY, 100);
-    guideGfx.lineStyle(1, 0x4a6fa5, 0.15);
-    guideGfx.strokeCircle(this.centerX, this.centerY, 70);
-    guideGfx.strokeCircle(this.centerX, this.centerY, 130);
+    // ── Guidance circles (dynamic — will light up with progress) ──
+    this.ringGfx = this.add.graphics().setDepth(1);
+    this.drawRings(0);
 
     this.add
       .text(this.centerX, this.centerY + 115, 'spin here', {
@@ -316,6 +335,13 @@ export class RotationScene extends Phaser.Scene {
       },
       loop: true
     });
+
+    // ── Rain effect spawn (only active when storm is active) ──
+    this.rainTimer = this.time.addEvent({
+      delay: 80,
+      callback: () => this.spawnRainStreak(),
+      loop: true
+    });
   };
 
   // ═══════════════════════════════════════════════
@@ -455,18 +481,102 @@ export class RotationScene extends Phaser.Scene {
   }
 
   private flashLightning() {
-    this.lightningGfx.clear();
-    this.lightningGfx.fillStyle(0xffffff, 0.6);
-    this.lightningGfx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    // ── Main bolt ──
+    const boltGfx = this.add.graphics().setDepth(7);
+    const boltX = this.centerX + Phaser.Math.Between(-200, 200);
+    this.drawLightningBolt(
+      boltX, 0,
+      this.centerX + Phaser.Math.Between(-40, 40), this.centerY,
+      boltGfx, 0xffffff, 3
+    );
 
-    this.time.delayedCall(60, () => {
-      if (this.isComplete) return;
-      this.lightningGfx.clear();
-      this.lightningGfx.fillStyle(0xffffff, 0);
-      this.lightningGfx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    // ── Branch bolts ──
+    const branches = Phaser.Math.Between(1, 3);
+    for (let i = 0; i < branches; i++) {
+      const branchGfx = this.add.graphics().setDepth(7);
+      const splitY = Phaser.Math.Between(100, 250);
+      const bx = boltX + Phaser.Math.Between(-30, 30);
+      const bx2 = bx + (Math.random() > 0.5 ? Phaser.Math.Between(30, 100) : Phaser.Math.Between(-100, -30));
+      this.drawLightningBolt(bx, splitY, bx2, splitY + Phaser.Math.Between(80, 180), branchGfx, 0xccccff, 1.5);
+      // Fade branch
+      this.tweens.add({ targets: branchGfx, alpha: 0, delay: 0.1, duration: 300, onComplete: () => branchGfx.destroy() });
+    }
+
+    // ── Screen white flash ──
+    this.lightningGfx.clear();
+    this.lightningGfx.fillStyle(0xffffff, 0.5);
+    this.lightningGfx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    this.tweens.add({
+      targets: this.lightningGfx,
+      alpha: 0,
+      duration: 400,
+      ease: 'Quad.easeOut',
+      onComplete: () => {
+        this.lightningGfx.clear();
+        this.lightningGfx.setAlpha(1);
+      }
     });
 
-    this.cameras.main.shake(300, 0.006);
+    // ── Thunder rumble — quick shakes that decay ──
+    this.cameras.main.shake(120, 0.008);
+    this.time.delayedCall(150, () => {
+      if (!this.isComplete) this.cameras.main.shake(100, 0.005);
+    });
+    this.time.delayedCall(300, () => {
+      if (!this.isComplete) this.cameras.main.shake(80, 0.003);
+    });
+
+    // ── Fade and destroy main bolt ──
+    this.tweens.add({
+      targets: boltGfx,
+      alpha: 0,
+      delay: 0.15,
+      duration: 400,
+      onComplete: () => boltGfx.destroy()
+    });
+  }
+
+  /** Draw a jagged zigzag lightning bolt between two points with glow */
+  private drawLightningBolt(
+    x1: number, y1: number,
+    x2: number, y2: number,
+    gfx: Phaser.GameObjects.Graphics,
+    color: number,
+    lineWidth: number
+  ) {
+    const segments = Phaser.Math.Between(5, 9);
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const maxJitter = Math.max(20, Math.min(50, Math.abs(dx + dy) * 0.08));
+
+    // Generate points first so glow and main bolt share the same path
+    const points: { x: number; y: number }[] = [{ x: x1, y: y1 }];
+    for (let i = 1; i <= segments; i++) {
+      const t = i / segments;
+      points.push({
+        x: x1 + dx * t + Phaser.Math.Between(-maxJitter, maxJitter),
+        y: y1 + dy * t + Phaser.Math.Between(-maxJitter * 0.3, maxJitter * 0.3)
+      });
+    }
+    points.push({ x: x2, y: y2 });
+
+    // Outer glow
+    gfx.lineStyle(lineWidth * 3, color, 0.2);
+    gfx.beginPath();
+    points.forEach((p, i) => i === 0 ? gfx.moveTo(p.x, p.y) : gfx.lineTo(p.x, p.y));
+    gfx.strokePath();
+
+    // Mid glow
+    gfx.lineStyle(lineWidth * 1.8, 0xeeeeff, 0.5);
+    gfx.beginPath();
+    points.forEach((p, i) => i === 0 ? gfx.moveTo(p.x, p.y) : gfx.lineTo(p.x, p.y));
+    gfx.strokePath();
+
+    // Core bolt (brightest)
+    gfx.lineStyle(lineWidth, color, 1);
+    gfx.beginPath();
+    points.forEach((p, i) => i === 0 ? gfx.moveTo(p.x, p.y) : gfx.lineTo(p.x, p.y));
+    gfx.strokePath();
   }
 
   /**
@@ -829,6 +939,133 @@ export class RotationScene extends Phaser.Scene {
   }
 
   // ═══════════════════════════════════════════════
+  //  NEW: Rain Effect, Spin Trail, Vortex Heartbeat
+  // ═══════════════════════════════════════════════
+
+  /**
+   * Rain streaks that fall more intensely as storm progresses.
+   * Only active when rotationProgress >= 0.5.
+   */
+  private spawnRainStreak() {
+    if (this.isComplete || this.rotationProgress < 0.5) return;
+    const intensity = (this.rotationProgress - 0.5) * 2; // 0 → 1
+    if (Math.random() > intensity * 0.6) return;
+
+    const x = Phaser.Math.Between(0, GAME_WIDTH);
+    const len = Phaser.Math.Between(12, 35);
+    const alpha = Phaser.Math.FloatBetween(0.08, 0.2) * intensity;
+    const speed = Phaser.Math.Between(300, 700);
+
+    const streak = this.add.rectangle(x, -len, 1.5, len, 0x88bbee, alpha)
+      .setDepth(1);
+    this.rainStreakPool.push(streak);
+
+    this.tweens.add({
+      targets: streak,
+      y: GAME_HEIGHT + len,
+      duration: speed,
+      onComplete: () => {
+        streak.destroy();
+        this.rainStreakPool = this.rainStreakPool.filter(s => s !== streak);
+      }
+    });
+
+    // Limit pool
+    if (this.rainStreakPool.length > 60) {
+      const oldest = this.rainStreakPool.shift();
+      if (oldest) oldest.destroy();
+    }
+  }
+
+  /**
+   * Comet trail that follows the finger while spinning.
+   */
+  private spawnSpinTrail(x: number, y: number, speed: number) {
+    if (speed < 0.02) speed = 0.02;
+    const size = Phaser.Math.Between(2, 5);
+    const progress = this.rotationProgress;
+    const brightness = 0.3 + progress * 0.5;
+    const color = speed > 0.3 ? 0x88ddff : 0x6db3e6;
+
+    const trail = this.add
+      .circle(x, y, size, color, brightness)
+      .setDepth(2)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    // Sparkle core
+    const core = this.add
+      .circle(x, y, size * 0.4, 0xffffff, 0.8)
+      .setDepth(3);
+
+    this.tweens.add({
+      targets: trail,
+      alpha: 0,
+      scale: 0.1 + speed * 0.5,
+      duration: Phaser.Math.Between(200, 400),
+      onComplete: () => trail.destroy()
+    });
+    this.tweens.add({
+      targets: core,
+      alpha: 0,
+      scale: 0.3,
+      duration: Phaser.Math.Between(100, 150),
+      onComplete: () => core.destroy()
+    });
+  }
+
+  /**
+   * Draw progress rings that light up as the storm intensifies.
+   * Ring 1 (inner, r=70) lights at 25%, ring 2 (mid, r=100) at 50%, ring 3 (outer, r=130) at 75%.
+   */
+  private drawRings(progress: number) {
+    this.ringGfx.clear();
+    const rings = [
+      { radius: 70, unlockAt: 0.25 },
+      { radius: 100, unlockAt: 0.50 },
+      { radius: 130, unlockAt: 0.75 }
+    ];
+    rings.forEach(r => {
+      const lit = progress >= r.unlockAt;
+      const color = lit ? 0x6db3e6 : 0x4a6fa5;
+      const alpha = lit ? 0.7 : 0.2;
+      const width = lit ? 2.5 : 1;
+      // Glow when lit
+      if (lit) {
+        this.ringGfx.lineStyle(width + 3, 0x88ddff, 0.15);
+        this.ringGfx.strokeCircle(this.centerX, this.centerY, r.radius);
+      }
+      this.ringGfx.lineStyle(width, color, alpha);
+      this.ringGfx.strokeCircle(this.centerX, this.centerY, r.radius);
+    });
+  }
+
+  /**
+   * Spawn red spark particles when spinning the wrong direction.
+   */
+  private spawnWrongDirectionSparks(x: number, y: number) {
+    if (this.isComplete) return;
+    const count = Phaser.Math.Between(2, 4);
+    for (let i = 0; i < count; i++) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const dist = Phaser.Math.Between(15, 35);
+      const size = Phaser.Math.Between(2, 4);
+      const spark = this.add
+        .circle(x, y, size, 0xff4444, 0.8)
+        .setDepth(5);
+      this.tweens.add({
+        targets: spark,
+        x: x + Math.cos(angle) * dist,
+        y: y + Math.sin(angle) * dist,
+        alpha: 0,
+        scale: 0.1,
+        duration: Phaser.Math.Between(250, 400),
+        ease: 'Quad.easeOut',
+        onComplete: () => spark.destroy()
+      });
+    }
+  }
+
+  // ═══════════════════════════════════════════════
   //  GAME LOOP
   // ═══════════════════════════════════════════════
 
@@ -887,19 +1124,26 @@ export class RotationScene extends Phaser.Scene {
     if (delta > Math.PI) delta -= Math.PI * 2;
     if (delta < -Math.PI) delta += Math.PI * 2;
 
-    // Wrong direction = LOSES progress
-    const gainMultiplier = this.headwindActive ? 0.5 : 1; // Headwind halves gain
+    // Wrong direction = LOSES progress + red sparks
+    const isWrongDir =
+      (this.hemisphere === 'northern' && delta < 0) ||
+      (this.hemisphere === 'southern' && delta > 0);
+    if (isWrongDir && Math.abs(delta) > 0.1) {
+      this.spawnWrongDirectionSparks(pointer.x, pointer.y);
+    }
+
+    const gainMultiplier = this.headwindActive ? 0.5 : 1;
     if (this.hemisphere === 'northern') {
       if (delta > 0) {
         this.totalRotation += Phaser.Math.RadToDeg(delta) * gainMultiplier;
       } else {
-        this.totalRotation += Phaser.Math.RadToDeg(delta) * 0.5; // Negative = lose progress
+        this.totalRotation += Phaser.Math.RadToDeg(delta) * 0.5;
       }
     } else {
       if (delta < 0) {
         this.totalRotation += Phaser.Math.RadToDeg(-delta) * gainMultiplier;
       } else {
-        this.totalRotation -= Phaser.Math.RadToDeg(delta) * 0.5; // Wrong direction lose
+        this.totalRotation -= Phaser.Math.RadToDeg(delta) * 0.5;
       }
     }
     this.totalRotation = Math.max(0, this.totalRotation);
@@ -908,12 +1152,14 @@ export class RotationScene extends Phaser.Scene {
     this.updateUI();
     this.updateVortex();
     this.spawnVortexParticle(pointer.x, pointer.y);
+    this.spawnSpinTrail(pointer.x, pointer.y, Math.abs(delta) > 0.05 ? Math.abs(delta) : 0);
 
     this.rotationProgress = Math.min(
       1,
       this.totalRotation / this.targetRotation
     );
 
+    this.drawRings(this.rotationProgress);
     this.checkStormMilestones();
 
     // Continuous spin effects: thunder, lightning, shake while dragging
@@ -984,11 +1230,22 @@ export class RotationScene extends Phaser.Scene {
     this.vortexGfx.strokePath();
 
     if (progress > 0.5) {
-      const eyeSize = 10 + (1 - progress) * 10;
-      this.vortexGfx.fillStyle(0x1a1a3e, 0.8);
+      // Heartbeat pulse: eye expands and contracts like a beating heart
+      const heartbeat = Math.sin(this.time.now * 0.006) * 0.12 + 1;
+      const eyeSize = (10 + (1 - progress) * 10) * heartbeat;
+      // Inner dark core
+      this.vortexGfx.fillStyle(0x0d1b2a, 0.9);
       this.vortexGfx.fillCircle(this.centerX, this.centerY, eyeSize);
-      this.vortexGfx.lineStyle(2, 0xffd166, 0.6);
-      this.vortexGfx.strokeCircle(this.centerX, this.centerY, eyeSize + 3);
+      // Golden glow ring with pulse
+      const glowPulse = Math.sin(this.time.now * 0.004 + 1) * 0.15 + 0.6;
+      this.vortexGfx.lineStyle(2, 0xffd166, glowPulse);
+      this.vortexGfx.strokeCircle(this.centerX, this.centerY, eyeSize + 4);
+      // Outer electric ring at high progress
+      if (progress > 0.75) {
+        const elecPulse = Math.sin(this.time.now * 0.008) * 0.3 + 0.3;
+        this.vortexGfx.lineStyle(1, 0x88ddff, elecPulse);
+        this.vortexGfx.strokeCircle(this.centerX, this.centerY, eyeSize + 10);
+      }
     }
   }
 
@@ -1130,5 +1387,8 @@ export class RotationScene extends Phaser.Scene {
     if (this.windGustTimer) this.windGustTimer.remove();
     if (this.orbSpawnTimer) this.orbSpawnTimer.remove();
     if (this.deflectionSpawnTimer) this.deflectionSpawnTimer.remove();
+    if (this.rainTimer) this.rainTimer.remove();
+    this.rainStreakPool.forEach(s => s.destroy());
+    this.rainStreakPool = [];
   }
 }
