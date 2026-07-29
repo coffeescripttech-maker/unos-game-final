@@ -245,6 +245,13 @@ export class PreloadScene extends Phaser.Scene {
     gfx.fillRect(38, 24, 100, 38);
     gfx.generateTexture('cloud_large', 150, 66);
 
+    // wind_particles (missing file — generate placeholder)
+    gfx.clear();
+    gfx.fillStyle(0xffffff, 0.6);
+    gfx.fillCircle(8, 8, 6);
+    gfx.fillCircle(16, 8, 4);
+    gfx.generateTexture('wind_particles', 24, 16);
+
     gfx.destroy();
   }
 }
