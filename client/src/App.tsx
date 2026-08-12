@@ -8,6 +8,7 @@ import MultiplayerLobbyPage from './pages/MultiplayerLobbyPage';
 import SettingsPage from './pages/SettingsPage';
 import EncyclopediaPage from './pages/EncyclopediaPage';
 import CreditsPage from './pages/CreditsPage';
+import BossPage from './pages/BossPage';
 import ErrorBoundary from './components/ErrorBoundary';
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/multiplayer" element={<MultiplayerLobbyPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/credits" element={<CreditsPage />} />
+          <Route path="/boss" element={<BossPage />} />
         </Routes>
       </div>
     </ErrorBoundary>

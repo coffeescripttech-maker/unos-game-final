@@ -116,14 +116,14 @@ export class CondensationScene extends Phaser.Scene {
       title: 'Build the Clouds',
       subtitle: 'Match vapor type to the right layer!',
       mechanics: [
-        { icon: '💧', text: 'HEAVY vapor (blue) — only condenses in WARM layer ↓' },
-        { icon: '❄️', text: 'LIGHT vapor (white) — only condenses in COLD layer ↑' },
-        { icon: '✨', text: 'NORMAL vapor (clear) — any layer (BONUS in sweet spot)' },
-        { icon: '🎯', text: 'Sweet spot moves UP as cloud grows!' },
-        { icon: '🎯', text: 'CLICK cool zones to activate a cold burst' },
-        { icon: '⏱️', text: '3-second cooldown — time your clicks!' },
-        { icon: '💨', text: 'Wind gusts push vapor — plan ahead!' },
-        { icon: '☁️', text: 'Reach 100% cloud growth to win!' }
+        { icon: '💧', text: 'Vapor rises from the ocean — catch it while it floats up!' },
+        { icon: '🔵', text: 'BLUE vapor (heavy) — cools down near the WARM ocean (bottom)' },
+        { icon: '⚪', text: 'WHITE vapor (light) — cools up in the COLD sky (top)' },
+        { icon: '✨', text: 'CLEAR vapor (normal) — cools anywhere (BONUS at the sweet spot!)' },
+        { icon: '✋', text: 'DRAG a zone ❄ to the right height, then CLICK it to release cold air' },
+        { icon: '⏱️', text: 'Each zone needs 3 seconds to recharge — rotate your clicks!' },
+        { icon: '💨', text: 'Wind gusts blow vapor sideways — reposition your zones!' },
+        { icon: '☁️', text: 'Grow the cloud to 100% before time runs out!' }
       ]
     } satisfies HUDLevelIntroPayload);
 

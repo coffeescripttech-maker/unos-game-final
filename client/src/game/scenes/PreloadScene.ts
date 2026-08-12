@@ -43,7 +43,9 @@ export class PreloadScene extends Phaser.Scene {
       this.progressBar.fillRect(centerX - 155, centerY - 20, 310 * value, 40);
 
       // Emit to React overlay
-      this.game.events.emit(GAME_EVENTS.HUD_LOADING, { progress: value } satisfies HUDLoadingPayload);
+      this.game.events.emit(GAME_EVENTS.HUD_LOADING, {
+        progress: value
+      } satisfies HUDLoadingPayload);
     });
 
     this.load.on('complete', () => {
@@ -52,7 +54,9 @@ export class PreloadScene extends Phaser.Scene {
       this.loadingText.destroy();
 
       // Signal completion to React
-      this.game.events.emit(GAME_EVENTS.HUD_LOADING, { progress: 1 } satisfies HUDLoadingPayload);
+      this.game.events.emit(GAME_EVENTS.HUD_LOADING, {
+        progress: 1
+      } satisfies HUDLoadingPayload);
     });
 
     // Load external assets
@@ -154,6 +158,65 @@ export class PreloadScene extends Phaser.Scene {
       'typhoon_bg',
       'images/Stage 5/backgrounds/Stage 5 — Typhoon BG.png'
     );
+    // Stage 6 — Ride the Storm
+    this.load.image('boss_bg', 'images/Stage 6/background/boss_background.png');
+    this.load.image(
+      'boss_cloud_overlay',
+      'images/Stage 6/overlays/cloud_overlay.png'
+    );
+    this.load.image(
+      'boss_rain_overlay',
+      'images/Stage 6/overlays/rain_overlay.png'
+    );
+    this.load.image(
+      'boss_wind_overlay',
+      'images/Stage 6/overlays/wind_overlay.png'
+    );
+    this.load.image(
+      'boss_fog_overlay',
+      'images/Stage 6/overlays/fog_overlay.png'
+    );
+    this.load.image('sun_rays', 'images/Stage 6/overlays/sun_rays.png');
+
+    // Player
+    this.load.image('boss_boat', 'images/Stage 6/player/research_boat.png');
+    this.load.image('boat_wake', 'images/Stage 6/player/boat_wake.png');
+
+    // Checkpoints — keys match BUOY_DEFS
+    this.load.image(
+      'buoy_temp',
+      'images/Stage 6/checkpoints/temperature_buoy.png'
+    );
+    this.load.image(
+      'buoy_humidity',
+      'images/Stage 6/checkpoints/humidity_buoy.png'
+    );
+    this.load.image(
+      'buoy_pressure',
+      'images/Stage 6/checkpoints/pressure_buoy.png'
+    );
+    this.load.image('buoy_wind', 'images/Stage 6/checkpoints/wind_buoy.png');
+    this.load.image(
+      'finish_beacon',
+      'images/Stage 6/checkpoints/finish_beacon.png'
+    );
+
+    // Hazards
+    this.load.image('boss_wave_small', 'images/Stage 6/hazards/wave_small.png');
+    this.load.image('boss_wave_large', 'images/Stage 6/hazards/wave_large.png');
+    this.load.image(
+      'boss_lightning_strike',
+      'images/Stage 6/hazards/lightning_strike.png'
+    );
+    this.load.image(
+      'lightning_warning',
+      'images/Stage 6/hazards/lightning_warning.png'
+    );
+    // Debris — generated via Phaser graphics, no PNGs
+
+    // Effects
+    this.load.image('boss_splash', 'images/Stage 6/effects/splash.png');
+    this.load.image('foam', 'images/Stage 6/effects/foam.png');
 
     // Generate placeholder textures
     this.generatePlaceholderAssets();
@@ -251,6 +314,101 @@ export class PreloadScene extends Phaser.Scene {
     gfx.fillCircle(8, 8, 6);
     gfx.fillCircle(16, 8, 4);
     gfx.generateTexture('wind_particles', 24, 16);
+
+    // ── Boss Level: Ride the Storm ──
+    // Raindrop texture (for particle system)
+    gfx.clear();
+    gfx.fillStyle(0xffffff, 0.6);
+    gfx.fillRect(1, 0, 2, 6);
+    gfx.generateTexture('raindrop', 4, 8);
+
+    // Debris — log
+    gfx.clear();
+    gfx.fillStyle(0x5a3a1a, 1);
+    gfx.fillRoundedRect(0, 2, 24, 8, 3);
+    gfx.lineStyle(1, 0x3a2a0a, 0.6);
+    gfx.strokeRoundedRect(0, 2, 24, 8, 3);
+    gfx.generateTexture('debris_log', 24, 12);
+
+    // Debris — barrel
+    gfx.clear();
+    gfx.fillStyle(0x6a4a2a, 1);
+    gfx.fillCircle(8, 8, 8);
+    gfx.lineStyle(1, 0x4a2a0a, 0.5);
+    gfx.strokeCircle(8, 8, 8);
+    gfx.fillStyle(0x8a6a4a, 0.5);
+    gfx.fillRect(5, 2, 6, 12);
+    gfx.generateTexture('debris_barrel', 16, 16);
+
+    // Debris — crate
+    gfx.clear();
+    gfx.fillStyle(0x6a4a2a, 1);
+    gfx.fillRect(0, 0, 16, 16);
+    gfx.lineStyle(1, 0x3a2a0a, 0.5);
+    gfx.strokeRect(0, 0, 16, 16);
+    gfx.lineStyle(1, 0x3a2a0a, 0.3);
+    gfx.beginPath();
+    gfx.moveTo(0, 0);
+    gfx.lineTo(16, 16);
+    gfx.moveTo(16, 0);
+    gfx.lineTo(0, 16);
+    gfx.strokePath();
+    gfx.generateTexture('debris_crate', 16, 16);
+
+    // Lightning warning ring
+    gfx.clear();
+    gfx.lineStyle(3, 0xffff00, 1);
+    gfx.strokeCircle(24, 24, 22);
+    gfx.lineStyle(1, 0xffffff, 0.4);
+    gfx.strokeCircle(24, 24, 18);
+    gfx.generateTexture('lightning_warning', 48, 48);
+
+    // Lightning bolt
+    gfx.clear();
+    gfx.lineStyle(2, 0xffffcc, 1);
+    gfx.beginPath();
+    gfx.moveTo(8, 0);
+    gfx.lineTo(12, 10);
+    gfx.lineTo(6, 12);
+    gfx.lineTo(16, 30);
+    gfx.lineTo(10, 30);
+    gfx.lineTo(4, 18);
+    gfx.lineTo(10, 16);
+    gfx.lineTo(2, 0);
+    gfx.closePath();
+    gfx.fillStyle(0xffffaa, 0.9);
+    gfx.fillPath();
+    gfx.generateTexture('lightning_bolt', 18, 32);
+
+    // Checkpoint buoy
+    gfx.clear();
+    gfx.fillStyle(0xff4444, 1);
+    gfx.fillCircle(12, 12, 10);
+    gfx.fillStyle(0xffffff, 0.8);
+    gfx.fillCircle(12, 12, 5);
+    gfx.lineStyle(2, 0xaa3333, 1);
+    gfx.strokeCircle(12, 12, 10);
+    gfx.generateTexture('checkpoint_marker', 24, 24);
+
+    // Bird (simple)
+    gfx.clear();
+    gfx.lineStyle(1.5, 0x333333, 1);
+    gfx.beginPath();
+    gfx.moveTo(0, 6);
+    gfx.lineTo(6, 0);
+    gfx.lineTo(12, 4);
+    gfx.lineTo(18, 0);
+    gfx.lineTo(24, 6);
+    gfx.strokePath();
+    gfx.generateTexture('bird', 24, 8);
+
+    // Sun glow
+    gfx.clear();
+    gfx.fillStyle(0xffeeaa, 1);
+    gfx.fillCircle(32, 32, 24);
+    gfx.fillStyle(0xffffcc, 0.6);
+    gfx.fillCircle(32, 32, 28);
+    gfx.generateTexture('sun_glow', 64, 64);
 
     gfx.destroy();
   }

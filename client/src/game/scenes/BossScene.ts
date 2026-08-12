@@ -2,1374 +2,1778 @@ import Phaser from 'phaser';
 import { SCENES } from '@shared/constants';
 import { GAME_EVENTS } from '@shared/events';
 import type {
-  HUDTimerPayload,
   HUDObjectivePayload,
   HUDResultPayload,
   HUDLevelInfoPayload,
   HUDHealthPayload,
   HUDScorePayload,
-  HUDWeatherPayload,
+  HUDWeatherPayload
 } from '@shared/events';
-import { FONTS, GAME_WIDTH, GAME_HEIGHT, DEPTH } from '../constants';
-import { GameManager } from '../managers/GameManager';
+import { GAME_WIDTH, GAME_HEIGHT } from '../constants';
 
-// ═══════════════════════════════════════════════
-//  TYPES
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+//  WORLD
+// ═══════════════════════════════════════════════════════════════════
 
-interface Hazard {
-  gfx: Phaser.GameObjects.Graphics;
-  type: 'lightning' | 'wave' | 'wind' | 'debris' | 'rain';
-  vx: number;
-  vy: number;
-  active: boolean;
-  rot: number;
-  rotSpeed: number;
+// Single panoramic boss_background.png (2172×724) at ~1.84× stretch
+const WORLD_W = 4000;
+const WORLD_H = 724;
+
+const PLAYER_START_X = 200;
+const PLAYER_START_Y = 500;
+
+// ═══════════════════════════════════════════════════════════════════
+//  DISPLAY WIDTHS  (setDisplayWidth → displayWidth property)
+// ═══════════════════════════════════════════════════════════════════
+
+const DW_BOAT = 160;
+const DW_BUOY = 65;
+const DW_FINISH = 120;
+const DW_LOG = 90;
+const DW_BARREL = 55;
+const DW_CRATE = 70;
+const DW_WAVE_SMALL = 180;
+const DW_WAVE_LARGE = 320;
+const DW_LIGHTNING_STRIKE = 180;
+const DW_WATER_PARTICLE = 30;
+
+// ═══════════════════════════════════════════════════════════════════
+//  COLLISION RADII  (body.setCircle)
+// ═══════════════════════════════════════════════════════════════════
+
+const CR_BOAT = 58;
+const CR_BUOY = 30;
+const CR_LOG = 35;
+const CR_BARREL = 20;
+const CR_CRATE = 28;
+const CR_WAVE_SMALL = 80;
+const CR_WAVE_LARGE = 150;
+
+// ═══════════════════════════════════════════════════════════════════
+//  BOAT PHYSICS
+// ═══════════════════════════════════════════════════════════════════
+
+const MAX_SPEED_FWD = 280;
+const MAX_SPEED_REV = 80;
+const ACCEL = 200;
+const BRAKE = 300;
+const FRICTION = 0.96;
+const TURN_RATE = 2.5;
+const DRIFT_RECOVER = 0.88;
+
+// ═══════════════════════════════════════════════════════════════════
+//  INTEGRITY
+// ═══════════════════════════════════════════════════════════════════
+
+const MAX_INTEGRITY = 100;
+
+const DMG = {
+  WAVE: 5,
+  LOG: 10,
+  BARREL: 15,
+  CRATE: 20,
+  LIGHTNING: 25
+} as const;
+
+// ═══════════════════════════════════════════════════════════════════
+//  COLLECTION
+// ═══════════════════════════════════════════════════════════════════
+
+const BUOY_ACTIVATE_RADIUS = 110;
+const EYE_FINISH_RADIUS = 120;
+const COLLECT_TIME = 2.0;
+
+// ═══════════════════════════════════════════════════════════════════
+//  LIGHTNING
+// ═══════════════════════════════════════════════════════════════════
+
+const LIGHTNING_WARN_DUR = 1.0;
+const LIGHTNING_STRIKE_RADIUS = 120;
+
+// ═══════════════════════════════════════════════════════════════════
+//  WAVES
+// ═══════════════════════════════════════════════════════════════════
+
+const WAVE_BASE_SPEED = 80;
+const WAVE_SPAWN_INTERVAL_BASE = 3000;
+
+// ═══════════════════════════════════════════════════════════════════
+//  DEPTH LAYERS
+// ═══════════════════════════════════════════════════════════════════
+
+const D = {
+  BG: 0,
+  CLOUD: 1,
+  FOG: 2,
+  BUOYS: 3,
+  HAZARDS: 4,
+  WAKE: 5,
+  BOAT: 6,
+  WAVES: 7,
+  RAIN: 8,
+  WIND: 9,
+  LIGHTNING: 10,
+  SUNRAYS: 11,
+  HUD: 20
+} as const;
+
+// ═══════════════════════════════════════════════════════════════════
+//  PHASE OVERLAY ALPHAS
+// ═══════════════════════════════════════════════════════════════════
+
+const PHASE = [
+  { cloud: 0.2, fog: 0, rain: 0, wind: 0, sun: 0 },
+  { cloud: 0.4, fog: 0.15, rain: 0.3, wind: 0.2, sun: 0 },
+  { cloud: 0.7, fog: 0.4, rain: 0.7, wind: 0.5, sun: 0 },
+  { cloud: 1.0, fog: 0.7, rain: 1.0, wind: 1.0, sun: 0 },
+  { cloud: 0.1, fog: 0, rain: 0, wind: 0, sun: 0.8 }
+];
+
+// ═══════════════════════════════════════════════════════════════════
+//  BUOY DEFINITIONS
+// ═══════════════════════════════════════════════════════════════════
+
+interface BuoyDef {
+  x: number;
+  y: number;
+  key: string;
+  type: string;
+  label: string;
+  fact: string;
 }
 
-interface WaveConfig {
-  name: string;
-  subtitle: string;
-  color: string;
-  duration: number;
-  hazards: ('lightning' | 'wave' | 'wind' | 'debris' | 'rain')[];
-  spawnRate: number;
-  intensity: number;
+const BUOY_DEFS: BuoyDef[] = [
+  {
+    x: 1100,
+    y: 380,
+    key: 'buoy_temp',
+    type: 'temperature',
+    label: 'Temperature',
+    fact: 'Warm ocean water provides the energy that fuels tropical cyclones.'
+  },
+  {
+    x: 1850,
+    y: 420,
+    key: 'buoy_humidity',
+    type: 'humidity',
+    label: 'Humidity',
+    fact: 'Moist air supplies water vapor for cloud formation, releasing heat that powers the storm.'
+  },
+  {
+    x: 2600,
+    y: 340,
+    key: 'buoy_pressure',
+    type: 'pressure',
+    label: 'Air Pressure',
+    fact: 'Low-pressure areas draw surrounding air inward, helping storms strengthen and organize.'
+  },
+  {
+    x: 3100,
+    y: 400,
+    key: 'buoy_wind',
+    type: 'wind',
+    label: 'Wind Speed',
+    fact: 'Strong rotating winds organize the cyclone into a powerful typhoon with a defined eye.'
+  }
+];
+
+const FINISH_X = 3700;
+const FINISH_Y = 362;
+
+type DebrisKind = 'debris_log' | 'debris_barrel' | 'debris_crate';
+
+// ═══════════════════════════════════════════════════════════════════
+//  LIGHTNING STATE
+// ═══════════════════════════════════════════════════════════════════
+
+interface LightningState {
+  cooldown: number;
+  phase: 'idle' | 'warning' | 'strike' | 'cooldown';
+  warnX: number;
+  warnY: number;
+  warnTimer: number;
+  warningSprite?: Phaser.GameObjects.Image;
+  boltSprite?: Phaser.GameObjects.Image;
 }
 
-interface SmokeParticle {
-  sprite: Phaser.GameObjects.Arc;
-  vx: number;
-  vy: number;
-  life: number;
-  maxLife: number;
+// ═══════════════════════════════════════════════════════════════════
+//  PHYSICS BODY HELPER
+// ═══════════════════════════════════════════════════════════════════
+
+/** Narrow the Body|StaticBody union to the dynamic Arcade Body we actually use. */
+function arcadeBody(
+  obj: Phaser.Physics.Arcade.Image
+): Phaser.Physics.Arcade.Body {
+  return obj.body as Phaser.Physics.Arcade.Body;
 }
 
-// ═══════════════════════════════════════════════
+/** Union matching Phaser's internal overlap-callback parameter type. */
+type PhysOverlapObj =
+  | Phaser.Types.Physics.Arcade.GameObjectWithBody
+  | Phaser.Tilemaps.Tile
+  | Phaser.Physics.Arcade.Body
+  | Phaser.Physics.Arcade.StaticBody;
+
+// ═══════════════════════════════════════════════════════════════════
 //  SCENE
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
 
 export class BossScene extends Phaser.Scene {
-  // ── Core state ──
-  private shipHealth = 100;
-  private bossHealth = 100;
-  private maxHealth = 100;
-  private totalTime = 120;
-  private timeRemaining = 120;
+  // ── Player ──
+  private boat!: Phaser.Physics.Arcade.Image;
+  private speed = 0;
+  private heading = 0;
+  private lateralDrift = 0;
+
+  // ── Health ──
+  private integrity = MAX_INTEGRITY;
+  private stunned = false;
+  private stunTimer = 0;
+
+  // ── Mission ──
+  private activeIdx = -1;
+  private buoys: Phaser.Physics.Arcade.Image[] = [];
+  private buoyGlows: Phaser.GameObjects.Image[] = [];
+  private collected: boolean[] = [false, false, false, false];
+  private collecting = false;
+  private collectProgress = 0;
+  private nearBuoy = false;
+  private showingFact = false;
+  private lastCheckpoint = -1;
+  private finishBeacon?: Phaser.Physics.Arcade.Image;
+  private finishGlow?: Phaser.GameObjects.Image;
+
+  // ── Overlays ──
+  private overlayCloud!: Phaser.GameObjects.TileSprite;
+  private overlayFog!: Phaser.GameObjects.Image;
+  private overlayRain!: Phaser.GameObjects.TileSprite;
+  private overlayWind!: Phaser.GameObjects.TileSprite;
+  private overlaySun!: Phaser.GameObjects.Image;
+
+  // ── Storm ──
+  private phase = 1;
+  private transitioningPhase = false;
+
+  // ── Hazard groups ──
+  private waveGroup!: Phaser.Physics.Arcade.Group;
+  private debrisGroup!: Phaser.Physics.Arcade.Group;
+
+  // ── Hazard timers ──
+  private waveTimer = 0;
+  private debrisTimer = 0;
+  private lightning: LightningState = {
+    cooldown: 4,
+    phase: 'idle',
+    warnX: 0,
+    warnY: 0,
+    warnTimer: 0
+  };
+
+  // ── Effects ──
+  private wakeEmitter?: Phaser.GameObjects.Particles.ParticleEmitter;
+  private nearText!: Phaser.GameObjects.Text;
+  private collectBar!: Phaser.GameObjects.Graphics;
+  private collectLabel!: Phaser.GameObjects.Text;
+
+  // ── State ──
   private isComplete = false;
-  private currentWave = 0;
-  private bossDefeated = false;
-  private gameStarted = false;
+  private isFailed = false;
+  private elapsed = 0;
+  private score = 0;
 
-  // ── Ship ──
-  private shipX = GAME_WIDTH / 2;
-  private shipY = GAME_HEIGHT - 120;
-  private shipGfx!: Phaser.GameObjects.Graphics;
-  private shipDamageGfx!: Phaser.GameObjects.Graphics;
-  private smokeParticles: SmokeParticle[] = [];
-  private fireParticles: SmokeParticle[] = [];
-
-  // ── Ocean ──
-  private oceanGfx!: Phaser.GameObjects.Graphics;
-  private oceanTime = 0;
-  private foamParticles: Phaser.GameObjects.Arc[] = [];
-
-  // ── Boss Typhoon (background) ──
-  private typhoonGfx!: Phaser.GameObjects.Graphics;
-  private typhoonGlowGfx!: Phaser.GameObjects.Graphics;
-  private stormTime = 0;
-
-  // ── Hazards ──
-  private hazards: Hazard[] = [];
-  private waveTimer!: Phaser.Time.TimerEvent;
-  private lightningBolts: Phaser.GameObjects.Graphics[] = [];
-
-  // ── Atmosphere ──
-  private darkOverlay!: Phaser.GameObjects.Graphics;
-  private lightningFlashGfx!: Phaser.GameObjects.Graphics;
-  private fogGfx!: Phaser.GameObjects.Graphics;
-  private bgColor = 0x050510;
-
-  // ── Info ──
-  private infoText!: Phaser.GameObjects.Text;
-  private wavePhaseGfx!: Phaser.GameObjects.Graphics;
-
-  // ── Wave Configs ──
-  private waves: WaveConfig[] = [
-    {
-      name: 'Gathering Storm',
-      subtitle: 'Rain and wind sweep the deck',
-      color: '#6DB3E6',
-      duration: 30,
-      hazards: ['rain', 'wind'],
-      spawnRate: 700,
-      intensity: 0.3,
-    },
-    {
-      name: 'Rough Seas',
-      subtitle: 'Giant waves batter the hull',
-      color: '#FF8C00',
-      duration: 35,
-      hazards: ['wave', 'rain', 'wind', 'debris'],
-      spawnRate: 500,
-      intensity: 0.6,
-    },
-    {
-      name: 'Eye of the Typhoon',
-      subtitle: 'The full fury of the storm',
-      color: '#D62828',
-      duration: 40,
-      hazards: ['lightning', 'wave', 'wind', 'debris', 'rain'],
-      spawnRate: 280,
-      intensity: 1.0,
-    },
-  ];
+  // ── Input ──
+  private keys!: Record<string, Phaser.Input.Keyboard.Key>;
 
   constructor() {
     super({ key: SCENES.BOSS });
   }
 
-  // ═══════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════
   //  CREATE
-  // ═══════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════
 
   create() {
-    this.cameras.main.fadeIn(600);
+    this.ensurePlaceholderTextures();
+    this.cameras.main.fadeIn(600, 0, 0, 0);
     this.resetState();
-    this.buildBackground();
-    this.buildAtmosphere();
-    this.buildTyphoonBackground();
-    this.buildShip();
-    this.buildUI();
+    this.createBackground();
+    this.createWeather();
+    this.createPlayer();
+    this.createWakeEffect();
+    this.createHazardGroups();
+    this.createCheckpoints();
+    this.createCollectionUI();
+    this.setupCamera();
     this.setupInput();
-    this.setupTimers();
-    this.setupEventListeners();
-    this.showWaveIntro(0);
+    this.emitIntro();
   }
+
+  // ──────────────────────────────────────────────────────────────────
+  //  PLACEHOLDER TEXTURES
+  // ──────────────────────────────────────────────────────────────────
+
+  private ensurePlaceholderTextures() {
+    const gfx = this.add.graphics();
+
+    if (!this.textures.exists('boss_fog_overlay')) {
+      gfx.clear();
+      gfx.fillStyle(0x8899bb, 0.4);
+      gfx.fillRect(0, 0, 128, 128);
+      gfx.generateTexture('boss_fog_overlay', 128, 128);
+    }
+    if (!this.textures.exists('sun_rays')) {
+      gfx.clear();
+      gfx.fillStyle(0xffffcc, 0.25);
+      gfx.fillCircle(64, 64, 60);
+      gfx.fillStyle(0xffffaa, 0.12);
+      gfx.fillRect(56, 0, 16, 128);
+      gfx.fillRect(20, 20, 8, 88);
+      gfx.fillRect(90, 30, 8, 68);
+      gfx.fillRect(38, 40, 8, 48);
+      gfx.fillRect(72, 25, 8, 78);
+      gfx.generateTexture('sun_rays', 128, 128);
+    }
+    if (!this.textures.exists('boat_wake')) {
+      gfx.clear();
+      gfx.fillStyle(0xffffff, 0.25);
+      gfx.fillRect(0, 2, 28, 4);
+      gfx.fillRect(4, 0, 20, 8);
+      gfx.generateTexture('boat_wake', 28, 8);
+    }
+    if (!this.textures.exists('foam')) {
+      gfx.clear();
+      gfx.fillStyle(0xffffff, 0.2);
+      gfx.fillCircle(4, 4, 4);
+      gfx.generateTexture('foam', 8, 8);
+    }
+    if (!this.textures.exists('water_particles')) {
+      gfx.clear();
+      gfx.fillStyle(0x88ccff, 0.35);
+      gfx.fillCircle(3, 3, 3);
+      gfx.generateTexture('water_particles', 6, 6);
+    }
+    if (!this.textures.exists('finish_beacon')) {
+      gfx.clear();
+      gfx.fillStyle(0x44ff44, 1);
+      gfx.fillCircle(16, 16, 14);
+      gfx.fillStyle(0xffffff, 0.8);
+      gfx.fillCircle(16, 16, 6);
+      gfx.lineStyle(3, 0x22dd22, 1);
+      gfx.strokeCircle(16, 16, 14);
+      gfx.generateTexture('finish_beacon', 32, 32);
+    }
+
+    // Buoy textures — color-coded circles for missing PNGs
+    for (const def of BUOY_DEFS) {
+      if (!this.textures.exists(def.key)) {
+        const color =
+          def.type === 'temperature'
+            ? 0xff4444
+            : def.type === 'humidity'
+              ? 0x4488ff
+              : def.type === 'pressure'
+                ? 0x44ff88
+                : 0xffcc44;
+        gfx.clear();
+        gfx.fillStyle(color, 1);
+        gfx.fillCircle(14, 14, 12);
+        gfx.fillStyle(0xffffff, 0.7);
+        gfx.fillCircle(14, 14, 5);
+        gfx.lineStyle(2, 0xffffff, 0.4);
+        gfx.strokeCircle(14, 14, 12);
+        gfx.generateTexture(def.key, 28, 28);
+      }
+    }
+
+    // Fallback boat sprite — transparent top-down research vessel
+    // Used if the PNG file is missing or saved without alpha
+    if (!this.textures.exists('boss_boat')) {
+      gfx.clear();
+
+      // Hull — rounded rectangle body
+      gfx.fillStyle(0xf0f4f8, 1);
+      gfx.fillRoundedRect(15, 70, 80, 50, 8);
+      // Bow (pointed front, top of texture = forward)
+      gfx.fillTriangle(55, 5, 25, 65, 85, 65);
+      // Stern (flat back)
+      gfx.fillRoundedRect(20, 110, 70, 16, 4);
+
+      // Waterline stripe — PAGASA blue
+      gfx.fillStyle(0x1a5276, 1);
+      gfx.fillRect(22, 95, 66, 5);
+      // Second accent stripe
+      gfx.fillStyle(0x2980b9, 1);
+      gfx.fillRect(25, 102, 60, 3);
+
+      // Cabin (superstructure)
+      gfx.fillStyle(0xd5e1eb, 1);
+      gfx.fillRoundedRect(32, 50, 46, 35, 4);
+      // Cabin roof
+      gfx.fillStyle(0xb0c4d4, 1);
+      gfx.fillRoundedRect(34, 48, 42, 6, 3);
+
+      // Windows
+      gfx.fillStyle(0x85c1e9, 1);
+      gfx.fillRect(38, 58, 10, 8);
+      gfx.fillRect(52, 58, 10, 8);
+      gfx.fillRect(66, 58, 10, 8);
+
+      // Radar dome
+      gfx.fillStyle(0xe8e8e8, 1);
+      gfx.fillCircle(55, 40, 9);
+      gfx.fillStyle(0xcccccc, 1);
+      gfx.fillCircle(55, 40, 6);
+      gfx.fillStyle(0xaaaaaa, 1);
+      gfx.fillCircle(55, 40, 3);
+
+      // GPS antenna (mast pointing up)
+      gfx.lineStyle(2, 0x888888, 1);
+      gfx.beginPath();
+      gfx.moveTo(55, 10);
+      gfx.lineTo(55, 28);
+      gfx.strokePath();
+      gfx.fillStyle(0xdd4444, 1);
+      gfx.fillCircle(55, 9, 3);
+
+      // Communication antenna (rear)
+      gfx.lineStyle(1.5, 0x888888, 1);
+      gfx.beginPath();
+      gfx.moveTo(35, 118);
+      gfx.lineTo(30, 128);
+      gfx.strokePath();
+
+      // Orange life rings (port & starboard)
+      gfx.fillStyle(0xff6600, 1);
+      gfx.fillCircle(25, 78, 5);
+      gfx.fillStyle(0xffffff, 1);
+      gfx.fillCircle(25, 78, 3);
+      gfx.fillStyle(0xff6600, 1);
+      gfx.fillCircle(85, 78, 5);
+      gfx.fillStyle(0xffffff, 1);
+      gfx.fillCircle(85, 78, 3);
+
+      // Deck equipment (scientific instruments)
+      gfx.fillStyle(0x99aabb, 1);
+      gfx.fillRect(35, 82, 8, 6);
+      gfx.fillRect(67, 82, 8, 6);
+      gfx.fillStyle(0xaabbcc, 1);
+      gfx.fillRect(42, 84, 10, 4);
+
+      // Bow railing
+      gfx.lineStyle(1, 0x8899aa, 0.5);
+      gfx.beginPath();
+      gfx.moveTo(35, 35);
+      gfx.lineTo(35, 45);
+      gfx.lineTo(75, 45);
+      gfx.lineTo(75, 35);
+      gfx.strokePath();
+
+      gfx.generateTexture('boss_boat', 110, 130);
+    }
+
+    // Custom wake particle — soft elongated oval (no PNG dependency)
+    if (!this.textures.exists('wake_particle')) {
+      gfx.clear();
+      gfx.fillStyle(0xffffff, 0.8);
+      gfx.fillEllipse(16, 6, 28, 10);
+      gfx.fillStyle(0xffffff, 0.4);
+      gfx.fillEllipse(16, 6, 32, 14);
+      gfx.generateTexture('wake_particle', 32, 14);
+    }
+
+    // Foam splash particle (fallback)
+    if (!this.textures.exists('foam')) {
+      gfx.clear();
+      gfx.fillStyle(0xffffff, 0.5);
+      gfx.fillCircle(6, 6, 6);
+      gfx.fillStyle(0xffffff, 0.25);
+      gfx.fillCircle(6, 6, 8);
+      gfx.generateTexture('foam', 14, 14);
+    }
+
+    gfx.destroy();
+  }
+
+  // ──────────────────────────────────────────────────────────────────
+  //  RESET
+  // ──────────────────────────────────────────────────────────────────
 
   private resetState() {
+    this.speed = 0;
+    this.heading = 0;
+    this.lateralDrift = 0;
+    this.phase = 1;
+    this.transitioningPhase = false;
+    this.integrity = MAX_INTEGRITY;
     this.isComplete = false;
-    this.gameStarted = true;
-    this.hazards = [];
-    this.shipHealth = 100;
-    this.bossHealth = 100;
-    this.maxHealth = 100;
-    this.currentWave = 0;
-    this.bossDefeated = false;
-    this.timeRemaining = this.totalTime;
-    this.stormTime = 0;
-    this.oceanTime = 0;
-    this.smokeParticles = [];
-    this.fireParticles = [];
-    this.foamParticles = [];
-    this.lightningBolts = [];
-    this.bgColor = 0x050510;
+    this.isFailed = false;
+    this.elapsed = 0;
+    this.score = 0;
+    this.activeIdx = -1;
+    this.collected = [false, false, false, false];
+    this.collecting = false;
+    this.collectProgress = 0;
+    this.nearBuoy = false;
+    this.showingFact = false;
+    this.lastCheckpoint = -1;
+    this.stunned = false;
+    this.stunTimer = 0;
+    this.buoys = [];
+    this.buoyGlows = [];
+    this.waveTimer = 0;
+    this.debrisTimer = 0;
+    this.lightning = {
+      cooldown: 4,
+      phase: 'idle',
+      warnX: 0,
+      warnY: 0,
+      warnTimer: 0
+    };
   }
 
-  private buildBackground() {
-    const bg = this.add.graphics();
-    bg.fillGradientStyle(0x050510, 0x0a0a20, 0x1a0a0a, 0x0a0515);
-    bg.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-    bg.setDepth(DEPTH.BG);
+  // ═══════════════════════════════════════════════════════════════════
+  //  BACKGROUND  – Depth 0
+  // ═══════════════════════════════════════════════════════════════════
 
-    this.oceanGfx = this.add.graphics().setDepth(DEPTH.BG + 1);
-  }
+  createBackground() {
+    this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
+    this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
 
-  private buildAtmosphere() {
-    // Dark overlay — intensifies as boss HP drops
-    this.darkOverlay = this.add.graphics().setDepth(DEPTH.BG + 2);
-    this.darkOverlay.fillStyle(0x000000, 0);
-    this.darkOverlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-    // Lightning flash overlay
-    this.lightningFlashGfx = this.add.graphics().setDepth(DEPTH.UI + 1);
-    this.lightningFlashGfx.fillStyle(0xffffff, 0);
-    this.lightningFlashGfx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-    // Fog / mist layer
-    this.fogGfx = this.add.graphics().setDepth(DEPTH.BG + 3);
-  }
-
-  private buildTyphoonBackground() {
-    this.typhoonGfx = this.add.graphics().setDepth(DEPTH.BG + 5);
-    this.typhoonGlowGfx = this.add.graphics().setDepth(DEPTH.BG + 4);
-  }
-
-  private buildShip() {
-    this.shipGfx = this.add.graphics().setDepth(DEPTH.GAME_OBJECTS);
-    this.shipDamageGfx = this.add.graphics().setDepth(DEPTH.GAME_OBJECTS + 1);
-  }
-
-  private buildUI() {
-    // Title
+    // Single panoramic background stretched across the full world
     this.add
-      .text(GAME_WIDTH / 2, 16, '⚡ Ride the Storm ⚡', {
-        fontFamily: FONTS.DISPLAY,
-        fontSize: '20px',
-        color: '#D62828',
-        stroke: '#000000',
-        strokeThickness: 3,
-      })
-      .setOrigin(0.5)
-      .setDepth(DEPTH.OVERLAY);
+      .image(0, 0, 'boss_bg')
+      .setOrigin(0)
+      .setDepth(D.BG)
+      .setDisplaySize(WORLD_W, WORLD_H);
+  }
 
-    // Wave info text (centered, for announcements)
-    this.infoText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, '', {
-        fontFamily: FONTS.DISPLAY,
-        fontSize: '32px',
-        color: '#FFFFFF',
-        stroke: '#000000',
-        strokeThickness: 5,
-        align: 'center',
-      })
-      .setOrigin(0.5)
-      .setDepth(DEPTH.OVERLAY)
+  // ═══════════════════════════════════════════════════════════════════
+  //  WEATHER OVERLAYS  – Depths 1, 2, 8, 9, 11
+  // ═══════════════════════════════════════════════════════════════════
+
+  createWeather() {
+    const sw = this.scale.width;
+    const sh = this.scale.height;
+
+    this.overlayCloud = this.add
+      .tileSprite(0, 0, sw, sh, 'boss_cloud_overlay')
+      .setOrigin(0)
+      .setScrollFactor(0)
+      .setDepth(D.CLOUD)
       .setAlpha(0);
 
-    // Wave phase graphic
-    this.wavePhaseGfx = this.add.graphics().setDepth(DEPTH.OVERLAY - 1);
+    this.overlayFog = this.add
+      .image(0, 0, 'boss_fog_overlay')
+      .setOrigin(0)
+      .setScrollFactor(0)
+      .setDepth(D.FOG)
+      .setAlpha(0)
+      .setTint(0x8899bb)
+      .setDisplaySize(sw, sh);
 
-    // Emit level info
-    this.game.events.emit(
-      GAME_EVENTS.HUD_LEVEL_INFO,
-      {
-        name: 'Ride the Storm',
-        description: 'Survive the typhoon in your research vessel!',
-      } satisfies HUDLevelInfoPayload
+    this.overlayRain = this.add
+      .tileSprite(0, 0, sw, sh, 'boss_rain_overlay')
+      .setOrigin(0)
+      .setScrollFactor(0)
+      .setDepth(D.RAIN)
+      .setAlpha(0)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    this.overlayWind = this.add
+      .tileSprite(0, 0, sw, sh, 'boss_wind_overlay')
+      .setOrigin(0)
+      .setScrollFactor(0)
+      .setDepth(D.WIND)
+      .setAlpha(0)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    this.overlaySun = this.add
+      .image(0, 0, 'sun_rays')
+      .setOrigin(0)
+      .setScrollFactor(0)
+      .setDepth(D.SUNRAYS)
+      .setAlpha(0)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDisplaySize(sw, sh);
+  }
+
+  updateWeather() {
+    const dt = this.game.loop.delta / 1000;
+    this.overlayCloud.tilePositionX += dt * 4;
+    this.overlayRain.tilePositionY += dt * 30;
+    this.overlayWind.tilePositionX += dt * 20;
+  }
+
+  private transitionToPhase(phase: number) {
+    this.phase = phase;
+    this.transitioningPhase = true;
+    const t = PHASE[phase - 1];
+    const dur = 2000;
+
+    this.tweens.add({
+      targets: this.overlayCloud,
+      alpha: t.cloud,
+      duration: dur,
+      ease: 'Sine.easeInOut'
+    });
+    this.tweens.add({
+      targets: this.overlayFog,
+      alpha: t.fog * 0.5,
+      duration: dur,
+      ease: 'Sine.easeInOut'
+    });
+    this.tweens.add({
+      targets: this.overlayRain,
+      alpha: t.rain * 0.6,
+      duration: dur,
+      ease: 'Sine.easeInOut'
+    });
+    this.tweens.add({
+      targets: this.overlayWind,
+      alpha: t.wind * 0.4,
+      duration: dur,
+      ease: 'Sine.easeInOut'
+    });
+    this.tweens.add({
+      targets: this.overlaySun,
+      alpha: t.sun,
+      duration: dur,
+      ease: 'Sine.easeInOut'
+    });
+
+    this.time.delayedCall(dur, () => {
+      this.transitioningPhase = false;
+    });
+    this.emitWeather();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  PLAYER  – Depth 6
+  // ═══════════════════════════════════════════════════════════════════
+
+  createPlayer() {
+    this.boat = this.physics.add
+      .image(PLAYER_START_X, PLAYER_START_Y, 'boss_boat')
+      .setDepth(D.BOAT);
+
+    // Display size
+    this.boat.displayWidth = DW_BOAT;
+    this.boat.scaleY = this.boat.scaleX;
+
+    // Physics body – collision radius 40, centered
+    const body = arcadeBody(this.boat);
+    body.setCircle(CR_BOAT);
+    body.setOffset(
+      (this.boat.displayWidth - CR_BOAT * 2) / 2,
+      (this.boat.displayHeight - CR_BOAT * 2) / 2
     );
-    this.emitObjective();
-    this.emitHealth();
+    body.collideWorldBounds = true;
   }
 
-  private setupInput() {
-    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      this.shipX = Phaser.Math.Clamp(pointer.x, 50, GAME_WIDTH - 50);
-      this.shipY = Phaser.Math.Clamp(pointer.y, GAME_HEIGHT * 0.45, GAME_HEIGHT - 50);
-    });
-  }
-
-  private setupTimers() {
-    // Timer tick
-    this.time.addEvent({
-      delay: 1000,
-      callback: () => {
-        if (this.isComplete) return;
-        this.timeRemaining--;
-        this.game.events.emit(
-          GAME_EVENTS.HUD_TIMER,
-          { remaining: this.timeRemaining, total: this.totalTime } satisfies HUDTimerPayload
-        );
-
-        // Weather data
-        const wp = 1 - this.bossHealth / this.maxHealth;
-        this.game.events.emit(
-          GAME_EVENTS.HUD_WEATHER,
-          {
-            temperature: 22 + Math.round(this.currentWave * 4),
-            humidity: 75 + Math.round(wp * 25),
-            windSpeed: Math.round(30 + this.currentWave * 30 + wp * 50),
-            stormLevel: Math.min(5, this.currentWave + 2 + Math.floor(wp * 2)),
-          } satisfies HUDWeatherPayload
-        );
-
-        if (this.timeRemaining <= 0) this.failLevel();
-      },
-      loop: true,
-    });
-
-    // Ocean splash spawner
-    this.time.addEvent({
-      delay: 400,
-      callback: () => this.spawnFoam(),
-      loop: true,
-    });
-
-    // Smoke/fire update
-    this.time.addEvent({
-      delay: 200,
-      callback: () => this.updateShipDamage(),
-      loop: true,
-    });
-  }
-
-  private setupEventListeners() {
-    this.game.events.on(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
-  }
-
-  // ═══════════════════════════════════════════════
-  //  WAVE SYSTEM
-  // ═══════════════════════════════════════════════
-
-  private showWaveIntro(waveIndex: number) {
-    if (waveIndex >= this.waves.length) {
-      this.victory();
+  updateBoat(dt: number) {
+    if (this.stunned) {
+      this.stunTimer -= dt;
+      if (this.stunTimer <= 0) this.stunned = false;
+      this.speed *= FRICTION;
+      this.syncVelocity();
       return;
     }
-    if (this.isComplete) return;
 
-    this.currentWave = waveIndex;
-    const wave = this.waves[waveIndex];
-    this.emitObjective();
+    // Steering
+    if (this.keys.A.isDown || this.keys.LEFT.isDown)
+      this.heading -= TURN_RATE * dt;
+    if (this.keys.D.isDown || this.keys.RIGHT.isDown)
+      this.heading += TURN_RATE * dt;
 
-    // Wave phase border flash
-    this.wavePhaseGfx.clear();
-    this.wavePhaseGfx.lineStyle(4, Phaser.Display.Color.HexStringToColor(wave.color).color, 0.8);
-    this.wavePhaseGfx.strokeRect(4, 4, GAME_WIDTH - 8, GAME_HEIGHT - 8);
-    this.tweens.add({
-      targets: this.wavePhaseGfx,
-      alpha: { from: 1, to: 0 },
-      duration: 3000,
-      ease: 'Quad.easeOut',
-    });
+    // Thrust / brake
+    if (this.keys.W.isDown || this.keys.UP.isDown) {
+      this.speed = Math.min(MAX_SPEED_FWD, this.speed + ACCEL * dt);
+    } else if (this.keys.S.isDown || this.keys.DOWN.isDown) {
+      this.speed = Math.max(-MAX_SPEED_REV, this.speed - BRAKE * dt);
+    } else {
+      this.speed *= FRICTION;
+      if (Math.abs(this.speed) < 1) this.speed = 0;
+    }
 
-    // Announce with dramatic scale-in
-    this.infoText.setText(`${wave.name}\n${wave.subtitle}`);
-    this.infoText.setColor(wave.color).setAlpha(1).setScale(0.01);
-    this.tweens.add({
-      targets: this.infoText,
-      scale: 1,
-      duration: 500,
-      ease: 'Back.easeOut',
-      onComplete: () => {
-        this.tweens.add({
-          targets: this.infoText,
-          alpha: 0,
-          delay: 1500,
-          duration: 400,
-        });
-      },
-    });
+    // Convert to velocity
+    this.syncVelocity();
 
-    // Screen pulse on wave start
-    this.cameras.main.flash(400, 100, 100, 200, false);
+    // Recover lateral drift
+    this.lateralDrift *= DRIFT_RECOVER;
 
-    this.time.delayedCall(2500, () => this.startWave(waveIndex));
+    // Sprite rotation
+    this.boat.rotation = this.heading;
+
+    // ── Forward-progress lock ──
+    // Prevent the boat from sailing backward past the camera's left edge.
+    // The player can steer freely but the mission always pushes rightward.
+    if (this.boat.x < this.cameras.main.scrollX + 80) {
+      this.boat.x = this.cameras.main.scrollX + 80;
+      if (this.speed < 0) this.speed = 0;
+    }
   }
 
-  private startWave(waveIndex: number) {
-    if (this.isComplete) return;
-    const wave = this.waves[waveIndex];
-    this.emitObjective();
+  private syncVelocity() {
+    const body = arcadeBody(this.boat);
+    body.velocity.set(
+      Math.cos(this.heading) * this.speed + this.lateralDrift,
+      Math.sin(this.heading) * this.speed
+    );
+  }
 
-    this.waveTimer = this.time.addEvent({
-      delay: wave.spawnRate,
-      callback: () => this.spawnHazard(wave),
-      loop: true,
+  // ═══════════════════════════════════════════════════════════════════
+  //  WAKE EFFECT  – Depth 5
+  // ═══════════════════════════════════════════════════════════════════
+
+  createWakeEffect() {
+    this.wakeEmitter = this.add
+      .particles(0, 0, 'wake_particle', {
+        follow: this.boat,
+        followOffset: { x: -50, y: 0 },
+        speed: { min: 2, max: 8 },
+        scale: { start: 1.2, end: 0.1 },
+        alpha: { start: 0.6, end: 0 },
+        rotate: { min: 0, max: 360 },
+        lifespan: { min: 500, max: 1000 },
+        frequency: 60,
+        blendMode: Phaser.BlendModes.ADD,
+        emitting: false
+      })
+      .setDepth(D.WAKE);
+  }
+
+  private updateWake() {
+    if (!this.wakeEmitter) return;
+    const moving = Math.abs(this.speed) > 10;
+    this.wakeEmitter.emitting = moving && !this.isComplete;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  HAZARD PHYSICS GROUPS
+  // ═══════════════════════════════════════════════════════════════════
+
+  createHazardGroups() {
+    this.waveGroup = this.physics.add.group({
+      allowGravity: false,
+      immovable: true
+    });
+    this.debrisGroup = this.physics.add.group({
+      allowGravity: false,
+      immovable: true
     });
 
-    this.time.delayedCall(wave.duration * 1000, () => {
-      if (this.isComplete) return;
-      this.waveTimer.remove();
-      // Clean up leftover hazards
-      this.hazards.forEach((h) => {
-        if (h.active) {
-          h.gfx.destroy();
-          h.active = false;
+    // Register overlap callbacks — cast to match Phaser's internal union type
+    this.physics.add.overlap(
+      this.boat,
+      this.waveGroup,
+      this.onWaveOverlap as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
+      undefined,
+      this
+    );
+    this.physics.add.overlap(
+      this.boat,
+      this.debrisGroup,
+      this.onDebrisOverlap as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
+      undefined,
+      this
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  CHECKPOINTS  – Depth 3
+  // ═══════════════════════════════════════════════════════════════════
+
+  createCheckpoints() {
+    for (const def of BUOY_DEFS) {
+      const sprite = this.physics.add
+        .image(def.x, def.y, def.key)
+        .setDepth(D.BUOYS)
+        .setVisible(false)
+        .setAlpha(0);
+      sprite.displayWidth = DW_BUOY;
+      sprite.scaleY = sprite.scaleX;
+      const body = arcadeBody(sprite);
+      body.setCircle(CR_BUOY);
+      body.setOffset(
+        (sprite.displayWidth - CR_BUOY * 2) / 2,
+        (sprite.displayHeight - CR_BUOY * 2) / 2
+      );
+      this.buoys.push(sprite);
+
+      const glow = this.add
+        .image(def.x, def.y, 'lightning_warning')
+        .setDepth(D.BUOYS - 0.5)
+        .setScale(1.5)
+        .setVisible(false)
+        .setAlpha(0)
+        .setTint(0x44ff44);
+      this.buoyGlows.push(glow);
+    }
+  }
+
+  private activateCheckpoint(index: number) {
+    this.activeIdx = index;
+    this.collecting = false;
+    this.collectProgress = 0;
+    this.nearBuoy = false;
+
+    if (index >= BUOY_DEFS.length) {
+      this.activateFinishBeacon();
+      return;
+    }
+
+    const sprite = this.buoys[index];
+    const glow = this.buoyGlows[index];
+    sprite.setVisible(true).setAlpha(0);
+    glow.setVisible(true).setAlpha(0);
+
+    this.tweens.add({
+      targets: [sprite, glow],
+      alpha: 1,
+      duration: 600,
+      ease: 'Sine.easeInOut'
+    });
+    this.tweens.add({
+      targets: glow,
+      alpha: 0.35,
+      scaleX: 1.8,
+      scaleY: 1.8,
+      duration: 1200,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+    this.updateObjectiveDisplay();
+  }
+
+  private activateFinishBeacon() {
+    this.activeIdx = BUOY_DEFS.length;
+
+    this.finishBeacon = this.physics.add
+      .image(FINISH_X, FINISH_Y, 'finish_beacon')
+      .setDepth(D.BUOYS)
+      .setAlpha(0);
+    this.finishBeacon.displayWidth = DW_FINISH;
+    this.finishBeacon.scaleY = this.finishBeacon.scaleX;
+    const body = arcadeBody(this.finishBeacon);
+    body.setCircle(40);
+    body.setOffset(
+      (this.finishBeacon.displayWidth - 80) / 2,
+      (this.finishBeacon.displayHeight - 80) / 2
+    );
+
+    this.finishGlow = this.add
+      .image(FINISH_X, FINISH_Y, 'lightning_warning')
+      .setDepth(D.BUOYS - 0.5)
+      .setScale(2)
+      .setAlpha(0)
+      .setTint(0xffff44);
+
+    this.tweens.add({
+      targets: [this.finishBeacon, this.finishGlow],
+      alpha: 1,
+      duration: 1000,
+      ease: 'Sine.easeInOut'
+    });
+    this.tweens.add({
+      targets: this.finishGlow,
+      alpha: 0.3,
+      scaleX: 2.5,
+      scaleY: 2.5,
+      duration: 1500,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    this.transitionToPhase(5);
+    this.updateObjectiveDisplay();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  COLLECTION UI  – Depth 20
+  // ═══════════════════════════════════════════════════════════════════
+
+  createCollectionUI() {
+    this.nearText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, '[E] Collect', {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '16px',
+        color: '#44ff88',
+        stroke: '#000000',
+        strokeThickness: 3
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(D.HUD)
+      .setVisible(false);
+
+    this.collectBar = this.add
+      .graphics()
+      .setScrollFactor(0)
+      .setDepth(D.HUD)
+      .setVisible(false);
+
+    this.collectLabel = this.add
+      .text(GAME_WIDTH / 2, 580, '', {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '14px',
+        color: '#ffffff'
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(D.HUD)
+      .setVisible(false);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  MISSION UPDATE
+  // ═══════════════════════════════════════════════════════════════════
+
+  updateMission() {
+    if (this.showingFact) return;
+
+    // Proximity to active data buoy
+    if (this.activeIdx >= 0 && this.activeIdx < BUOY_DEFS.length) {
+      const sprite = this.buoys[this.activeIdx];
+      const def = BUOY_DEFS[this.activeIdx];
+      const dist = Phaser.Math.Distance.Between(
+        this.boat.x,
+        this.boat.y,
+        sprite.x,
+        sprite.y
+      );
+
+      if (dist < BUOY_ACTIVATE_RADIUS) {
+        if (!this.collecting) {
+          this.nearBuoy = true;
+          this.nearText
+            .setVisible(true)
+            .setText(`[E] Collect ${def.label} Data`);
+        }
+      } else {
+        this.nearBuoy = false;
+        this.nearText.setVisible(false);
+        if (this.collecting) this.cancelCollection();
+      }
+    }
+
+    // Finish beacon proximity
+    if (this.activeIdx === BUOY_DEFS.length && this.finishBeacon) {
+      const dist = Phaser.Math.Distance.Between(
+        this.boat.x,
+        this.boat.y,
+        this.finishBeacon.x,
+        this.finishBeacon.y
+      );
+      if (dist < EYE_FINISH_RADIUS) this.completeLevel();
+    }
+
+    if (this.collecting) this.updateCollectionProgress();
+  }
+
+  startCollection() {
+    if (
+      this.collecting ||
+      this.activeIdx < 0 ||
+      this.activeIdx >= BUOY_DEFS.length
+    )
+      return;
+    this.collecting = true;
+    this.collectProgress = 0;
+    this.nearText.setVisible(false);
+    this.collectBar.setVisible(true);
+    this.collectLabel
+      .setVisible(true)
+      .setText(`Collecting ${BUOY_DEFS[this.activeIdx].label} data...`);
+  }
+
+  private cancelCollection() {
+    this.collecting = false;
+    this.collectProgress = 0;
+    this.collectBar.setVisible(false);
+    this.collectLabel.setVisible(false);
+  }
+
+  private updateCollectionProgress() {
+    const dt = this.game.loop.delta / 1000;
+    this.collectProgress += dt;
+    const pct = Math.min(this.collectProgress / COLLECT_TIME, 1);
+
+    this.collectBar.clear();
+    this.collectBar.fillStyle(0x111a2a, 0.85);
+    this.collectBar.fillRect(GAME_WIDTH / 2 - 100, 600, 200, 18);
+    this.collectBar.fillStyle(0x44ff88, 1);
+    this.collectBar.fillRect(GAME_WIDTH / 2 - 100, 600, 200 * pct, 18);
+    this.collectBar.lineStyle(2, 0xffffff, 0.5);
+    this.collectBar.strokeRect(GAME_WIDTH / 2 - 100, 600, 200, 18);
+
+    if (pct >= 1) this.completeCollecting();
+  }
+
+  private completeCollecting() {
+    const idx = this.activeIdx;
+    if (idx < 0 || idx >= BUOY_DEFS.length) return;
+
+    this.collecting = false;
+    this.collectBar.setVisible(false);
+    this.collectLabel.setVisible(false);
+    this.collected[idx] = true;
+    this.lastCheckpoint = idx;
+    this.score += 500;
+    this.emitScore();
+
+    // Buoy disappears
+    const sprite = this.buoys[idx];
+    const glow = this.buoyGlows[idx];
+    this.tweens.add({
+      targets: [sprite, glow],
+      alpha: 0,
+      scaleX: 0,
+      scaleY: 0,
+      duration: 400,
+      ease: 'Back.easeIn',
+      onComplete: () => {
+        sprite.setVisible(false);
+        glow.setVisible(false);
+      }
+    });
+    this.spawnSplash(BUOY_DEFS[idx].x, BUOY_DEFS[idx].y);
+
+    // Minor health restore on collection
+    this.integrity = Math.min(MAX_INTEGRITY, this.integrity + 5);
+    this.emitHealth();
+
+    // Advance storm phase
+    const nextPhase = idx + 2;
+    if (nextPhase <= 4) this.transitionToPhase(nextPhase);
+
+    this.showEducationalFact(idx);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  EDUCATIONAL FACTS
+  // ═══════════════════════════════════════════════════════════════════
+
+  private showEducationalFact(index: number) {
+    this.showingFact = true;
+    const def = BUOY_DEFS[index];
+
+    const bg = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, 620, 300, 0x0a1628, 0.95)
+      .setScrollFactor(0)
+      .setDepth(D.HUD)
+      .setStrokeStyle(2, 0x4488ff);
+
+    const title = this.add
+      .text(
+        GAME_WIDTH / 2,
+        GAME_HEIGHT / 2 - 100,
+        `${def.label} Data Collected!`,
+        {
+          fontFamily: 'Georgia, serif',
+          fontSize: '22px',
+          color: '#44ff88'
+        }
+      )
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(D.HUD);
+
+    const body = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 30, `"${def.fact}"`, {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '16px',
+        color: '#ccddff',
+        wordWrap: { width: 540 },
+        align: 'center',
+        lineSpacing: 4
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(D.HUD);
+
+    const btn = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 100, '[ Continue ]', {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '18px',
+        color: '#88bbff'
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(D.HUD)
+      .setInteractive({ useHandCursor: true });
+
+    const container = this.add.container(0, 0, [bg, title, body, btn]);
+    this.game.events.emit(GAME_EVENTS.FACT_UNLOCKED, {
+      factId: `boss_${def.type}`
+    });
+
+    btn.on('pointerdown', () => {
+      container.destroy(true);
+      this.showingFact = false;
+      this.activateCheckpoint(index + 1);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  HAZARDS — WAVES  (Depth 7)
+  // ═══════════════════════════════════════════════════════════════════
+
+  private spawnWave() {
+    if (this.phase < 1 || this.phase === 5) return;
+
+    const cam = this.cameras.main;
+    const edge = Phaser.Math.Between(0, 3);
+    let x: number, y: number, vx: number, vy: number;
+    const spd = WAVE_BASE_SPEED + this.phase * 25;
+
+    switch (edge) {
+      case 0:
+        x = Phaser.Math.Between(
+          cam.scrollX - 80,
+          cam.scrollX + GAME_WIDTH + 80
+        );
+        y = cam.scrollY - 60;
+        vx = (Math.random() - 0.5) * spd * 0.6;
+        vy = spd / 2;
+        break;
+      case 1:
+        x = Phaser.Math.Between(
+          cam.scrollX - 80,
+          cam.scrollX + GAME_WIDTH + 80
+        );
+        y = cam.scrollY + GAME_HEIGHT + 60;
+        vx = (Math.random() - 0.5) * spd * 0.6;
+        vy = -spd / 2;
+        break;
+      case 2:
+        x = cam.scrollX - 60;
+        y = Phaser.Math.Between(
+          cam.scrollY - 60,
+          cam.scrollY + GAME_HEIGHT + 60
+        );
+        vx = spd;
+        vy = (Math.random() - 0.5) * spd * 0.3;
+        break;
+      default:
+        x = cam.scrollX + GAME_WIDTH + 60;
+        y = Phaser.Math.Between(
+          cam.scrollY - 60,
+          cam.scrollY + GAME_HEIGHT + 60
+        );
+        vx = -spd;
+        vy = (Math.random() - 0.5) * spd * 0.3;
+        break;
+    }
+
+    const tex = Math.random() > 0.5 ? 'boss_wave_large' : 'boss_wave_small';
+    const isLarge = tex === 'boss_wave_large';
+    const wave = this.waveGroup.create(
+      x,
+      y,
+      tex
+    ) as Phaser.Physics.Arcade.Image;
+    wave.setDepth(D.WAVES).setAlpha(0.7);
+    wave.displayWidth = isLarge ? DW_WAVE_LARGE : DW_WAVE_SMALL;
+    wave.scaleY = wave.scaleX;
+    const waveBody = arcadeBody(wave);
+    waveBody.setCircle(isLarge ? CR_WAVE_LARGE : CR_WAVE_SMALL);
+    waveBody.velocity.set(vx, vy);
+
+    const lifetime = 8000 + Math.random() * 4000;
+    this.time.delayedCall(lifetime, () => {
+      this.tweens.add({
+        targets: wave,
+        alpha: 0,
+        duration: 400,
+        onComplete: () => {
+          if (wave.active) wave.destroy();
         }
       });
-      this.hazards = [];
-      this.showWaveIntro(waveIndex + 1);
     });
   }
 
-  private emitObjective() {
-    this.game.events.emit(
-      GAME_EVENTS.HUD_OBJECTIVE,
-      {
-        text:
-          this.currentWave < this.waves.length
-            ? `Survive: ${this.waves[this.currentWave].name}`
-            : 'All waves cleared!',
-        progress: this.currentWave + 1,
-        target: this.waves.length,
-      } satisfies HUDObjectivePayload
+  private onWaveOverlap(_boat: PhysOverlapObj, _wave: PhysOverlapObj) {
+    if (this.stunned || this.phase === 5 || this.isComplete) return;
+    const wave = _wave as Phaser.Physics.Arcade.Image;
+    const waveBody = arcadeBody(wave);
+    const vx = waveBody.velocity.x;
+    const vy = waveBody.velocity.y;
+    const len = Math.sqrt(vx * vx + vy * vy) || 1;
+
+    const boatBody = arcadeBody(this.boat);
+    boatBody.velocity.x += (vy / len) * 120;
+    boatBody.velocity.y += (-vx / len) * 120;
+    this.speed *= 0.85;
+
+    this.damageBoat(DMG.WAVE);
+    this.spawnSplash(wave.x, wave.y);
+
+    this.tweens.add({
+      targets: wave,
+      alpha: 0,
+      scaleX: 0.3,
+      scaleY: 0.3,
+      duration: 250,
+      onComplete: () => {
+        if (wave.active) wave.destroy();
+      }
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  HAZARDS — DEBRIS  (Depth 4)
+  // ═══════════════════════════════════════════════════════════════════
+
+  private spawnDebris() {
+    if (this.phase < 2 || this.phase === 5) return;
+
+    let available: DebrisKind[];
+    if (this.phase === 2) available = ['debris_log'];
+    else if (this.phase === 3) available = ['debris_log', 'debris_barrel'];
+    else available = ['debris_log', 'debris_barrel', 'debris_crate'];
+
+    const kind = available[Math.floor(Math.random() * available.length)];
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 250 + Math.random() * 350;
+    const sx = Phaser.Math.Clamp(
+      this.boat.x + Math.cos(angle) * dist,
+      30,
+      WORLD_W - 30
     );
+    const sy = Phaser.Math.Clamp(
+      this.boat.y + Math.sin(angle) * dist,
+      50,
+      WORLD_H - 50
+    );
+
+    const sprite = this.debrisGroup.create(
+      sx,
+      sy,
+      kind
+    ) as Phaser.Physics.Arcade.Image;
+    sprite.setDepth(D.HAZARDS);
+    sprite.displayWidth =
+      kind === 'debris_log'
+        ? DW_LOG
+        : kind === 'debris_barrel'
+          ? DW_BARREL
+          : DW_CRATE;
+    sprite.scaleY = sprite.scaleX;
+    const body = arcadeBody(sprite);
+    body.setCircle(
+      kind === 'debris_log'
+        ? CR_LOG
+        : kind === 'debris_barrel'
+          ? CR_BARREL
+          : CR_CRATE
+    );
+
+    // Slight drift
+    body.velocity.set((Math.random() - 0.5) * 15, (Math.random() - 0.5) * 15);
+
+    this.time.delayedCall(20000, () => this.despawnDebris(sprite));
+  }
+
+  private despawnDebris(sprite: Phaser.Physics.Arcade.Image) {
+    this.tweens.add({
+      targets: sprite,
+      alpha: 0,
+      duration: 500,
+      onComplete: () => {
+        if (sprite.active) sprite.destroy();
+      }
+    });
+  }
+
+  private onDebrisOverlap(_boat: PhysOverlapObj, _debris: PhysOverlapObj) {
+    if (this.stunned || this.phase === 5 || this.isComplete) return;
+    const sprite = _debris as Phaser.Physics.Arcade.Image;
+
+    // Determine damage based on texture key
+    let dmg: number;
+    if (sprite.texture.key === 'debris_log') dmg = DMG.LOG;
+    else if (sprite.texture.key === 'debris_barrel') dmg = DMG.BARREL;
+    else dmg = DMG.CRATE;
+
+    this.damageBoat(dmg);
+    this.spawnSplash(sprite.x, sprite.y);
+
+    // Bounce boat
+    const pushAngle = Math.atan2(
+      sprite.y - this.boat.y,
+      sprite.x - this.boat.x
+    );
+    const boatBody = arcadeBody(this.boat);
+    boatBody.velocity.x -= Math.cos(pushAngle) * 80;
+    boatBody.velocity.y -= Math.sin(pushAngle) * 80;
+    this.speed = Math.max(-50, this.speed - 60);
+
+    this.despawnDebris(sprite);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  HAZARDS — LIGHTNING  (Depth 10)
+  // ═══════════════════════════════════════════════════════════════════
+
+  private updateLightning(dt: number) {
+    if (this.phase < 4 || this.phase === 5) {
+      this.lightning.phase = 'idle';
+      this.lightning.cooldown = 3;
+      return;
+    }
+
+    switch (this.lightning.phase) {
+      case 'idle':
+        this.lightning.cooldown -= dt;
+        if (this.lightning.cooldown <= 0) {
+          this.lightning.phase = 'warning';
+          this.lightning.warnTimer = LIGHTNING_WARN_DUR;
+          this.lightning.cooldown = 5 + Math.random() * 4;
+
+          const ox = (Math.random() - 0.5) * 350;
+          const oy = (Math.random() - 0.5) * 250;
+          this.lightning.warnX = Phaser.Math.Clamp(
+            this.boat.x + ox,
+            30,
+            WORLD_W - 30
+          );
+          this.lightning.warnY = Phaser.Math.Clamp(
+            this.boat.y + oy,
+            40,
+            WORLD_H - 40
+          );
+
+          this.lightning.warningSprite = this.add
+            .image(
+              this.lightning.warnX,
+              this.lightning.warnY,
+              'lightning_warning'
+            )
+            .setDepth(D.LIGHTNING)
+            .setAlpha(0)
+            .setScale(0.5);
+          this.tweens.add({
+            targets: this.lightning.warningSprite,
+            alpha: 1,
+            scaleX: 1,
+            scaleY: 1,
+            duration: 250,
+            ease: 'Sine.easeOut'
+          });
+        }
+        break;
+
+      case 'warning':
+        this.lightning.warnTimer -= dt;
+        if (this.lightning.warningSprite) {
+          this.lightning.warningSprite.setAlpha(
+            0.5 + Math.sin(this.lightning.warnTimer * 14) * 0.5
+          );
+        }
+        if (this.lightning.warnTimer <= 0) this.executeLightningStrike();
+        break;
+
+      case 'cooldown':
+        this.lightning.warnTimer -= dt;
+        if (this.lightning.warnTimer <= 0) this.lightning.phase = 'idle';
+        break;
+    }
+  }
+
+  private executeLightningStrike() {
+    this.lightning.phase = 'strike';
+    if (this.lightning.warningSprite) {
+      this.lightning.warningSprite.destroy();
+      this.lightning.warningSprite = undefined;
+    }
+
+    // Bolt sprite
+    this.lightning.boltSprite = this.add
+      .image(
+        this.lightning.warnX,
+        this.lightning.warnY,
+        'boss_lightning_strike'
+      )
+      .setDepth(D.LIGHTNING)
+      .setAlpha(1);
+    this.lightning.boltSprite.displayWidth = DW_LIGHTNING_STRIKE;
+    this.lightning.boltSprite.scaleY = this.lightning.boltSprite.scaleX;
+
+    // Screen flash
+    const flash = this.add
+      .rectangle(
+        GAME_WIDTH / 2,
+        GAME_HEIGHT / 2,
+        GAME_WIDTH,
+        GAME_HEIGHT,
+        0xffffff,
+        0.35
+      )
+      .setScrollFactor(0)
+      .setDepth(D.LIGHTNING + 1);
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 400,
+      onComplete: () => flash.destroy()
+    });
+
+    // Fade bolt
+    this.tweens.add({
+      targets: this.lightning.boltSprite,
+      alpha: 0,
+      duration: 500,
+      onComplete: () => {
+        if (this.lightning.boltSprite) {
+          this.lightning.boltSprite.destroy();
+          this.lightning.boltSprite = undefined;
+        }
+      }
+    });
+
+    this.cameras.main.shake(300, 0.008);
+
+    // Damage check (distance-based, not physics overlap, since it's an area effect)
+    const dist = Phaser.Math.Distance.Between(
+      this.boat.x,
+      this.boat.y,
+      this.lightning.warnX,
+      this.lightning.warnY
+    );
+    if (dist < LIGHTNING_STRIKE_RADIUS) {
+      this.damageBoat(DMG.LIGHTNING);
+      this.stunned = true;
+      this.stunTimer = 0.5;
+    }
+
+    this.lightning.phase = 'cooldown';
+    this.lightning.warnTimer = 1.2;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  DAMAGE & RESPAWN
+  // ═══════════════════════════════════════════════════════════════════
+
+  private damageBoat(amount: number) {
+    if (this.phase === 5 || this.isFailed || this.isComplete) return;
+    this.integrity = Math.max(0, this.integrity - amount);
+    this.emitHealth();
+    this.cameras.main.shake(180, 0.006 * (amount / 25));
+    this.boat.setTint(0xff4444);
+    this.time.delayedCall(180, () => {
+      if (this.boat.active) this.boat.clearTint();
+    });
+    if (this.integrity <= 0) this.failMission();
+  }
+
+  private failMission() {
+    if (this.isFailed || this.isComplete) return;
+    this.isFailed = true;
+
+    this.game.events.emit(GAME_EVENTS.HUD_RESULT, {
+      type: 'fail',
+      title: 'Vessel Damaged',
+      subtitle: 'Returning to last checkpoint...',
+      score: this.score,
+      stars: 0,
+      levelId: 'boss',
+      timeUsed: this.elapsed,
+      factsUnlocked: []
+    } satisfies HUDResultPayload);
+
+    this.time.delayedCall(2000, () => this.respawnAtCheckpoint());
+  }
+
+  private respawnAtCheckpoint() {
+    this.isFailed = false;
+    this.integrity = MAX_INTEGRITY;
+    this.emitHealth();
+    this.stunned = false;
+
+    let rx = PLAYER_START_X,
+      ry = PLAYER_START_Y;
+    if (this.lastCheckpoint >= 0 && this.lastCheckpoint < BUOY_DEFS.length) {
+      rx = BUOY_DEFS[this.lastCheckpoint].x + 100;
+      ry = BUOY_DEFS[this.lastCheckpoint].y;
+    }
+
+    this.boat.setPosition(rx, ry);
+    this.speed = 0;
+    this.lateralDrift = 0;
+    this.heading = 0;
+    this.boat.rotation = 0;
+    arcadeBody(this.boat).velocity.set(0, 0);
+
+    this.cameras.main.fadeIn(500, 0, 0, 0);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  SPLASH / EFFECTS
+  // ═══════════════════════════════════════════════════════════════════
+
+  private spawnSplash(x: number, y: number) {
+    const tex = this.textures.exists('water_particles')
+      ? 'water_particles'
+      : 'boss_splash';
+    for (let i = 0; i < 6; i++) {
+      const p = this.add
+        .image(x, y, tex)
+        .setDepth(D.WAVES + 0.5)
+        .setAlpha(0.8);
+      p.displayWidth = DW_WATER_PARTICLE;
+      p.scaleY = p.scaleX;
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 15 + Math.random() * 40;
+      this.tweens.add({
+        targets: p,
+        x: x + Math.cos(angle) * dist,
+        y: y + Math.sin(angle) * dist,
+        alpha: 0,
+        scaleX: 0.1,
+        scaleY: 0.1,
+        duration: 350 + Math.random() * 200,
+        ease: 'Sine.easeOut',
+        onComplete: () => p.destroy()
+      });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  CAMERA
+  // ═══════════════════════════════════════════════════════════════════
+
+  setupCamera() {
+    this.cameras.main.startFollow(this.boat, true, 0.08, 0.08);
+    this.cameras.main.setFollowOffset(-300, 0);
+    this.cameras.main.setZoom(1);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  INPUT
+  // ═══════════════════════════════════════════════════════════════════
+
+  setupInput() {
+    this.keys = {
+      W: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.W),
+      A: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+      S: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.S),
+      D: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+      UP: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
+      DOWN: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN),
+      LEFT: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
+      RIGHT: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT)
+    };
+
+    this.input.keyboard!.on('keydown-E', () => {
+      if (this.nearBuoy && !this.collecting && !this.showingFact)
+        this.startCollection();
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  HUD EMITTERS
+  // ═══════════════════════════════════════════════════════════════════
+
+  private emitIntro() {
+    this.game.events.emit(GAME_EVENTS.HUD_LEVEL_INFO, {
+      name: 'Ride the Storm',
+      description:
+        'Navigate your research vessel through the typhoon to collect weather data!'
+    } satisfies HUDLevelInfoPayload);
+    this.emitHealth();
+    this.emitScore();
+    this.time.delayedCall(1500, () => this.activateCheckpoint(0));
   }
 
   private emitHealth() {
-    this.game.events.emit(
-      GAME_EVENTS.HUD_HEALTH,
-      { current: this.shipHealth, max: this.maxHealth, label: 'Ship' } satisfies HUDHealthPayload
-    );
-    this.game.events.emit(
-      GAME_EVENTS.HUD_HEALTH,
-      { current: this.bossHealth, max: this.maxHealth, label: 'Storm' } satisfies HUDHealthPayload
-    );
+    this.game.events.emit(GAME_EVENTS.HUD_HEALTH, {
+      current: this.integrity,
+      max: MAX_INTEGRITY,
+      label: 'Boat Integrity'
+    } satisfies HUDHealthPayload);
   }
 
-  // ═══════════════════════════════════════════════
-  //  HAZARD SPAWNING
-  // ═══════════════════════════════════════════════
-
-  private spawnHazard(wave: WaveConfig) {
-    if (this.isComplete) return;
-    const type = Phaser.Utils.Array.GetRandom(wave.hazards);
-    let x: number, y: number, vx: number, vy: number;
-
-    switch (type) {
-      case 'lightning':
-        x = Phaser.Math.Between(80, GAME_WIDTH - 80);
-        y = 0;
-        vx = 0;
-        vy = Phaser.Math.Between(300, 500);
-        break;
-      case 'wave':
-        x = Math.random() > 0.5 ? -20 : GAME_WIDTH + 20;
-        y = GAME_HEIGHT - Phaser.Math.Between(60, 140);
-        vx = (x < 0 ? 1 : -1) * Phaser.Math.Between(100, 220);
-        vy = Phaser.Math.Between(-30, 10);
-        break;
-      case 'wind':
-        x = -20;
-        y = Phaser.Math.Between(80, GAME_HEIGHT - 120);
-        vx = Phaser.Math.Between(200, 400) * (1 + wave.intensity * 0.5);
-        vy = Phaser.Math.Between(-50, 50);
-        break;
-      case 'debris':
-        x = Phaser.Math.Between(50, GAME_WIDTH - 50);
-        y = -20;
-        vx = Phaser.Math.Between(-120, 120);
-        vy = Phaser.Math.Between(150, 350);
-        break;
-      default:
-        x = Phaser.Math.Between(0, GAME_WIDTH);
-        y = -10;
-        vx = Phaser.Math.Between(-30, 30);
-        vy = Phaser.Math.Between(300, 500);
-        break;
-    }
-
-    const gfx = this.add.graphics().setDepth(DEPTH.GAME_OBJECTS);
-    const hazard: Hazard = {
-      gfx,
-      type,
-      vx,
-      vy,
-      active: true,
-      rot: Math.random() * Math.PI * 2,
-      rotSpeed: (Math.random() - 0.5) * 0.1,
-    };
-
-    // Draw the hazard shape
-    this.drawHazardShape(gfx, type, wave.intensity);
-
-    // Lightning special: flash + bolt
-    if (type === 'lightning') {
-      this.flashLightning(x);
-    }
-
-    this.hazards.push(hazard);
-
-    // Auto-destroy after 5s
-    this.time.delayedCall(5000, () => {
-      if (hazard.active) {
-        hazard.active = false;
-        hazard.gfx.destroy();
-      }
-    });
+  private emitScore() {
+    this.game.events.emit(GAME_EVENTS.HUD_SCORE, {
+      score: this.score,
+      label: 'Research Data'
+    } satisfies HUDScorePayload);
   }
 
-  private drawHazardShape(gfx: Phaser.GameObjects.Graphics, type: string, intensity: number) {
-    const i = intensity;
+  private emitWeather() {
+    this.game.events.emit(GAME_EVENTS.HUD_WEATHER, {
+      temperature: 28 - this.phase * 2,
+      humidity: 60 + this.phase * 9,
+      windSpeed: 20 + this.phase * 40,
+      stormLevel: this.phase === 5 ? 0 : this.phase
+    } satisfies HUDWeatherPayload);
+  }
 
-    switch (type) {
-      case 'lightning':
-        // Bolt core — will be drawn at position in update
-        gfx.lineStyle(3, 0xffffaa, 1);
-        break;
-      case 'wave': {
-        // Large crest shape
-        const w = 30 + i * 30;
-        const h = 8 + i * 10;
-        gfx.fillStyle(0x1a6aaa, 0.6);
-        gfx.fillEllipse(0, 0, w, h);
-        // Foam cap
-        gfx.fillStyle(0xffffff, 0.3 + i * 0.3);
-        gfx.fillEllipse(0, -h * 0.3, w * 0.7, h * 0.3);
-        break;
-      }
-      case 'wind': {
-        // Streak with trail
-        const len = 20 + i * 20;
-        gfx.lineStyle(2 + i * 3, 0x88ccff, 0.4 + i * 0.4);
-        gfx.beginPath();
-        gfx.moveTo(-len, 0);
-        gfx.lineTo(0, 0);
-        gfx.strokePath();
-        // Wind tip
-        gfx.fillStyle(0xffffff, 0.5 + i * 0.3);
-        gfx.fillCircle(0, 0, 2 + i * 2);
-        break;
-      }
-      case 'debris': {
-        // Rotating plank
-        const dw = 6 + i * 6;
-        const dh = 3 + i * 3;
-        gfx.fillStyle(0x8B4513, 0.8);
-        gfx.fillRect(-dw / 2, -dh / 2, dw, dh);
-        // Edge highlight
-        gfx.lineStyle(1, 0xaa6633, 0.5);
-        gfx.strokeRect(-dw / 2, -dh / 2, dw, dh);
-        break;
-      }
-      default: {
-        // Rain drop — angled line
-        const len = 4 + i * 3;
-        gfx.lineStyle(1.5, 0x6699ff, 0.3 + i * 0.3);
-        gfx.beginPath();
-        gfx.moveTo(0, 0);
-        gfx.lineTo(2 + i, len);
-        gfx.strokePath();
-        break;
-      }
+  private updateObjectiveDisplay() {
+    if (this.activeIdx >= 0 && this.activeIdx < BUOY_DEFS.length) {
+      this.game.events.emit(GAME_EVENTS.HUD_OBJECTIVE, {
+        text: `Collect ${BUOY_DEFS[this.activeIdx].label} Data`,
+        progress: this.collected.filter(Boolean).length,
+        target: 4
+      } satisfies HUDObjectivePayload);
+    } else if (this.activeIdx === BUOY_DEFS.length) {
+      this.game.events.emit(GAME_EVENTS.HUD_OBJECTIVE, {
+        text: 'Reach the Eye of the Typhoon',
+        progress: 4,
+        target: 4
+      } satisfies HUDObjectivePayload);
     }
   }
 
-  // ═══════════════════════════════════════════════
-  //  LIGHTNING
-  // ═══════════════════════════════════════════════
-
-  private flashLightning(x: number) {
-    // Screen white flash
-    this.lightningFlashGfx.clear();
-    this.lightningFlashGfx.fillStyle(0xffffff, 0.6 + Math.random() * 0.3);
-    this.lightningFlashGfx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-    this.time.delayedCall(60, () => {
-      this.lightningFlashGfx.clear();
-      this.lightningFlashGfx.fillStyle(0xffffff, 0);
-      this.lightningFlashGfx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-    });
-
-    // Draw branching bolt
-    const boltGfx = this.add.graphics().setDepth(DEPTH.GAME_OBJECTS + 2);
-    this.lightningBolts.push(boltGfx);
-    const targetX = x + Phaser.Math.Between(-30, 30);
-
-    this.drawLightningBolt(x, 0, targetX, GAME_HEIGHT * 0.6, boltGfx);
-
-    // Cascade shake
-    this.cameras.main.shake(150, 0.008);
-    this.time.delayedCall(150, () => this.cameras.main.shake(100, 0.005));
-    this.time.delayedCall(300, () => this.cameras.main.shake(60, 0.003));
-
-    // Auto-remove bolt after flash
-    this.time.delayedCall(400, () => {
-      boltGfx.destroy();
-      const idx = this.lightningBolts.indexOf(boltGfx);
-      if (idx >= 0) this.lightningBolts.splice(idx, 1);
-    });
-  }
-
-  private drawLightningBolt(x1: number, y1: number, x2: number, y2: number, gfx: Phaser.GameObjects.Graphics) {
-    const segments = Phaser.Math.Between(6, 10);
-    const pts: { x: number; y: number }[] = [];
-    pts.push({ x: x1, y: y1 });
-
-    for (let i = 1; i < segments; i++) {
-      const t = i / segments;
-      pts.push({
-        x: x1 + (x2 - x1) * t + Phaser.Math.Between(-35, 35),
-        y: y1 + (y2 - y1) * t + Phaser.Math.Between(-15, 15),
-      });
-    }
-    pts.push({ x: x2, y: y2 });
-
-    // Glow
-    gfx.lineStyle(6, 0xffffff, 0.15);
-    this.drawBoltPath(gfx, pts);
-    // Mid
-    gfx.lineStyle(3, 0xffffaa, 0.5);
-    this.drawBoltPath(gfx, pts);
-    // Core
-    gfx.lineStyle(1.5, 0xffffff, 1);
-    this.drawBoltPath(gfx, pts);
-
-    // Branches
-    const branchCount = Phaser.Math.Between(1, 3);
-    for (let b = 0; b < branchCount; b++) {
-      const bp = pts[Phaser.Math.Between(2, segments - 2)];
-      const bex = bp.x + Phaser.Math.Between(-80, 80);
-      const bey = bp.y + Phaser.Math.Between(40, 100);
-      gfx.lineStyle(1.5, 0xffffaa, 0.4);
-      this.drawBoltPath(gfx, [bp, { x: bex, y: bey }]);
-    }
-  }
-
-  private drawBoltPath(gfx: Phaser.GameObjects.Graphics, pts: { x: number; y: number }[]) {
-    gfx.beginPath();
-    gfx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) {
-      gfx.lineTo(pts[i].x, pts[i].y);
-    }
-    gfx.strokePath();
-  }
-
-  // ═══════════════════════════════════════════════
-  //  FOAM / OCEAN EFFECTS
-  // ═══════════════════════════════════════════════
-
-  private spawnFoam() {
-    if (this.isComplete) return;
-    const intensity = this.waves[this.currentWave]?.intensity ?? 0.3;
-    if (intensity < 0.3) return;
-
-    const count = 1 + Math.floor(intensity * 2);
-    for (let i = 0; i < count; i++) {
-      const fx = Phaser.Math.Between(0, GAME_WIDTH);
-      const fy = GAME_HEIGHT - Phaser.Math.Between(10, 40);
-      const foam = this.add
-        .circle(fx, fy, Phaser.Math.Between(2, 5), 0xffffff, 0.2 + intensity * 0.2)
-        .setDepth(DEPTH.PARTICLES);
-      this.foamParticles.push(foam);
-
-      this.tweens.add({
-        targets: foam,
-        x: fx + Phaser.Math.Between(-30, 30),
-        alpha: 0,
-        scale: 0.2,
-        duration: 800 + Math.random() * 500,
-        onComplete: () => {
-          foam.destroy();
-          const idx = this.foamParticles.indexOf(foam);
-          if (idx >= 0) this.foamParticles.splice(idx, 1);
-        },
-      });
-    }
-  }
-
-  // ═══════════════════════════════════════════════
-  //  SHIP DAMAGE EFFECTS
-  // ═══════════════════════════════════════════════
-
-  private updateShipDamage() {
-    const hpPct = this.shipHealth / this.maxHealth;
-
-    // Clean up excess particles
-    const maxSmoke = hpPct < 0.4 ? 15 : hpPct < 0.7 ? 8 : 0;
-    while (this.smokeParticles.length > maxSmoke) {
-      const p = this.smokeParticles.shift();
-      if (p) p.sprite.destroy();
-    }
-    const maxFire = hpPct < 0.25 ? 10 : hpPct < 0.5 ? 5 : 0;
-    while (this.fireParticles.length > maxFire) {
-      const p = this.fireParticles.shift();
-      if (p) p.sprite.destroy();
-    }
-
-    // Spawn smoke
-    if (hpPct < 0.7) {
-      const smokeRate = hpPct < 0.4 ? 2 : 1;
-      for (let i = 0; i < smokeRate; i++) {
-        const sx = this.shipX + Phaser.Math.Between(-15, 15);
-        const sy = this.shipY - 10;
-        const p = this.add
-          .circle(sx, sy, Phaser.Math.Between(3, 6), 0x666666, 0.5)
-          .setDepth(DEPTH.PARTICLES);
-        const particle: SmokeParticle = {
-          sprite: p,
-          vx: Phaser.Math.FloatBetween(-15, 15),
-          vy: Phaser.Math.FloatBetween(-40, -20),
-          life: 0,
-          maxLife: Phaser.Math.Between(500, 1000),
-        };
-        this.smokeParticles.push(particle);
-      }
-    }
-
-    // Spawn fire
-    if (hpPct < 0.5) {
-      for (let i = 0; i < 2; i++) {
-        const fx = this.shipX + Phaser.Math.Between(-12, 12);
-        const fy = this.shipY + Phaser.Math.Between(-8, 8);
-        const p = this.add
-          .circle(fx, fy, Phaser.Math.Between(2, 5), 0xff4400, 0.7)
-          .setDepth(DEPTH.PARTICLES + 1);
-        const particle: SmokeParticle = {
-          sprite: p,
-          vx: Phaser.Math.FloatBetween(-8, 8),
-          vy: Phaser.Math.FloatBetween(-20, -10),
-          life: 0,
-          maxLife: Phaser.Math.Between(300, 600),
-        };
-        this.fireParticles.push(particle);
-      }
-    }
-  }
-
-  // ═══════════════════════════════════════════════
-  //  COLLISION
-  // ═══════════════════════════════════════════════
-
-  private checkCollisions() {
-    if (this.isComplete) return;
-
-    for (const hazard of this.hazards) {
-      if (!hazard.active) continue;
-
-      const dist = Phaser.Math.Distance.Between(
-        this.shipX,
-        this.shipY,
-        hazard.gfx.x,
-        hazard.gfx.y
-      );
-      const hitRadius =
-        hazard.type === 'wave' ? 28 : hazard.type === 'lightning' ? 18 : hazard.type === 'debris' ? 20 : 14;
-
-      if (dist < hitRadius) {
-        hazard.active = false;
-        hazard.gfx.destroy();
-
-        const dmgMap: Record<string, number> = {
-          lightning: 14,
-          wave: 10,
-          debris: 7,
-          wind: 5,
-          rain: 2,
-        };
-        let damage = dmgMap[hazard.type] || 2;
-        damage *= this.waves[this.currentWave]?.intensity || 0.3;
-        damage = Math.max(1, Math.round(damage));
-
-        this.shipHealth = Math.max(0, this.shipHealth - damage);
-        this.emitHealth();
-
-        this.game.events.emit(
-          GAME_EVENTS.HUD_SCORE,
-          {
-            score: Math.round((1 - this.shipHealth / this.maxHealth) * 2000),
-            label: 'Survival',
-          } satisfies HUDScorePayload
-        );
-
-        // Impact effects
-        const shakeIntensity = 0.003 * damage;
-        this.cameras.main.shake(120, shakeIntensity);
-
-        // Damage particles (red sparks)
-        for (let i = 0; i < 5; i++) {
-          const p = this.add
-            .circle(
-              this.shipX + Phaser.Math.Between(-10, 10),
-              this.shipY + Phaser.Math.Between(-10, 10),
-              Phaser.Math.Between(2, 4),
-              0xff4444,
-              0.8
-            )
-            .setDepth(DEPTH.PARTICLES + 2);
-          this.tweens.add({
-            targets: p,
-            x: this.shipX + Phaser.Math.Between(-40, 40),
-            y: this.shipY + Phaser.Math.Between(-40, 40),
-            alpha: 0,
-            scale: 0.2,
-            duration: 400,
-            onComplete: () => p.destroy(),
-          });
-        }
-
-        // Ship hit flash
-        this.shipDamageGfx.clear();
-        this.shipDamageGfx.fillStyle(0xff0000, 0.3);
-        this.shipDamageGfx.fillCircle(this.shipX, this.shipY, 25);
-        this.time.delayedCall(150, () => this.shipDamageGfx.clear());
-
-        // Boss takes damage too
-        if (!this.bossDefeated) {
-          this.bossHealth -= damage * 0.7;
-          this.bossHealth = Math.max(0, this.bossHealth);
-          this.emitHealth();
-
-          if (this.bossHealth <= 0) {
-            this.bossDefeated = true;
-            // Don't instantly win — finish current wave
-          }
-        }
-
-        if (this.shipHealth <= 0) {
-          this.failLevel();
-          return;
-        }
-      }
-    }
-  }
-
-  // ═══════════════════════════════════════════════
-  //  SHIP DRAWING
-  // ═══════════════════════════════════════════════
-
-  private drawShip() {
-    const gfx = this.shipGfx;
-    gfx.clear();
-
-    const x = this.shipX;
-    const y = this.shipY;
-    const sway = Math.sin(this.oceanTime * 4) * 1.5; // gentle rocking
-    const sy = y + sway;
-
-    // ── Hull ──
-    // Main hull (trapezoid - wider at bottom)
-    gfx.fillStyle(0x3a4a5a, 1);
-    gfx.beginPath();
-    gfx.moveTo(x, sy - 22); // bow point
-    gfx.lineTo(x + 28, sy + 14); // starboard stern
-    gfx.lineTo(x + 22, sy + 18); // starboard bottom
-    gfx.lineTo(x - 22, sy + 18); // port bottom
-    gfx.lineTo(x - 28, sy + 14); // port stern
-    gfx.closePath();
-    gfx.fillPath();
-
-    // Hull outline
-    gfx.lineStyle(1.5, 0x5a6a7a, 0.7);
-    gfx.strokePath();
-
-    // Waterline stripe (red)
-    gfx.fillStyle(0x992222, 0.8);
-    gfx.fillRect(x - 24, sy + 12, 48, 4);
-
-    // ── Deck ──
-    gfx.fillStyle(0x5a6a6a, 1);
-    gfx.beginPath();
-    gfx.moveTo(x, sy - 18);
-    gfx.lineTo(x + 24, sy + 10);
-    gfx.lineTo(x - 24, sy + 10);
-    gfx.closePath();
-    gfx.fillPath();
-
-    // Deck line
-    gfx.lineStyle(1, 0x6a7a7a, 0.5);
-    gfx.beginPath();
-    gfx.moveTo(x, sy - 18);
-    gfx.lineTo(x + 24, sy + 10);
-    gfx.strokePath();
-    gfx.beginPath();
-    gfx.moveTo(x, sy - 18);
-    gfx.lineTo(x - 24, sy + 10);
-    gfx.strokePath();
-
-    // ── Cabin / Wheelhouse ──
-    gfx.fillStyle(0x4a5a5a, 1);
-    gfx.fillRect(x - 12, sy - 18, 24, 14);
-
-    // Cabin outline
-    gfx.lineStyle(1, 0x6a7a8a, 0.6);
-    gfx.strokeRect(x - 12, sy - 18, 24, 14);
-
-    // Cabin roof
-    gfx.fillStyle(0x6a7a7a, 0.8);
-    gfx.fillRect(x - 13, sy - 19, 26, 3);
-
-    // ── Windows (lit cabin) ──
-    const windowColor = 0x88ccff;
-    const windowAlpha = 0.7 + Math.sin(this.oceanTime * 3) * 0.15;
-    gfx.fillStyle(windowColor, windowAlpha);
-    gfx.fillRect(x - 8, sy - 15, 5, 4);
-    gfx.fillRect(x + 3, sy - 15, 5, 4);
-
-    // ── Mast ──
-    gfx.lineStyle(2, 0x7a8a8a, 0.9);
-    gfx.beginPath();
-    gfx.moveTo(x, sy - 10);
-    gfx.lineTo(x, sy - 40);
-    gfx.strokePath();
-
-    // ── Mast cross-arm ──
-    gfx.lineStyle(1.5, 0x7a8a8a, 0.7);
-    gfx.beginPath();
-    gfx.moveTo(x - 8, sy - 30);
-    gfx.lineTo(x + 8, sy - 30);
-    gfx.strokePath();
-
-    // ── Radar dish (spinning) ──
-    const radarAngle = this.oceanTime * 3;
-    gfx.lineStyle(1.5, 0x88dd88, 0.6);
-    gfx.beginPath();
-    gfx.moveTo(x, sy - 40);
-    gfx.lineTo(x + Math.cos(radarAngle) * 8, sy - 42 + Math.sin(radarAngle) * 4);
-    gfx.strokePath();
-    gfx.fillStyle(0x88dd88, 0.4);
-    gfx.fillCircle(x, sy - 40, 2);
-
-    // ── Exhaust stack (engine room) ──
-    gfx.fillStyle(0x3a3a3a, 0.9);
-    gfx.fillRect(x + 10, sy - 4, 6, 8);
-    gfx.lineStyle(1, 0x5a5a5a, 0.5);
-    gfx.strokeRect(x + 10, sy - 4, 6, 8);
-
-    // ── Bow railing ──
-    gfx.lineStyle(0.5, 0x8a9a9a, 0.4);
-    gfx.beginPath();
-    gfx.moveTo(x - 6, sy - 12);
-    gfx.lineTo(x, sy - 22);
-    gfx.lineTo(x + 6, sy - 12);
-    gfx.strokePath();
-
-    // ── Stern flag ──
-    const flagWave = Math.sin(this.oceanTime * 5) * 2;
-    gfx.lineStyle(1, 0x888888, 0.5);
-    gfx.beginPath();
-    gfx.moveTo(x - 28, sy + 4);
-    gfx.lineTo(x - 28, sy - 4);
-    gfx.strokePath();
-    gfx.fillStyle(0x2244aa, 0.7);
-    gfx.beginPath();
-    gfx.moveTo(x - 28, sy - 4);
-    gfx.lineTo(x - 28 + 8 + flagWave, sy - 2);
-    gfx.lineTo(x - 28, sy);
-    gfx.closePath();
-    gfx.fillPath();
-
-    // ── Bow wake ──
-    gfx.lineStyle(1.5, 0xffffff, 0.15 + Math.sin(this.oceanTime * 3) * 0.08);
-    gfx.beginPath();
-    gfx.moveTo(x, sy - 20);
-    gfx.lineTo(x - 15, sy - 10);
-    gfx.strokePath();
-    gfx.beginPath();
-    gfx.moveTo(x, sy - 20);
-    gfx.lineTo(x + 15, sy - 10);
-    gfx.strokePath();
-  }
-
-  // ═══════════════════════════════════════════════
-  //  OCEAN DRAWING
-  // ═══════════════════════════════════════════════
-
-  private drawOcean() {
-    this.oceanGfx.clear();
-
-    const intensity = this.waves[this.currentWave]?.intensity ?? 0.3;
-    const waveHeight = 6 + intensity * 12;
-    const time = this.oceanTime;
-
-    // Dark ocean base
-    this.oceanGfx.fillStyle(0x0a1a2a, 0.8);
-    this.oceanGfx.fillRect(0, GAME_HEIGHT - 40, GAME_WIDTH, 40);
-
-    // Multiple wave layers
-    const layers = [
-      { amp: waveHeight * 0.4, freq: 0.015, speed: 1.5, yOff: -10, color: 0x1a4a7a, alpha: 0.15 },
-      { amp: waveHeight * 0.6, freq: 0.025, speed: 2.0, yOff: 0, color: 0x2a5a8a, alpha: 0.2 },
-      { amp: waveHeight * 0.8, freq: 0.035, speed: 2.5, yOff: 10, color: 0x3a6a9a, alpha: 0.25 },
-    ];
-
-    for (const layer of layers) {
-      this.oceanGfx.lineStyle(2, layer.color, layer.alpha);
-      this.oceanGfx.beginPath();
-      this.oceanGfx.moveTo(0, GAME_HEIGHT - 30 + layer.yOff);
-      for (let x = 0; x <= GAME_WIDTH; x += 4) {
-        const y =
-          GAME_HEIGHT - 30 + layer.yOff +
-          Math.sin(x * layer.freq + time * layer.speed) * layer.amp +
-          Math.sin(x * layer.freq * 2.3 + time * layer.speed * 1.7) * layer.amp * 0.4;
-        this.oceanGfx.lineTo(x, y);
-      }
-      this.oceanGfx.strokePath();
-    }
-
-    // High-intensity: whitecap streaks
-    if (intensity > 0.5) {
-      const capAlpha = (intensity - 0.5) * 0.3;
-      for (let i = 0; i < 5; i++) {
-        const cx = ((i / 5) * GAME_WIDTH + time * 100 * (1 + i * 0.3)) % GAME_WIDTH;
-        const cy =
-          GAME_HEIGHT - 30 +
-          Math.sin(cx * 0.025 + time * 2) * waveHeight * 0.6;
-        this.oceanGfx.lineStyle(2, 0xffffff, capAlpha);
-        this.oceanGfx.beginPath();
-        this.oceanGfx.moveTo(cx - 15, cy);
-        this.oceanGfx.lineTo(cx + 10, cy - 2);
-        this.oceanGfx.strokePath();
-      }
-    }
-  }
-
-  // ═══════════════════════════════════════════════
-  //  BOSS TYPHOON BACKGROUND
-  // ═══════════════════════════════════════════════
-
-  private drawTyphoonBackground() {
-    const hpPct = this.bossHealth / this.maxHealth;
-    const intensity = Math.max(0.15, 1 - hpPct); // Weak at full HP, strong at low HP
-
-    const gfx = this.typhoonGfx;
-    const glowGfx = this.typhoonGlowGfx;
-    gfx.clear();
-    glowGfx.clear();
-
-    const cx = GAME_WIDTH * 0.78; // top-right corner
-    const cy = GAME_HEIGHT * 0.25;
-    const baseSize = 0.35 + intensity * 0.5;
-    const maxR = 25 + intensity * 100;
-    const rot = this.stormTime * 0.6;
-
-    // Outer glow
-    glowGfx.fillStyle(intensity > 0.5 ? 0x881111 : 0x114488, intensity * 0.06);
-    glowGfx.fillCircle(cx, cy, maxR * 1.8);
-
-    // Outer haze
-    gfx.fillStyle(0x8899aa, 0.015 + intensity * 0.02);
-    gfx.fillCircle(cx, cy, maxR * 1.3);
-
-    // Spiral rainbands (reduced complexity for background)
-    const arms = 2 + Math.floor(intensity * 2);
-    for (let arm = 0; arm < arms; arm++) {
-      const armAngle = (arm / arms) * Math.PI * 2 + rot;
-      for (let step = 0; step < 20; step++) {
-        const t = step / 20;
-        const angle = armAngle + t * 3 * Math.PI * 2 + Math.sin(t * 5 + arm) * 0.2;
-        const radius = 14 + t * (maxR * 0.85 - 14);
-        const sx = cx + Math.cos(angle) * radius;
-        const sy = cy + Math.sin(angle) * radius;
-        const thickness = (1 - t * 0.6) * (4 + intensity * 8);
-        const alpha = (0.08 + intensity * 0.15) * (1 - t * 0.5);
-        const gray = 160 - Math.floor(t * 60);
-        gfx.fillStyle(
-          Phaser.Display.Color.GetColor(gray, gray, gray + 20),
-          Math.max(0, alpha)
-        );
-        gfx.fillCircle(sx, sy, Math.max(1, thickness));
-      }
-    }
-
-    // Eyewall
-    const eyewallR = 7 + intensity * 18;
-    for (let i = 3; i >= 0; i--) {
-      const r = eyewallR + i * 4;
-      const alpha = (0.1 + intensity * 0.3) - i * 0.04;
-      const bright = 180 - i * 20 + intensity * 40;
-      gfx.fillStyle(
-        Phaser.Display.Color.GetColor(
-          Math.min(255, bright + 40),
-          Math.min(255, bright),
-          Math.min(255, bright)
-        ),
-        Math.max(0, alpha)
-      );
-      gfx.fillCircle(cx, cy, r);
-    }
-
-    // Eye
-    const eyeR = eyewallR * 0.3;
-    gfx.fillStyle(0x000000, 0.1 + intensity * 0.15);
-    gfx.fillCircle(cx, cy, eyeR * 1.2);
-    gfx.fillStyle(0xffffff, 0.03 + intensity * 0.06);
-    gfx.fillCircle(cx, cy, eyeR * 0.5);
-
-    // High intensity: red glow
-    if (intensity > 0.6) {
-      gfx.fillStyle(0xff4422, (intensity - 0.6) * 0.12);
-      gfx.fillCircle(cx, cy, eyewallR * 1.4);
-    }
-  }
-
-  // ═══════════════════════════════════════════════
-  //  ATMOSPHERE
-  // ═══════════════════════════════════════════════
-
-  private updateAtmosphere() {
-    const hpPct = this.bossHealth / this.maxHealth;
-    const intensity = 1 - hpPct;
-
-    // Dark overlay — gets darker as boss loses health
-    this.darkOverlay.clear();
-    const darkAlpha = intensity * 0.25;
-    this.darkOverlay.fillStyle(0x000000, darkAlpha);
-    this.darkOverlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-    // Fog — more intense at higher levels
-    this.fogGfx.clear();
-    if (intensity > 0.3) {
-      const fogAlpha = (intensity - 0.3) * 0.12;
-      for (let i = 0; i < 4; i++) {
-        const fx = ((i / 4) * GAME_WIDTH + this.stormTime * 20 * (1 + i * 0.5)) % (GAME_WIDTH + 200) - 100;
-        const fy = GAME_HEIGHT * 0.2 + Math.sin(this.stormTime * 0.3 + i * 1.5) * 40;
-        this.fogGfx.fillStyle(0x8899aa, fogAlpha);
-        this.fogGfx.fillEllipse(fx, fy, 300 + intensity * 200, 40 + intensity * 30);
-      }
-    }
-
-    // Background color shift — dark blue to dark red
-    const targetColor = Phaser.Display.Color.GetColor(
-      Math.round(5 + intensity * 30),
-      Math.round(5 + intensity * 5),
-      Math.round(16 + intensity * 5)
-    );
-    this.cameras.main.setBackgroundColor(targetColor);
-
-    // Screen pulse with boss HP (fast flash at low HP)
-    if (intensity > 0.7 && Math.random() < 0.05) {
-      this.cameras.main.flash(100, 30, 0, 0, false);
-    }
-  }
-
-  // ═══════════════════════════════════════════════
-  //  HAZARD UPDATE (position/rotation)
-  // ═══════════════════════════════════════════════
-
-  private updateHazards(delta: number) {
-    for (const hazard of this.hazards) {
-      if (!hazard.active) continue;
-
-      hazard.gfx.x += (hazard.vx / 60) * (delta / 16);
-      hazard.gfx.y += (hazard.vy / 60) * (delta / 16);
-      hazard.rot += hazard.rotSpeed * (delta / 16);
-      hazard.gfx.setRotation(hazard.rot);
-
-      // Remove if off-screen
-      if (
-        hazard.gfx.y > GAME_HEIGHT + 40 ||
-        hazard.gfx.y < -40 ||
-        hazard.gfx.x < -60 ||
-        hazard.gfx.x > GAME_WIDTH + 60
-      ) {
-        hazard.active = false;
-        hazard.gfx.destroy();
-      }
-    }
-  }
-
-  // ═══════════════════════════════════════════════
-  //  SMOKE / FIRE UPDATE
-  // ═══════════════════════════════════════════════
-
-  private updateParticles(particles: SmokeParticle[], dt: number) {
-    for (let i = particles.length - 1; i >= 0; i--) {
-      const p = particles[i];
-      p.life += dt;
-      const progress = p.life / p.maxLife;
-      p.sprite.x += p.vx * (dt / 16) * 0.05;
-      p.sprite.y += p.vy * (dt / 16) * 0.05;
-      p.sprite.setAlpha(Math.max(0, 1 - progress));
-      p.sprite.setScale(1 + progress * 2);
-      if (p.life >= p.maxLife) {
-        p.sprite.destroy();
-        particles.splice(i, 1);
-      }
-    }
-  }
-
-  // ═══════════════════════════════════════════════
-  //  VICTORY / FAIL
-  // ═══════════════════════════════════════════════
-
-  private victory() {
+  // ═══════════════════════════════════════════════════════════════════
+  //  MISSION COMPLETE
+  // ═══════════════════════════════════════════════════════════════════
+
+  private completeLevel() {
     if (this.isComplete) return;
     this.isComplete = true;
-    if (this.waveTimer) this.waveTimer.remove();
 
-    const healthBonus = Math.round(this.shipHealth * 5);
-    const bossBonus = this.bossDefeated ? 1500 : 500;
-    const timeBonus = Math.round((this.timeRemaining / this.totalTime) * 500);
-    const score = 2000 + healthBonus + bossBonus + timeBonus;
-    const stars = GameManager.getStars(score, 4000);
+    const timeBonus = Math.max(0, Math.floor(3000 - this.elapsed * 8));
+    this.score += timeBonus;
+    const finalScore = this.score;
+    const stars = finalScore >= 4000 ? 3 : finalScore >= 2500 ? 2 : 1;
 
-    GameManager.getInstance().completeLevel('boss', score, stars, this.totalTime - this.timeRemaining);
-    const saved = localStorage.getItem('unos_progress');
-    const progress = saved ? JSON.parse(saved) : {};
-    const existing = progress['boss'] || {};
-    progress['boss'] = {
-      completed: true,
-      bestScore: Math.max(existing.bestScore ?? 0, score),
-      bestTime: Math.min(existing.bestTime ?? 999, this.totalTime - this.timeRemaining),
-      stars: Math.max(existing.stars ?? 0, stars),
-      attempts: (existing.attempts ?? 0) + 1,
-      factsUnlocked: ['fact_boss'],
-    };
-    localStorage.setItem('unos_progress', JSON.stringify(progress));
+    // Weather fades
+    this.transitionToPhase(5);
 
-    // Epic victory sequence
-    this.cameras.main.flash(800, 255, 255, 255);
-    this.cameras.main.shake(300, 0.005);
+    this.cameras.main.flash(600, 255, 255, 255);
+    this.cameras.main.shake(400, 0.004);
 
-    // Brighten background
-    this.tweens.addCounter({
-      from: 0,
-      to: 1,
-      duration: 2000,
-      onUpdate: (tween) => {
-        const v = tween.getValue();
-        this.cameras.main.setBackgroundColor(
-          Phaser.Display.Color.GetColor(
-            Math.round(5 + (v ?? 0) * 40),
-            Math.round(5 + (v ?? 0) * 50),
-            Math.round(16 + (v ?? 0) * 80)
-          )
+    // Particle burst
+    for (let i = 0; i < 30; i++) {
+      this.time.delayedCall(i * 60, () => {
+        this.spawnSplash(
+          this.boat.x + (Math.random() - 0.5) * 150,
+          this.boat.y + (Math.random() - 0.5) * 100
         );
-      },
-    });
+      });
+    }
 
-    // "Storm Conquered!" text
-    const victoryText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 30, '🌅 Storm Conquered!', {
-        fontFamily: FONTS.DISPLAY,
-        fontSize: '38px',
-        color: '#06D6A0',
+    // Mission Complete title
+    const title = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 80, 'MISSION COMPLETE', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '40px',
+        color: '#ffdd44',
         stroke: '#000000',
-        strokeThickness: 5,
+        strokeThickness: 5
       })
       .setOrigin(0.5)
-      .setDepth(DEPTH.OVERLAY)
-      .setAlpha(0)
-      .setScale(0.01);
-
+      .setScrollFactor(0)
+      .setDepth(D.HUD + 1)
+      .setAlpha(0);
     this.tweens.add({
-      targets: victoryText,
+      targets: title,
       alpha: 1,
-      scale: 1,
-      duration: 600,
-      ease: 'Back.easeOut',
+      y: GAME_HEIGHT / 2 - 100,
+      duration: 1000,
+      ease: 'Back.easeOut'
     });
 
-    // Celebration particles
-    for (let i = 0; i < 25; i++) {
-      this.time.delayedCall(i * 40, () => {
-        const p = this.add
-          .circle(
-            Phaser.Math.Between(100, GAME_WIDTH - 100),
-            Phaser.Math.Between(100, GAME_HEIGHT - 100),
-            Phaser.Math.Between(3, 8),
-            0xffd166,
-            0.5
-          )
-          .setDepth(DEPTH.OVERLAY);
-        this.tweens.add({
-          targets: p,
-          scale: 2,
-          alpha: 0,
-          duration: 800,
-          onComplete: () => p.destroy(),
-        });
-      });
-    }
-
-    this.game.events.emit(
-      GAME_EVENTS.HUD_RESULT,
-      {
-        type: 'complete',
-        title: 'Storm Conquered!',
-        subtitle: 'You survived the typhoon and completed all stages!',
-        score,
-        stars,
-        levelId: 'boss',
-        timeUsed: this.totalTime - this.timeRemaining,
-        factsUnlocked: ['fact_boss'],
-      } satisfies HUDResultPayload
-    );
-  }
-
-  private failLevel() {
-    if (this.isComplete) return;
-    this.isComplete = true;
-    if (this.waveTimer) this.waveTimer.remove();
-
-    // Ship destruction effect
-    this.cameras.main.shake(500, 0.015);
-    this.cameras.main.flash(400, 200, 50, 50);
-
-    // Explosion particles
-    for (let i = 0; i < 15; i++) {
-      const p = this.add
-        .circle(
-          this.shipX + Phaser.Math.Between(-20, 20),
-          this.shipY + Phaser.Math.Between(-20, 20),
-          Phaser.Math.Between(3, 8),
-          0xff4400,
-          0.8
+    // Subtitle message
+    this.time.delayedCall(1800, () => {
+      const msg = this.add
+        .text(
+          GAME_WIDTH / 2,
+          GAME_HEIGHT / 2 + 20,
+          'Excellent work!\n\nYou successfully collected weather observations\ninside a tropical cyclone.\n\nThe information gathered helps meteorologists\nunderstand how typhoons develop\nand improve future forecasts.',
+          {
+            fontFamily: 'Arial, sans-serif',
+            fontSize: '18px',
+            color: '#ccddff',
+            align: 'center',
+            lineSpacing: 6,
+            stroke: '#000000',
+            strokeThickness: 2
+          }
         )
-        .setDepth(DEPTH.PARTICLES + 3);
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(D.HUD + 1)
+        .setAlpha(0);
       this.tweens.add({
-        targets: p,
-        x: this.shipX + Phaser.Math.Between(-80, 80),
-        y: this.shipY + Phaser.Math.Between(-80, 80),
-        alpha: 0,
-        scale: 0.1,
-        duration: 600,
-        onComplete: () => p.destroy(),
+        targets: msg,
+        alpha: 1,
+        duration: 800,
+        ease: 'Sine.easeInOut'
       });
-    }
 
-    const failText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2, '💥 Ship Lost!\nThe typhoon was too strong...', {
-        fontFamily: FONTS.DISPLAY,
-        fontSize: '28px',
-        color: '#D62828',
-        stroke: '#000000',
-        strokeThickness: 4,
-        align: 'center',
-      })
-      .setOrigin(0.5)
-      .setDepth(DEPTH.OVERLAY);
-
-    this.game.events.emit(
-      GAME_EVENTS.HUD_RESULT,
-      {
-        type: 'fail',
-        title: 'Ship Lost!',
-        subtitle: 'The typhoon was too strong',
-        score: 0,
-        stars: 0,
-        levelId: 'boss',
-        timeUsed: this.totalTime,
-        factsUnlocked: [],
-      } satisfies HUDResultPayload
-    );
+      this.time.delayedCall(4000, () => {
+        this.game.events.emit(GAME_EVENTS.HUD_RESULT, {
+          type: 'complete',
+          title: 'Mission Complete',
+          subtitle:
+            'You successfully navigated the typhoon and collected all weather data!',
+          score: finalScore,
+          stars,
+          levelId: 'boss',
+          timeUsed: this.elapsed,
+          factsUnlocked: BUOY_DEFS.map(d => `boss_${d.type}`)
+        } satisfies HUDResultPayload);
+      });
+    });
   }
 
-  private onContinue = () => {
-    this.game.events.off(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
-    this.scene.start(SCENES.WORLD_MAP);
-  };
-
-  // ═══════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════
   //  UPDATE
-  // ═══════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════
 
   update(_time: number, delta: number) {
-    if (this.isComplete || !this.gameStarted) return;
+    if (this.isComplete || this.showingFact) return;
 
-    const dt = delta; // ms since last frame
+    const dt = Math.min(delta / 1000, 0.05);
+    this.elapsed += dt;
 
-    // Update timers
-    this.oceanTime += dt / 1000;
-    this.stormTime += dt / 1000;
+    // Debug: log position once per second
+    if (Math.floor(this.elapsed) !== Math.floor(this.elapsed - dt)) {
+      const cam = this.cameras.main;
+      const sx = this.boat.x - cam.scrollX;
+      const sy = this.boat.y - cam.scrollY;
+      console.log(
+        `boat: (${Math.round(this.boat.x)}, ${Math.round(this.boat.y)}) | screen: (${Math.round(sx)}, ${Math.round(sy)}) | camera: (${Math.round(cam.scrollX)}, ${Math.round(cam.scrollY)})`
+      );
+    }
 
-    // Update game systems
-    this.updateHazards(dt);
-    this.drawShip();
-    this.drawOcean();
-    this.drawTyphoonBackground();
-    this.updateAtmosphere();
-    this.checkCollisions();
+    this.updateBoat(dt);
+    this.updateWeather();
+    this.updateMission();
+    this.updateWake();
 
-    // Clean up inactive hazards
-    this.hazards = this.hazards.filter((h) => h.active);
+    if (!this.transitioningPhase && this.phase < 5) {
+      // Spawn waves on timer
+      this.waveTimer += delta;
+      if (
+        this.waveTimer >=
+        WAVE_SPAWN_INTERVAL_BASE / Math.max(1, this.phase * 0.6)
+      ) {
+        this.waveTimer = 0;
+        this.spawnWave();
+      }
 
-    // Update damage particles
-    this.updateParticles(this.smokeParticles, dt);
-    this.updateParticles(this.fireParticles, dt);
+      // Spawn debris on timer
+      this.debrisTimer += delta;
+      if (this.phase >= 2 && this.debrisTimer >= 4000 / (this.phase * 0.5)) {
+        this.debrisTimer = 0;
+        this.spawnDebris();
+      }
 
-    // Check boss defeat after current wave
-    if (this.bossDefeated && !this.isComplete) {
-      // Finish the wave, then victory
-      this.victory();
+      this.updateLightning(dt);
+    }
+
+    // Periodic weather HUD
+    if (Math.floor(this.elapsed * 2) !== Math.floor((this.elapsed - dt) * 2)) {
+      this.emitWeather();
     }
   }
 
-  // ═══════════════════════════════════════════════
-  //  SHUTDOWN
-  // ═══════════════════════════════════════════════
-
   shutdown() {
-    this.game.events.off(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
-    // Clean up particles
-    this.smokeParticles.forEach((p) => p.sprite.destroy());
-    this.fireParticles.forEach((p) => p.sprite.destroy());
-    this.foamParticles.forEach((p) => p.destroy());
-    this.lightningBolts.forEach((g) => g.destroy());
-    this.smokeParticles = [];
-    this.fireParticles = [];
-    this.foamParticles = [];
-    this.lightningBolts = [];
+    this.wakeEmitter?.destroy();
   }
 }

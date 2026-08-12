@@ -25,6 +25,9 @@ interface SlotData {
   correct: 'high' | 'low';
   ghostLabel: Phaser.GameObjects.Text;
   hitArea: Phaser.GameObjects.Arc;
+  marker?: Phaser.GameObjects.Arc;
+  markerText?: Phaser.GameObjects.Text;
+  statusText?: Phaser.GameObjects.Text;
 }
 
 export class PressureScene extends Phaser.Scene {
@@ -38,6 +41,14 @@ export class PressureScene extends Phaser.Scene {
   private isComplete = false;
   private gameStarted = false;
   private timeRemaining = TOTAL_TIME;
+  private hintBtn?: Phaser.GameObjects.Text;
+  private hintUses = 2;
+  private hintRevealTimer?: Phaser.Time.TimerEvent;
+  private combo = 0;
+  private bestCombo = 0;
+  private comboScore = 0;
+  private comboText?: Phaser.GameObjects.Text;
+  private stormShade?: Phaser.GameObjects.Rectangle;
   private roundText!: Phaser.GameObjects.Text;
   private progressBar!: Phaser.GameObjects.Graphics;
   private windArrows: Phaser.GameObjects.Graphics[] = [];
@@ -89,6 +100,11 @@ export class PressureScene extends Phaser.Scene {
     const overlay = this.add.graphics().setDepth(0);
     overlay.fillStyle(0x000000, 0.3);
     overlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // Storm darkness — grows every round for escalating tension
+    this.stormShade = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a2e, 0)
+      .setDepth(0.5);
 
     // ── Target zone (destination) ──
     const tg = this.add.graphics().setDepth(1);
@@ -185,6 +201,19 @@ export class PressureScene extends Phaser.Scene {
       })
       .setDepth(5);
 
+    // Combo indicator (top-right)
+    this.comboText = this.add
+      .text(GAME_WIDTH - 40, 100, '', {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '16px',
+        color: '#FF6D3F',
+        stroke: '#000000',
+        strokeThickness: 3
+      })
+      .setOrigin(1, 0)
+      .setDepth(6)
+      .setAlpha(0);
+
     this.progressBar = this.add.graphics().setDepth(5);
 
     // ── Title ──
@@ -268,18 +297,41 @@ export class PressureScene extends Phaser.Scene {
     this.selectedType = null;
     this.awaitingReview = null;
     this.roundActive = true;
+    this.combo = 0;
+    this.hideCombo();
     this.windArrows.forEach(a => a.destroy());
     this.previewArrows.forEach(a => a.destroy());
     this.previewArrows = [];
+    this.destroyHintButton();
+
+    // Storm darkens as the typhoon grows — tension each round
+    if (this.stormShade) {
+      this.stormShade.setAlpha(0.05 * (this.round - 1));
+    }
+    // Round start chime (two soft notes)
+    this.playRoundChime();
+
+    // Per-round learning mode:
+    //  R1 = tutorial (pattern visible the whole time)
+    //  R2 = memorize (2-second peek, then hide)
+    //  R3 = challenge (hidden; reward earned by using the Hint button)
+    const learnMode = this.round === 1 ? 'tutorial' : this.round === 2 ? 'memorize' : 'challenge';
+    const rMeta =
+      this.round === 1
+        ? { msg: 'Follow the letters!', color: '#8ab4f8' }
+        : this.round === 2
+          ? { msg: 'Memorize the pattern!', color: '#c792ea' }
+          : { msg: 'No hints — use your knowledge!', color: '#4fc3f7' };
 
     // Round announcement
     const roundMsg = this.add
-      .text(GAME_WIDTH / 2, 220, `🌀 Round ${this.round}`, {
+      .text(GAME_WIDTH / 2, 220, `🌀 Round ${this.round}\n${rMeta.msg}`, {
         fontFamily: FONTS.DISPLAY,
-        fontSize: '32px',
-        color: '#4fc3f7',
+        fontSize: '28px',
+        color: rMeta.color,
         stroke: '#000000',
-        strokeThickness: 5
+        strokeThickness: 5,
+        align: 'center'
       })
       .setOrigin(0.5)
       .setDepth(10)
@@ -293,13 +345,20 @@ export class PressureScene extends Phaser.Scene {
         this.tweens.add({
           targets: roundMsg,
           alpha: 0,
-          delay: 800,
+          delay: 900,
           duration: 300,
           onComplete: () => roundMsg.destroy()
         });
       }
     });
     this.windArrows = [];
+
+    // Destroy tracked markers from the previous round
+    this.slots.forEach(s => {
+      if (s.marker) { s.marker.destroy(); s.marker = undefined; }
+      if (s.markerText) { s.markerText.destroy(); s.markerText = undefined; }
+      if (s.statusText) { s.statusText.destroy(); s.statusText = undefined; }
+    });
 
     // Clear old markers safely (ghost labels at depth 1.5 are NOT destroyed)
     this.children.list.slice().forEach(c => {
@@ -353,14 +412,28 @@ export class PressureScene extends Phaser.Scene {
         ease: 'Sine.easeInOut'
       });
 
-      // Ghost label
-      const gc = correct[i] === 'high' ? '#d62828' : '#1565c0';
-      s.ghostLabel.setText(correct[i] === 'high' ? 'H' : 'L');
-      s.ghostLabel.setColor(gc);
-      s.ghostLabel.setAlpha(0.7);
+      // Ghost label — starts hidden ('?'), reveal depends on round
+      s.ghostLabel.setText('?');
+      s.ghostLabel.setColor('#4a6a7a');
+      s.ghostLabel.setAlpha(0.55);
       s.ghostLabel.setStroke('rgba(0,0,0,0.8)', 3);
       s.ghostLabel.setFontSize('18px');
     });
+
+    // Apply per-round reveal strategy
+    if (learnMode === 'tutorial') {
+      this.setGhostReveal(true);
+    } else if (learnMode === 'memorize') {
+      this.setGhostReveal(true);
+      this.time.delayedCall(2200, () => {
+        if (!this.roundActive || this.isComplete) return;
+        this.setGhostReveal(false);
+        this.spawnFloatText(GAME_WIDTH / 2, 270, '🧠 Now place from memory!', '#c792ea');
+      });
+    } else {
+      this.setGhostReveal(false);
+      this.showHintButton();
+    }
 
     this.updateUI();
     this.drawProgress();
@@ -369,8 +442,232 @@ export class PressureScene extends Phaser.Scene {
   }
 
   private updateUI() {
-    const remaining = 6 - this.placedCount;
     this.roundText.setText(`Round ${this.round}/${ROUNDS_TO_WIN}`);
+  }
+
+  // ─────────────────────────────────
+  //  LIVE FEEDBACK HELPERS
+  // ─────────────────────────────────
+
+  /** Show or hide the ghost H/L pattern on all slots */
+  private setGhostReveal(reveal: boolean) {
+    this.slots.forEach(s => {
+      if (reveal) {
+        s.ghostLabel.setText(s.correct === 'high' ? 'H' : 'L');
+        s.ghostLabel.setColor(s.correct === 'high' ? '#d62828' : '#1565c0');
+        s.ghostLabel.setAlpha(0.7);
+      } else {
+        s.ghostLabel.setText('?');
+        s.ghostLabel.setColor('#4a6a7a');
+        s.ghostLabel.setAlpha(0.55);
+      }
+    });
+  }
+
+  /** Round 3 — limited "peek at the pattern" hint button */
+  private showHintButton() {
+    this.destroyHintButton();
+    this.hintUses = 2;
+    const btn = this.add
+      .text(GAME_WIDTH - 40, 60, '💡 Reveal pattern (2)', {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '13px',
+        color: '#FFD166',
+        backgroundColor: '#1a1a3e',
+        padding: { left: 10, right: 10, top: 6, bottom: 6 },
+        stroke: '#000000',
+        strokeThickness: 2
+      })
+      .setOrigin(1, 0)
+      .setDepth(6)
+      .setInteractive({ useHandCursor: true });
+    this.hintBtn = btn;
+    btn.on('pointerdown', () => {
+      if (this.hintUses <= 0 || !this.roundActive || this.isComplete) return;
+      this.hintUses--;
+      btn.setText(`💡 Reveal pattern (${this.hintUses})`);
+      this.setGhostReveal(true);
+      this.hintRevealTimer = this.time.delayedCall(2200, () => {
+        if (!this.roundActive || this.isComplete) return;
+        if (this.hintUses <= 0) this.destroyHintButton();
+        else this.setGhostReveal(false);
+      });
+    });
+  }
+
+  private destroyHintButton() {
+    if (this.hintRevealTimer) {
+      this.hintRevealTimer.destroy();
+      this.hintRevealTimer = undefined;
+    }
+    if (this.hintBtn) {
+      this.hintBtn.destroy();
+      this.hintBtn = undefined;
+    }
+  }
+
+  // ── Combo feedback ──
+
+  private showCombo() {
+    if (!this.comboText) return;
+    if (this.combo < 2) {
+      this.hideCombo();
+      return;
+    }
+    this.comboText
+      .setText(`🔥 x${this.combo}  +${this.combo * 50}`)
+      .setAlpha(1);
+    this.comboText.setScale(1.25);
+    this.tweens.add({
+      targets: this.comboText,
+      scale: 1,
+      duration: 180,
+      ease: 'Back.easeOut'
+    });
+  }
+
+  private hideCombo() {
+    if (this.comboText) {
+      this.comboText.setAlpha(0);
+      this.comboText.setText('');
+    }
+  }
+
+  // ── Procedural sound effects (WebAudio, no audio files needed) ──
+
+  private getAudioCtx(): AudioContext | null {
+    const sm = this.sound as Phaser.Sound.WebAudioSoundManager;
+    const ctx = sm.context ?? null;
+    if (!ctx || ctx.state === 'closed') return null;
+    return ctx;
+  }
+
+  private tone(
+    ctx: AudioContext,
+    freq: number,
+    dur: number,
+    type: OscillatorType,
+    vol: number,
+    delay: number
+  ) {
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.value = vol;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const t = ctx.currentTime + delay;
+      osc.start(t);
+      osc.stop(t + dur);
+      osc.onended = () => {
+        try {
+          osc.disconnect();
+          gain.disconnect();
+        } catch { /* already gone */ }
+      };
+    } catch { /* audio unavailable */ }
+  }
+
+  /** Correct placement — pitch rises with the combo for a satisfying climb */
+  private playCorrectTone(combo: number) {
+    const ctx = this.getAudioCtx();
+    if (!ctx) return;
+    const base = 430 + Math.min(combo, 6) * 75;
+    this.tone(ctx, base, 0.11, 'triangle', 0.06, 0);
+    this.tone(ctx, base * 1.5, 0.16, 'triangle', 0.05, 0.09);
+  }
+
+  /** Wrong placement — low buzz */
+  private playWrongTone() {
+    const ctx = this.getAudioCtx();
+    if (!ctx) return;
+    this.tone(ctx, 150, 0.26, 'sawtooth', 0.045, 0);
+    this.tone(ctx, 110, 0.3, 'square', 0.03, 0.02);
+  }
+
+  /** START WIND — rising gust sweep */
+  private playWhoosh() {
+    const ctx = this.getAudioCtx();
+    if (!ctx) return;
+    for (let i = 0; i < 6; i++) {
+      this.tone(ctx, 260 + i * 130, 0.12, 'sine', 0.024, i * 0.045);
+    }
+  }
+
+  /** Round start chime */
+  private playRoundChime() {
+    const ctx = this.getAudioCtx();
+    if (!ctx) return;
+    this.tone(ctx, 620, 0.12, 'triangle', 0.05, 0);
+    this.tone(ctx, 830, 0.16, 'triangle', 0.04, 0.11);
+  }
+
+  // ── Cloud personality ──
+
+  /** Happy hop when a slot is placed correctly */
+  private cloudHop() {
+    this.tweens.add({
+      targets: this.cloud,
+      y: TARGET_Y - 8,
+      duration: 110,
+      yoyo: true,
+      ease: 'Quad.easeOut'
+    });
+  }
+
+  /** Red tint flash when a slot is placed wrong */
+  private cloudFlash() {
+    this.cloud.setTint(0xff4444);
+    this.time.delayedCall(240, () => {
+      if (this.cloud.active) this.cloud.clearTint();
+    });
+  }
+
+  /** Small floating text that rises and fades (CORRECT! / WRONG! / reminders) */
+  private spawnFloatText(x: number, y: number, msg: string, color: string) {
+    const t = this.add
+      .text(x, y, msg, {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '13px',
+        color,
+        stroke: '#000000',
+        strokeThickness: 2
+      })
+      .setOrigin(0.5)
+      .setDepth(5);
+    this.tweens.add({
+      targets: t,
+      y: y - 30,
+      alpha: 0,
+      duration: 700,
+      ease: 'Quad.easeOut',
+      onComplete: () => t.destroy()
+    });
+  }
+
+  /** Cloud glides forward for each correct slot, slides back on a wrong one */
+  private updateCloudProgress() {
+    if (this.round < 1 || !this.gameStarted) return;
+    const correctCount = this.slots.filter(s => s.placed === s.correct).length;
+    const roundStart = Phaser.Math.Linear(
+      140,
+      TARGET_X,
+      (this.round - 1) / ROUNDS_TO_WIN
+    );
+    const roundEnd = Phaser.Math.Linear(
+      140,
+      TARGET_X,
+      this.round / ROUNDS_TO_WIN
+    );
+    const dest = Phaser.Math.Linear(roundStart, roundEnd, correctCount / 6);
+    this.tweens.add({
+      targets: [this.cloud, this.cloudGlow],
+      x: dest,
+      duration: 400,
+      ease: 'Sine.easeOut'
+    });
   }
 
   // ─────────────────────────────────
@@ -505,20 +802,46 @@ export class PressureScene extends Phaser.Scene {
     )
       return;
     const slot = this.slots[index];
-    if (slot.placed) return;
 
+    // ── Undo: tap an occupied slot with the SAME selected type → remove it
+    if (slot.placed === this.selectedType) {
+      slot.placed = null;
+      this.placedCount--;
+      if (slot.marker) { slot.marker.destroy(); slot.marker = undefined; }
+      if (slot.markerText) { slot.markerText.destroy(); slot.markerText = undefined; }
+      if (slot.statusText) { slot.statusText.destroy(); slot.statusText = undefined; }
+      slot.ghostLabel.setAlpha(0.55);
+      this.updateCloudProgress();
+      this.selectedType = null;
+      this.updateUI();
+      this.emitState();
+      this.emitSlots();
+      this.emitObjective();
+      this.updatePreviewArrows();
+      return;
+    }
+
+    // ── Replace: occupying with a DIFFERENT type → swap it
+    if (slot.placed) {
+      this.placedCount--;
+      if (slot.marker) { slot.marker.destroy(); slot.marker = undefined; }
+      if (slot.markerText) { slot.markerText.destroy(); slot.markerText = undefined; }
+      if (slot.statusText) { slot.statusText.destroy(); slot.statusText = undefined; }
+    }
+
+    const isCorrect = this.selectedType === slot.correct;
     slot.placed = this.selectedType;
     this.placedCount++;
 
     // Dim ghost
     slot.ghostLabel.setAlpha(0.15);
 
-    // Marker
+    // Marker — green outline if correct, red outline if wrong
     const color = this.selectedType === 'high' ? 0xd62828 : 0x1565c0;
     const letter = this.selectedType === 'high' ? 'H' : 'L';
     const marker = this.add
       .circle(slot.x, slot.y, 22, color, 0.85)
-      .setStrokeStyle(2, 0xffffff, 0.2)
+      .setStrokeStyle(3, isCorrect ? 0x06d6a0 : 0xd62828, 1)
       .setDepth(3)
       .setScale(0.01);
     this.tweens.add({
@@ -527,7 +850,9 @@ export class PressureScene extends Phaser.Scene {
       duration: 250,
       ease: 'Back.easeOut'
     });
-    const lbl = this.add
+    slot.marker = marker;
+
+    const markerText = this.add
       .text(slot.x, slot.y, letter, {
         fontFamily: FONTS.DISPLAY,
         fontSize: '16px',
@@ -539,23 +864,85 @@ export class PressureScene extends Phaser.Scene {
       .setDepth(4)
       .setScale(0.01);
     this.tweens.add({
-      targets: lbl,
+      targets: markerText,
       scale: 1,
       duration: 250,
       ease: 'Back.easeOut'
     });
+    slot.markerText = markerText;
 
-    // Pressure/wind burst
+    // ✓ / ✗ status above the slot
+    const statusText = this.add
+      .text(slot.x, slot.y - 34, isCorrect ? '✓' : '✗', {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '18px',
+        color: isCorrect ? '#06D6A0' : '#FF5252',
+        stroke: '#000000',
+        strokeThickness: 2
+      })
+      .setOrigin(0.5)
+      .setDepth(4.5);
+    slot.statusText = statusText;
+
+    // ── Instant feedback FX ──
     this.playPlaceBurst(slot.x, slot.y, this.selectedType);
+    if (isCorrect) {
+      // Combo climb — each correct placement stacks a multiplier
+      this.combo++;
+      this.bestCombo = Math.max(this.bestCombo, this.combo);
+      this.comboScore += 50 * this.combo;
+      this.showCombo();
+      this.playCorrectTone(this.combo);
+      this.cloudHop();
+
+      const ring = this.add
+        .circle(slot.x, slot.y, 10, 0x000000, 0)
+        .setStrokeStyle(3, 0x06d6a0, 0.9)
+        .setDepth(5);
+      this.tweens.add({
+        targets: ring,
+        radius: 40,
+        alpha: 0,
+        duration: 400,
+        ease: 'Quad.easeOut',
+        onComplete: () => ring.destroy()
+      });
+      this.spawnFloatText(
+        slot.x,
+        slot.y - 52,
+        `CORRECT! +${50 * this.combo}`,
+        '#06D6A0'
+      );
+    } else {
+      // Wrong → combo broken + red flash + screen shake + cloud slides back
+      this.combo = 0;
+      this.hideCombo();
+      this.playWrongTone();
+      this.cloudFlash();
+      this.cameras.main.shake(180, 0.004);
+      const xfl = this.add
+        .circle(slot.x, slot.y, 30, 0xd62828, 0.15)
+        .setStrokeStyle(2, 0xd62828, 0.4)
+        .setDepth(5)
+        .setScale(0.01);
+      this.tweens.add({
+        targets: xfl,
+        scale: 1.3,
+        duration: 300,
+        yoyo: true,
+        repeat: 1,
+        onComplete: () => xfl.destroy()
+      });
+      this.spawnFloatText(slot.x, slot.y - 52, 'WRONG! Tap again', '#FF5252');
+    }
+
+    // Cloud glides forward per correct slot, slides back on a wrong one
+    this.updateCloudProgress();
 
     this.selectedType = null;
     this.updateUI();
     this.emitState();
     this.emitSlots();
-
-    if (this.placedCount === 6) {
-      // All placed — React shows the Start Wind button
-    }
     this.emitObjective();
     this.updatePreviewArrows();
   }
@@ -673,6 +1060,29 @@ export class PressureScene extends Phaser.Scene {
   }
 
   private onCorrect() {
+    // Gust sound + happy cloud bounce as the wind rises
+    this.playWhoosh();
+    if (this.cloud) {
+      this.tweens.add({
+        targets: this.cloud,
+        y: TARGET_Y - 14,
+        duration: 160,
+        yoyo: true,
+        ease: 'Quad.easeOut'
+      });
+    }
+
+    // Combo bonus summary
+    this.hideCombo();
+    if (this.comboScore > 0) {
+      this.spawnFloatText(
+        GAME_WIDTH / 2,
+        300,
+        `🔥 Combo bonus earned: +${this.comboScore}`,
+        '#FFD166'
+      );
+    }
+
     // Green flash on all slots
     this.slots.forEach(s => {
       const flash = this.add
@@ -1016,12 +1426,16 @@ export class PressureScene extends Phaser.Scene {
       levelId: 'pressure',
       badge: '🌀 LEVEL 3',
       title: 'Air Pressure',
-      subtitle: 'Guide the cloud to its destination — 3 rounds!',
+      subtitle: 'Guide the cloud home — 3 rounds that get harder!',
       mechanics: [
-        { icon: '👻', text: 'Bold H/L on circles show where they go' },
-        { icon: '👆', text: 'Tap a circle → tap H or L to match' },
-        { icon: '💨', text: 'Fill all 6 → Start Wind → cloud moves!' },
-        { icon: '🎯', text: '3 correct rounds = cloud reaches destination!' }
+        { icon: '👻', text: 'ROUND 1 — the letters are shown. Watch and learn!' },
+        { icon: '🧠', text: 'ROUND 2 — memorize the pattern (2-second peek only!)' },
+        { icon: '💡', text: 'ROUND 3 — solve it yourself using the Hint button!' },
+        { icon: '👆', text: 'Tap H (▲ red) or L (▼ blue), then tap a circle to place it' },
+        { icon: '✅', text: 'Green = correct (cloud sails forward) · Red = wrong (fix it!)' },
+        { icon: '🔥', text: 'Chain correct answers to build a COMBO and earn bonus points!' },
+        { icon: '💨', text: 'All 6 correct → START WIND — wind blows High → Low!' },
+        { icon: '🎯', text: '3 correct rounds carry the cloud all the way home!' }
       ]
     } satisfies HUDLevelIntroPayload);
     this.game.events.once(GAME_EVENTS.HUD_INTRO_DISMISS, this.startGame);
@@ -1032,7 +1446,7 @@ export class PressureScene extends Phaser.Scene {
     this.newRound();
     this.game.events.emit(GAME_EVENTS.HUD_LEVEL_INFO, {
       name: 'Air Pressure',
-      description: 'Match H/L to push the cloud to the destination!'
+      description: 'Match H/L with instant feedback — wind blows High → Low!'
     } satisfies HUDLevelInfoPayload);
     this.game.events.on(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
     this.game.events.on(GAME_EVENTS.HUD_PATTERN_DISMISS, this.onPatternDismiss);
@@ -1076,7 +1490,11 @@ export class PressureScene extends Phaser.Scene {
   private completeLevel() {
     if (this.isComplete) return;
     this.isComplete = true;
-    const score = 2000 + Math.round((this.timeRemaining / TOTAL_TIME) * 500);
+    const score =
+      2000 +
+      Math.round((this.timeRemaining / TOTAL_TIME) * 500) +
+      this.comboScore +
+      this.bestCombo * 100;
     const stars = GameManager.getStars(score, 2500);
     GameManager.getInstance().completeLevel(
       'pressure',
@@ -1187,7 +1605,10 @@ export class PressureScene extends Phaser.Scene {
       this.awaitingReview = null;
       this.slots.forEach(s => {
         s.placed = null;
-        s.ghostLabel.setAlpha(0.7);
+        s.ghostLabel.setAlpha(0.55);
+        s.marker = undefined;
+        s.markerText = undefined;
+        if (s.statusText) { s.statusText.destroy(); s.statusText = undefined; }
       });
       this.placedCount = 0;
       // Destroy placed markers ONLY (ghost labels at depth 1.5 are SAFE)
@@ -1237,6 +1658,7 @@ export class PressureScene extends Phaser.Scene {
     );
     this.game.events.off(GAME_EVENTS.HUD_PRESSURE_SELECT, this.onReactSelect);
     this.game.events.off(GAME_EVENTS.HUD_PRESSURE_START, this.onReactStart);
+    this.destroyHintButton();
     if (this.windStreamTimer) this.windStreamTimer.remove();
   }
 }

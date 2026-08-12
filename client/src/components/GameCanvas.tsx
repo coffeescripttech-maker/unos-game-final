@@ -25,7 +25,7 @@ export default function GameCanvas() {
     if (gameInstRef.current || !containerRef.current) return;
     ////
     const config: Phaser.Types.Core.GameConfig = {
-      type: Phaser.CANVAS,
+      type: Phaser.AUTO,
       width: GAME_WIDTH,
       height: GAME_HEIGHT,
       parent: containerRef.current,
@@ -47,6 +47,13 @@ export default function GameCanvas() {
         TyphoonScene,
         BossScene
       ],
+      physics: {
+        default: 'arcade',
+        arcade: {
+          gravity: { x: 0, y: 0 },
+          debug: false,
+        },
+      },
       render: {
         pixelArt: false,
         antialias: true

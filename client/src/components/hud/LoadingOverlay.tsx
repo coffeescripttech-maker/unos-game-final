@@ -46,7 +46,7 @@ export default function LoadingOverlay() {
             UNOS
           </h1>
           <p className="text-sm font-body text-gray-400">
-            Typhoon Formation Simulator
+            Typhoon Formation Game
           </p>
         </div>
 

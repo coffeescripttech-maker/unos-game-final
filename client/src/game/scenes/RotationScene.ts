@@ -43,7 +43,7 @@ export class RotationScene extends Phaser.Scene {
   private lastAngle = 0;
   private totalRotation = 0;
   private isDragging = false;
-  private targetRotation = 3600;
+  private targetRotation = 7200;
   private hemisphere = 'northern';
   private hemisphereText!: Phaser.GameObjects.Text;
   private vortexParticles: Phaser.GameObjects.Arc[] = [];
@@ -76,6 +76,50 @@ export class RotationScene extends Phaser.Scene {
   private orbSpawnTimer!: Phaser.Time.TimerEvent;
   private orbBonusScore = 0;
 
+  // ── SPIN POWER & COMBO ──
+  private spinPower = 0;
+  private lastMoveTime = 0;
+  private combo = 0;
+  private comboAccum = 0;
+  private lastComboTime = 0;
+  private powerMeterGfx!: Phaser.GameObjects.Graphics;
+  private powerLabel!: Phaser.GameObjects.Text;
+  private comboText!: Phaser.GameObjects.Text;
+  private lastWhooshTime = 0;
+  private airMassBonus = 0;
+  private quizBonus = 0;
+
+  // ── Rounds (1-3, escalating difficulty) ──
+  private currentRound = 1;
+  private roundBonus = 0;
+  private roundDecayMult = 0.6;
+  private roundBanner!: Phaser.GameObjects.Text;
+
+  // ── Deflect the Air Mass (33% / 66%) ──
+  private airMassStage = 0;
+  private airMassActive = false;
+  private airMassResolved = false;
+  private airMassCharge = 0;
+  private airMassDeadline = 0;
+  private airMassFromRight = true;
+  private airMassTimer!: Phaser.Time.TimerEvent;
+  private airMassSprites: Phaser.GameObjects.GameObject[] = [];
+  private airMassText!: Phaser.GameObjects.Text;
+  private airMassChargeGfx!: Phaser.GameObjects.Graphics;
+
+  // ── Hemisphere Quiz ──
+  private quizActive = false;
+  private quizResolved = false;
+  private quizGesture: 'cw' | 'ccw' = 'cw';
+  private quizAccum = 0;
+  private quizDeadline = 0;
+  private quizCount = 0;
+  private quizSpawnTtl = 12;
+  private quizTickTimer!: Phaser.Time.TimerEvent;
+  private quizTimer?: Phaser.Time.TimerEvent;
+  private quizText!: Phaser.GameObjects.Text;
+  private quizSubText!: Phaser.GameObjects.Text;
+
   // ── Timers (stopped until game starts) ──
   private countdownTimer!: Phaser.Time.TimerEvent;
   private spinDecayTimer!: Phaser.Time.TimerEvent;
@@ -102,6 +146,25 @@ export class RotationScene extends Phaser.Scene {
     this.deflectionScore = 0;
     this.orbBonusScore = 0;
     this.headwindPenalty = 0;
+    this.spinPower = 0;
+    this.lastMoveTime = 0;
+    this.combo = 0;
+    this.comboAccum = 0;
+    this.lastComboTime = 0;
+    this.airMassStage = 0;
+    this.airMassActive = false;
+    this.airMassResolved = false;
+    this.airMassCharge = 0;
+    this.airMassBonus = 0;
+    this.quizActive = false;
+    this.quizResolved = false;
+    this.quizAccum = 0;
+    this.quizCount = 0;
+    this.quizSpawnTtl = 12;
+    this.quizBonus = 0;
+    this.currentRound = 1;
+    this.roundBonus = 0;
+    this.roundDecayMult = 0.6;
 
     // ── Background (with slow zoom + drift animation) ──
     const bg = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'rotation_bg').setDepth(0);
@@ -144,7 +207,7 @@ export class RotationScene extends Phaser.Scene {
     instrBg.fillStyle(0x444444, 0.6);
     instrBg.fillRoundedRect(GAME_WIDTH / 2 - 160, GAME_HEIGHT - 70, 320, 40, 8);
     this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 50, '🌀 Spin in circles to build Coriolis force', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 50, '🌀 Spin anywhere around the eye', {
         fontFamily: FONTS.BODY,
         fontSize: '13px',
         color: '#FFFFFF',
@@ -178,12 +241,48 @@ export class RotationScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    // ── SPIN POWER meter (top center) ──
+    this.powerMeterGfx = this.add.graphics().setDepth(6);
+    this.powerLabel = this.add
+      .text(GAME_WIDTH / 2, 112, 'SPIN POWER ×1', {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '12px',
+        color: '#9fb8d8',
+        stroke: '#000000',
+        strokeThickness: 2
+      })
+      .setOrigin(0.5)
+      .setDepth(6);
+    this.comboText = this.add
+      .text(GAME_WIDTH / 2, 130, '', {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '14px',
+        color: '#FF6B6B',
+        stroke: '#000000',
+        strokeThickness: 3
+      })
+      .setOrigin(0.5)
+      .setDepth(6);
+    this.roundBanner = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 210, '', {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '26px',
+        color: '#FFD166',
+        stroke: '#000000',
+        strokeThickness: 4,
+        align: 'center'
+      })
+      .setOrigin(0.5)
+      .setDepth(9)
+      .setAlpha(0);
+    this.drawPowerMeter();
+
     // ── Guidance circles (dynamic — will light up with progress) ──
     this.ringGfx = this.add.graphics().setDepth(1);
     this.drawRings(0);
 
     this.add
-      .text(this.centerX, this.centerY + 115, 'spin here', {
+      .text(this.centerX, this.centerY + 115, 'spin anywhere', {
         fontFamily: FONTS.BODY,
         fontSize: '12px',
         color: '#4a6fa5'
@@ -234,12 +333,14 @@ export class RotationScene extends Phaser.Scene {
       title: 'Coriolis Effect',
       subtitle: 'Spin to create the Coriolis Force!',
       mechanics: [
-        { icon: '🔄', text: 'Spin your finger CW (Northern) or CCW (Southern) around the circle' },
-        { icon: '💨', text: '💨 HEADWINDS appear! Spin harder or you\'ll lose progress!' },
-        { icon: '💫', text: 'Collect golden orbs for bonus points — they appear around the spin zone' },
-        { icon: '⚡', text: 'At 50%+ storm builds — screen shakes & lightning flashes!' },
-        { icon: '🎯', text: 'At 75%+ catch Coriolis particles — they deflect Right or Left!' },
-        { icon: '⏱️', text: 'You have 60 seconds. Reach 10 full spins (3600°) to win!' }
+        { icon: '🔄', text: 'Spin ANYWHERE around the eye — CW (Northern) or CCW (Southern)' },
+        { icon: '📊', text: '3 ROUNDS: Build → Deflect → Storm — each round gets harder!' },
+        { icon: '⚡', text: 'SPIN POWER: spin fast & steady for up to 2× progress!' },
+        { icon: '🔥', text: 'Chain steady spins into a COMBO for bonus points' },
+        { icon: '🟤', text: 'AIR MASS events — spin to charge & deflect them away!' },
+        { icon: '💨', text: 'Headwinds appear more often — spin harder or you\'ll lose progress!' },
+        { icon: '❓', text: 'Answer hemisphere quizzes & catch orbs for bonus points' },
+        { icon: '⏱️', text: '60 seconds. Reach 20 rotations (7200°) to win!' }
       ]
     } satisfies HUDLevelIntroPayload);
 
@@ -252,7 +353,7 @@ export class RotationScene extends Phaser.Scene {
     // Emit level info
     this.game.events.emit(GAME_EVENTS.HUD_LEVEL_INFO, {
       name: 'Rotation',
-      description: 'Spin to build Coriolis force'
+      description: 'Spin to build Coriolis force — power up & deflect air masses!'
     } satisfies HUDLevelInfoPayload);
     this.emitObjective();
 
@@ -298,10 +399,25 @@ export class RotationScene extends Phaser.Scene {
     this.spinDecayTimer = this.time.addEvent({
       delay: 100,
       callback: () => {
-        if (this.isComplete || this.isDragging || !this.gameStarted) return;
-        // Decay scales with progress — harder to maintain at higher %
+        if (this.isComplete || !this.gameStarted) return;
+        // SPIN POWER drains — fast when idle, slow while spinning
+        if (!this.isDragging) {
+          this.spinPower = Math.max(0, this.spinPower - 0.05);
+          // Combo resets when you stop spinning
+          if (this.combo > 0 && this.time.now - this.lastComboTime > 2000) {
+            this.combo = 0;
+            this.comboAccum = 0;
+            this.updateComboText();
+          }
+        } else {
+          this.spinPower = Math.max(0, this.spinPower - 0.012);
+        }
+        this.drawPowerMeter();
+        if (this.isDragging) return;
+
+        // Decay scales with progress AND round — harder to maintain each round
         const progressDecay = this.rotationProgress * 8;
-        let decay = 4 + progressDecay;
+        let decay = (4 + progressDecay) * this.roundDecayMult;
         if (this.headwindActive) decay += 10;
         if (this.totalRotation > 0) {
           this.totalRotation = Math.max(0, this.totalRotation - decay);
@@ -311,12 +427,8 @@ export class RotationScene extends Phaser.Scene {
       loop: true
     });
 
-    // ── Wind Gust spawn (every 3–5s, bigger penalty) ──
-    this.windGustTimer = this.time.addEvent({
-      delay: Phaser.Math.Between(2500, 4000),
-      callback: () => this.spawnWindGust(),
-      loop: true
-    });
+    // ── Wind Gust spawn (round-based frequency — faster as rounds advance) ──
+    this.rescheduleHeadwinds();
 
     // ── Collectible Orb spawn (every 2.5s) ──
     this.orbSpawnTimer = this.time.addEvent({
@@ -336,6 +448,14 @@ export class RotationScene extends Phaser.Scene {
       loop: true
     });
 
+    // ── Hemisphere Quiz scheduler ──
+    this.quizSpawnTtl = 12;
+    this.quizTickTimer = this.time.addEvent({
+      delay: 1000,
+      callback: () => this.quizTick(),
+      loop: true
+    });
+
     // ── Rain effect spawn (only active when storm is active) ──
     this.rainTimer = this.time.addEvent({
       delay: 80,
@@ -351,6 +471,7 @@ export class RotationScene extends Phaser.Scene {
   private spawnWindGust() {
     if (this.isComplete || !this.gameStarted) return;
     this.headwindActive = true;
+    this.playHeadwindWhoosh();
 
     const fromLeft = Math.random() > 0.5;
     const startX = fromLeft ? -80 : GAME_WIDTH + 80;
@@ -438,6 +559,7 @@ export class RotationScene extends Phaser.Scene {
     const currentMilestone = Math.floor(this.rotationProgress * 10);
     if (currentMilestone > this.lastMilestone) {
       this.lastMilestone = currentMilestone;
+      this.playMilestoneBoom();
 
       const stormAlpha = Math.min(0.4, this.rotationProgress * 0.4);
       this.stormOverlay.clear();
@@ -481,6 +603,7 @@ export class RotationScene extends Phaser.Scene {
   }
 
   private flashLightning() {
+    this.playThunder();
     // ── Main bolt ──
     const boltGfx = this.add.graphics().setDepth(7);
     const boltX = this.centerX + Phaser.Math.Between(-200, 200);
@@ -774,6 +897,7 @@ export class RotationScene extends Phaser.Scene {
       if (dist < 60) {
         p.collected = true;
         this.deflectionScore += 150;
+        this.playCatchChime();
 
         this.tweens.add({
           targets: p.sprite,
@@ -893,6 +1017,7 @@ export class RotationScene extends Phaser.Scene {
       if (dist < 40) {
         orb.collected = true;
         this.orbBonusScore += orb.value;
+        this.playCollectChime();
 
         for (let i = 0; i < 6; i++) {
           const a = (Math.PI * 2 * i) / 6;
@@ -1066,6 +1191,632 @@ export class RotationScene extends Phaser.Scene {
   }
 
   // ═══════════════════════════════════════════════
+  //  FEATURE 5: SPIN POWER Meter & Combo
+  // ═══════════════════════════════════════════════
+
+  private drawPowerMeter() {
+    if (!this.powerMeterGfx) return;
+    this.powerMeterGfx.clear();
+    const x = GAME_WIDTH / 2 - 120;
+    const y = 100;
+    const w = 240;
+    const h = 10;
+
+    // Track
+    this.powerMeterGfx.fillStyle(0x000000, 0.5);
+    this.powerMeterGfx.fillRoundedRect(x, y, w, h, 5);
+    this.powerMeterGfx.lineStyle(1, 0x4a6fa5, 0.6);
+    this.powerMeterGfx.strokeRoundedRect(x, y, w, h, 5);
+
+    // Fill
+    const fillW = Math.max(0, (w - 4) * this.spinPower);
+    const fillColor =
+      this.spinPower > 0.66
+        ? 0xffd166
+        : this.spinPower > 0.33
+          ? 0x88ddff
+          : 0x6db3e6;
+    if (fillW > 0) {
+      this.powerMeterGfx.fillStyle(fillColor, 0.9);
+      this.powerMeterGfx.fillRoundedRect(x + 2, y + 2, fillW, h - 4, 3);
+      // Glow at full power
+      if (this.spinPower >= 0.99) {
+        this.powerMeterGfx.fillStyle(0xffd166, 0.25);
+        this.powerMeterGfx.fillRoundedRect(x, y, w, h, 5);
+      }
+    }
+
+    if (this.powerLabel) {
+      const mult = (1 + this.spinPower).toFixed(1);
+      this.powerLabel.setText(`SPIN POWER ×${mult}`);
+      this.powerLabel.setColor(
+        this.spinPower > 0.66
+          ? '#FFD166'
+          : this.spinPower > 0.33
+            ? '#88ddff'
+            : '#9fb8d8'
+      );
+    }
+  }
+
+  private updateComboText() {
+    if (!this.comboText) return;
+    if (this.combo >= 2) {
+      this.comboText.setText(`🔥 Combo x${this.combo}`);
+      this.comboText.setAlpha(1);
+      this.comboText.setScale(1 + Math.min(0.3, this.combo * 0.03));
+    } else {
+      this.comboText.setText('');
+      this.comboText.setAlpha(0);
+    }
+  }
+
+  // ═══════════════════════════════════════════════
+  //  FEATURE 6: Deflect the Air Mass (33% / 66%)
+  // ═══════════════════════════════════════════════
+
+  private startAirMassEvent() {
+    if (this.isComplete || this.quizActive || this.airMassActive) return;
+    this.airMassStage++;
+    this.airMassActive = true;
+    this.airMassResolved = false;
+    this.airMassCharge = 0;
+    this.airMassFromRight = Math.random() > 0.5;
+    this.airMassDeadline = this.time.now + 8000;
+
+    const fromX = this.airMassFromRight ? GAME_WIDTH + 60 : -60;
+    const targetX = this.airMassFromRight
+      ? this.centerX + 170
+      : this.centerX - 170;
+    const y = this.centerY + Phaser.Math.Between(-40, 40);
+
+    const blob = this.add.circle(fromX, y, 34, 0x6b3a1a, 0.92).setDepth(4);
+    const glow = this.add.circle(fromX, y, 48, 0xff6b4a, 0.15).setDepth(3);
+    const core = this.add.circle(fromX, y, 18, 0x3a2010, 1).setDepth(5);
+    const frown = this.add
+      .text(fromX, y - 8, '😠', {
+        fontFamily: FONTS.BODY,
+        fontSize: '20px'
+      })
+      .setOrigin(0.5)
+      .setDepth(6);
+    this.airMassSprites = [blob, glow, core, frown];
+
+    this.tweens.add({
+      targets: this.airMassSprites,
+      x: targetX,
+      duration: 1100,
+      ease: 'Sine.easeIn'
+    });
+
+    this.airMassText = this.add
+      .text(GAME_WIDTH / 2, this.centerY - 120, '', {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '17px',
+        color: '#FFD166',
+        stroke: '#000000',
+        strokeThickness: 3,
+        align: 'center'
+      })
+      .setOrigin(0.5)
+      .setDepth(8)
+      .setAlpha(0);
+    this.tweens.add({ targets: this.airMassText, alpha: 1, duration: 300 });
+
+    this.airMassChargeGfx = this.add.graphics().setDepth(8);
+
+    this.airMassTimer = this.time.addEvent({
+      delay: 100,
+      loop: true,
+      callback: () => {
+        if (this.airMassResolved || this.isComplete) return;
+        if (this.time.now > this.airMassDeadline) this.airMassFail();
+      }
+    });
+
+    this.playMilestoneBoom();
+    this.cameras.main.shake(120, 0.004);
+  }
+
+  private drawAirMassCharge() {
+    if (!this.airMassChargeGfx) return;
+    this.airMassChargeGfx.clear();
+    const w = 160;
+    const x = GAME_WIDTH / 2 - w / 2;
+    const y = this.centerY + 90;
+    this.airMassChargeGfx.fillStyle(0x000000, 0.55);
+    this.airMassChargeGfx.fillRoundedRect(x, y, w, 12, 6);
+    this.airMassChargeGfx.fillStyle(
+      this.airMassCharge >= 1 ? 0x06d6a0 : 0xffd166,
+      0.9
+    );
+    this.airMassChargeGfx.fillRoundedRect(
+      x + 2,
+      y + 2,
+      Math.max(0, (w - 4) * this.airMassCharge),
+      8,
+      4
+    );
+    this.airMassText.setText(
+      `🟤 AIR MASS! Spin to charge the deflector  ${Math.round(
+        this.airMassCharge * 100
+      )}%`
+    );
+  }
+
+  private airMassSuccess() {
+    if (this.airMassResolved) return;
+    this.airMassResolved = true;
+    this.airMassActive = false;
+    if (this.airMassTimer) this.airMassTimer.remove();
+
+    const dirLabel = this.hemisphere === 'northern' ? '→ Right' : '← Left';
+    const dirSign = this.hemisphere === 'northern' ? 1 : -1;
+    const bonus = this.airMassStage >= 2 ? 500 : 300;
+    this.airMassBonus += bonus;
+
+    // Fling it away in the deflection direction
+    this.tweens.add({
+      targets: this.airMassSprites,
+      x: this.centerX + dirSign * 520,
+      scale: { from: 1, to: 0.2 },
+      alpha: { from: 1, to: 0 },
+      duration: 700,
+      ease: 'Quad.easeIn',
+      onComplete: () => this.airMassSprites.forEach(s => s.destroy())
+    });
+
+    const pop = this.add
+      .text(
+        this.centerX,
+        this.centerY - 60,
+        `Deflected ${dirLabel} ✅ +${bonus}`,
+        {
+          fontFamily: FONTS.DISPLAY,
+          fontSize: '22px',
+          color: '#06D6A0',
+          stroke: '#000000',
+          strokeThickness: 4
+        }
+      )
+      .setOrigin(0.5)
+      .setDepth(9)
+      .setAlpha(0);
+    this.tweens.add({
+      targets: pop,
+      alpha: { from: 1, to: 0 },
+      y: pop.y - 40,
+      duration: 1600,
+      ease: 'Quad.easeOut',
+      onComplete: () => pop.destroy()
+    });
+
+    this.playDeflectWhoosh();
+    this.playCatchChime();
+    this.cameras.main.shake(250, 0.005);
+    this.updateUI();
+    this.cleanupAirMass();
+  }
+
+  private airMassFail() {
+    if (this.airMassResolved) return;
+    this.airMassResolved = true;
+    this.airMassActive = false;
+    if (this.airMassTimer) this.airMassTimer.remove();
+
+    // Air mass slams into the vortex
+    this.tweens.add({
+      targets: this.airMassSprites,
+      x: this.centerX,
+      y: this.centerY,
+      scale: { from: 1, to: 0.4 },
+      duration: 400,
+      ease: 'Quad.easeIn'
+    });
+
+    const penaltyDeg = this.targetRotation * 0.08;
+    this.totalRotation = Math.max(0, this.totalRotation - penaltyDeg);
+
+    const pop = this.add
+      .text(
+        this.centerX,
+        this.centerY - 60,
+        `💥 Air mass hit! -${Math.round(penaltyDeg)}°`,
+        {
+          fontFamily: FONTS.DISPLAY,
+          fontSize: '20px',
+          color: '#FF6B6B',
+          stroke: '#000000',
+          strokeThickness: 4
+        }
+      )
+      .setOrigin(0.5)
+      .setDepth(9)
+      .setAlpha(0);
+    this.tweens.add({
+      targets: pop,
+      alpha: { from: 1, to: 0 },
+      y: pop.y + 20,
+      duration: 1400,
+      ease: 'Quad.easeOut',
+      onComplete: () => pop.destroy()
+    });
+
+    this.playFailBuzz();
+    this.cameras.main.flash(250, 255, 60, 60);
+    this.cameras.main.shake(300, 0.007);
+    this.updateUI();
+    this.cleanupAirMass();
+  }
+
+  private cleanupAirMass() {
+    this.time.delayedCall(700, () => {
+      this.airMassSprites.forEach(s => s.destroy());
+      this.airMassSprites = [];
+      if (this.airMassText) this.airMassText.destroy();
+      if (this.airMassChargeGfx) this.airMassChargeGfx.destroy();
+    });
+  }
+
+  // ═══════════════════════════════════════════════
+  //  FEATURE 7: Hemisphere Quizzes
+  // ═══════════════════════════════════════════════
+
+  private quizTick() {
+    if (this.isComplete || this.quizActive || this.airMassActive) return;
+    if (this.rotationProgress < 0.2) return;
+    if (this.quizCount >= 2) return;
+    this.quizSpawnTtl--;
+    if (this.quizSpawnTtl <= 0) {
+      this.quizSpawnTtl = 12;
+      this.startQuiz();
+    }
+  }
+
+  private startQuiz() {
+    this.quizActive = true;
+    this.quizResolved = false;
+    this.quizAccum = 0;
+    this.quizDeadline = this.time.now + 6000;
+    this.quizCount++;
+
+    const askNorthern = Math.random() > 0.5;
+    this.quizGesture = askNorthern ? 'cw' : 'ccw';
+
+    this.quizText = this.add
+      .text(GAME_WIDTH / 2, this.centerY - 160, '', {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '20px',
+        color: '#FFD166',
+        stroke: '#000000',
+        strokeThickness: 4,
+        align: 'center'
+      })
+      .setOrigin(0.5)
+      .setDepth(8)
+      .setAlpha(0);
+    this.quizSubText = this.add
+      .text(GAME_WIDTH / 2, this.centerY - 130, '', {
+        fontFamily: FONTS.BODY,
+        fontSize: '14px',
+        color: '#6DB3E6',
+        stroke: '#000000',
+        strokeThickness: 3,
+        align: 'center'
+      })
+      .setOrigin(0.5)
+      .setDepth(8)
+      .setAlpha(0);
+    this.tweens.add({
+      targets: [this.quizText, this.quizSubText],
+      alpha: 1,
+      duration: 300
+    });
+
+    this.updateQuizText();
+
+    this.quizTimer = this.time.addEvent({
+      delay: 100,
+      loop: true,
+      callback: () => {
+        if (this.quizResolved || this.isComplete) return;
+        if (this.time.now > this.quizDeadline) this.resolveQuiz(false);
+      }
+    });
+  }
+
+  private updateQuizText() {
+    if (!this.quizText) return;
+    const asked = this.quizGesture === 'cw' ? 'NORTHERN' : 'SOUTHERN';
+    this.quizText.setText(`🌍 ${asked} hemisphere: which way does wind deflect?`);
+    this.quizSubText?.setText('Spin CW = ➡ RIGHT   ·   Spin CCW = ⬅ LEFT');
+  }
+
+  private resolveQuiz(correct: boolean) {
+    if (this.quizResolved) return;
+    this.quizResolved = true;
+    this.quizActive = false;
+    if (this.quizTimer) this.quizTimer.remove();
+
+    const askedNorthern = this.quizGesture === 'cw';
+    const correctAnswer = askedNorthern ? 'RIGHT' : 'LEFT';
+
+    if (correct) {
+      this.quizBonus += 150;
+      this.playCatchChime();
+      this.popQuizResult(
+        `✅ Correct! Wind deflects ${correctAnswer}  +150`,
+        '#06D6A0'
+      );
+    } else {
+      this.totalRotation = Math.max(
+        0,
+        this.totalRotation - this.targetRotation * 0.01
+      );
+      this.playFailBuzz();
+      this.popQuizResult(
+        `❌ Wind deflects ${correctAnswer} in the ${askedNorthern ? 'North' : 'South'}`,
+        '#FF6B6B'
+      );
+    }
+    this.updateUI();
+    this.cleanupQuiz();
+  }
+
+  private popQuizResult(msg: string, color: string) {
+    const pop = this.add
+      .text(GAME_WIDTH / 2, this.centerY - 60, msg, {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '20px',
+        color,
+        stroke: '#000000',
+        strokeThickness: 4,
+        align: 'center'
+      })
+      .setOrigin(0.5)
+      .setDepth(9)
+      .setAlpha(0);
+    this.tweens.add({
+      targets: pop,
+      alpha: { from: 1, to: 0 },
+      y: pop.y - 40,
+      duration: 1800,
+      ease: 'Quad.easeOut',
+      onComplete: () => pop.destroy()
+    });
+  }
+
+  private cleanupQuiz() {
+    this.time.delayedCall(1600, () => {
+      if (this.quizText) this.quizText.destroy();
+      if (this.quizSubText) this.quizSubText.destroy();
+    });
+  }
+
+  // ═══════════════════════════════════════════════
+  //  FEATURE 9: Rounds (escalating difficulty)
+  // ═══════════════════════════════════════════════
+
+  private updateRound() {
+    const newRound =
+      this.rotationProgress >= 0.66 ? 3 : this.rotationProgress >= 0.33 ? 2 : 1;
+    if (newRound === this.currentRound) return;
+    this.currentRound = newRound;
+    this.roundDecayMult = newRound === 1 ? 0.6 : newRound === 2 ? 1.0 : 1.4;
+    this.roundBonus += 250;
+    this.showRoundBanner(newRound);
+    this.playRoundChime();
+    this.rescheduleHeadwinds();
+    this.updateUI();
+  }
+
+  private showRoundBanner(round: number) {
+    const titles = [
+      'Build the Rotation!',
+      'Deflect the Air Mass!',
+      'Weather the Storm!'
+    ];
+    const colors = ['#6DB3E6', '#FFD166', '#FF6B6B'];
+    this.roundBanner.setText(`ROUND ${round}/3 — ${titles[round - 1]}`);
+    this.roundBanner.setColor(colors[round - 1]);
+    this.roundBanner.setAlpha(0);
+    this.roundBanner.setScale(0.6);
+    this.tweens.add({
+      targets: this.roundBanner,
+      alpha: { from: 0, to: 1 },
+      scale: { from: 0.6, to: 1 },
+      duration: 350,
+      ease: 'Back.easeOut'
+    });
+    this.tweens.add({
+      targets: this.roundBanner,
+      alpha: 0,
+      delay: 1800,
+      duration: 600,
+      onComplete: () => this.roundBanner.setAlpha(0)
+    });
+
+    const pop = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 160, '+250 Round bonus!', {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '18px',
+        color: '#06D6A0',
+        stroke: '#000000',
+        strokeThickness: 3
+      })
+      .setOrigin(0.5)
+      .setDepth(9)
+      .setAlpha(0);
+    this.tweens.add({
+      targets: pop,
+      alpha: { from: 1, to: 0 },
+      y: pop.y - 30,
+      duration: 1500,
+      ease: 'Quad.easeOut',
+      onComplete: () => pop.destroy()
+    });
+  }
+
+  /** Recreate the headwind timer with a round-appropriate frequency */
+  private rescheduleHeadwinds() {
+    if (this.windGustTimer) this.windGustTimer.remove();
+    const [min, max] =
+      this.currentRound === 1
+        ? [4500, 6500]
+        : this.currentRound === 2
+          ? [3000, 4500]
+          : [2000, 3200];
+    this.windGustTimer = this.time.addEvent({
+      delay: Phaser.Math.Between(min, max),
+      callback: () => this.spawnWindGust(),
+      loop: true
+    });
+  }
+
+  private playRoundChime() {
+    const ctx = this.getAudioCtx();
+    if (!ctx) return;
+    this.tone(ctx, 523, 0.15, 'triangle', 0.14);
+    this.tone(ctx, 659, 0.15, 'triangle', 0.14, 0.12);
+    this.tone(ctx, 784, 0.25, 'triangle', 0.14, 0.24);
+  }
+
+  // ═══════════════════════════════════════════════
+  //  FEATURE 8: Procedural Sound Effects (WebAudio)
+  // ═══════════════════════════════════════════════
+
+  private getAudioCtx(): AudioContext | null {
+    const sm = this.sound as Phaser.Sound.WebAudioSoundManager;
+    const ctx = sm.context ?? null;
+    if (!ctx || ctx.state === 'closed') return null;
+    return ctx;
+  }
+
+  private tone(
+    ctx: AudioContext,
+    freq: number,
+    dur: number,
+    type: OscillatorType,
+    vol: number,
+    delay = 0
+  ) {
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.value = vol;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const t = ctx.currentTime + delay;
+      osc.start(t);
+      osc.stop(t + dur);
+      osc.onended = () => {
+        try {
+          osc.disconnect();
+          gain.disconnect();
+        } catch {
+          /* already gone */
+        }
+      };
+    } catch {
+      /* audio unavailable */
+    }
+  }
+
+  private playSpinWhoosh(speed: number) {
+    const ctx = this.getAudioCtx();
+    if (!ctx) return;
+    // Pitch rises with spin speed: ~140Hz → ~520Hz
+    const freq = 140 + speed * 380;
+    this.tone(ctx, freq, 0.09, 'triangle', 0.03 + speed * 0.03);
+    this.tone(ctx, freq * 2, 0.05, 'sine', 0.015 + speed * 0.02);
+  }
+
+  private playComboChime() {
+    const ctx = this.getAudioCtx();
+    if (!ctx) return;
+    this.tone(ctx, 660 + this.combo * 30, 0.12, 'triangle', 0.12);
+  }
+
+  private playCollectChime() {
+    const ctx = this.getAudioCtx();
+    if (!ctx) return;
+    this.tone(ctx, 880, 0.12, 'sine', 0.14);
+    this.tone(ctx, 1320, 0.15, 'sine', 0.1, 0.06);
+  }
+
+  private playCatchChime() {
+    const ctx = this.getAudioCtx();
+    if (!ctx) return;
+    this.tone(ctx, 660, 0.1, 'triangle', 0.14);
+    this.tone(ctx, 990, 0.16, 'triangle', 0.12, 0.07);
+  }
+
+  private playHeadwindWhoosh() {
+    const ctx = this.getAudioCtx();
+    if (!ctx) return;
+    for (let i = 0; i < 5; i++) {
+      this.tone(ctx, 520 - i * 90, 0.12, 'sawtooth', 0.03, i * 0.06);
+    }
+  }
+
+  private playMilestoneBoom() {
+    const ctx = this.getAudioCtx();
+    if (!ctx) return;
+    this.tone(ctx, 90, 0.4, 'sine', 0.22);
+    this.tone(ctx, 60, 0.5, 'triangle', 0.18, 0.05);
+  }
+
+  private playThunder() {
+    const ctx = this.getAudioCtx();
+    if (!ctx) return;
+    this.tone(ctx, 120, 0.3, 'sawtooth', 0.12);
+    this.tone(ctx, 70, 0.5, 'sine', 0.16, 0.08);
+    this.tone(ctx, 50, 0.6, 'triangle', 0.1, 0.18);
+  }
+
+  private playDeflectWhoosh() {
+    const ctx = this.getAudioCtx();
+    if (!ctx) return;
+    for (let i = 0; i < 6; i++) {
+      this.tone(ctx, 200 + i * 120, 0.08, 'triangle', 0.06, i * 0.04);
+    }
+  }
+
+  private playFailBuzz() {
+    const ctx = this.getAudioCtx();
+    if (!ctx) return;
+    this.tone(ctx, 160, 0.25, 'sawtooth', 0.14);
+    this.tone(ctx, 110, 0.3, 'square', 0.12, 0.08);
+  }
+
+  private playFanfare() {
+    const ctx = this.getAudioCtx();
+    if (!ctx) return;
+    const notes = [523, 659, 784, 1047];
+    notes.forEach((n, i) => this.tone(ctx, n, 0.28, 'triangle', 0.16, i * 0.13));
+  }
+
+  private playFailJingle() {
+    const ctx = this.getAudioCtx();
+    if (!ctx) return;
+    this.tone(ctx, 392, 0.25, 'triangle', 0.14);
+    this.tone(ctx, 311, 0.25, 'triangle', 0.14, 0.16);
+    this.tone(ctx, 262, 0.4, 'triangle', 0.14, 0.32);
+  }
+
+  /** Stop any in-progress event when the level ends */
+  private cleanupActiveEvents() {
+    if (this.airMassTimer) this.airMassTimer.remove();
+    if (this.quizTimer) this.quizTimer.remove();
+    this.airMassActive = false;
+    this.airMassResolved = true;
+    this.quizActive = false;
+    this.quizResolved = true;
+  }
+
+  // ═══════════════════════════════════════════════
   //  GAME LOOP
   // ═══════════════════════════════════════════════
 
@@ -1076,7 +1827,7 @@ export class RotationScene extends Phaser.Scene {
 
   private emitObjective() {
     this.game.events.emit(GAME_EVENTS.HUD_OBJECTIVE, {
-      text: `Spin ${this.hemisphere === 'northern' ? 'clockwise' : 'counter-clockwise'}`,
+      text: `Spin ${this.hemisphere === 'northern' ? 'clockwise' : 'counter-clockwise'} — Round ${this.currentRound}/3`,
       progress: Math.round(this.totalRotation),
       target: this.targetRotation
     } satisfies HUDObjectivePayload);
@@ -1090,8 +1841,10 @@ export class RotationScene extends Phaser.Scene {
       this.centerX,
       this.centerY
     );
-    if (dist < 140 && dist > 30) {
+    // Spin anywhere on screen — just not dead-center (angle gets unstable there)
+    if (dist >= 15) {
       this.isDragging = true;
+      this.lastMoveTime = this.time.now;
       this.pointerPositions = [new Phaser.Math.Vector2(pointer.x, pointer.y)];
       this.lastAngle = Phaser.Math.Angle.Between(
         this.centerX,
@@ -1124,30 +1877,95 @@ export class RotationScene extends Phaser.Scene {
     if (delta > Math.PI) delta -= Math.PI * 2;
     if (delta < -Math.PI) delta += Math.PI * 2;
 
-    // Wrong direction = LOSES progress + red sparks
+    // Wrong direction = LOSES progress + red sparks (suspended during quizzes)
     const isWrongDir =
       (this.hemisphere === 'northern' && delta < 0) ||
       (this.hemisphere === 'southern' && delta > 0);
-    if (isWrongDir && Math.abs(delta) > 0.1) {
+    if (isWrongDir && Math.abs(delta) > 0.1 && !this.quizActive) {
       this.spawnWrongDirectionSparks(pointer.x, pointer.y);
     }
 
-    const gainMultiplier = this.headwindActive ? 0.5 : 1;
-    if (this.hemisphere === 'northern') {
+    const deltaDeg = Phaser.Math.RadToDeg(Math.abs(delta));
+
+    // ── SPIN POWER: fills with FAST sustained spinning ──
+    const now = this.time.now;
+    let dtMs = now - this.lastMoveTime;
+    this.lastMoveTime = now;
+    if (dtMs < 1 || dtMs > 100) dtMs = 100;
+    const degPerSec = (deltaDeg / dtMs) * 1000;
+    if (!isWrongDir) {
+      // Slow mosey doesn't build power — you must actually spin fast
+      if (degPerSec > 60) {
+        const speedNorm = Math.min(1, degPerSec / 540); // maxes out at ~540°/s
+        this.spinPower = Math.min(1, this.spinPower + speedNorm * 0.012);
+      }
+      // ── Combo: every 90° of steady correct spin ──
+      this.comboAccum += deltaDeg;
+      while (this.comboAccum >= 90) {
+        this.comboAccum -= 90;
+        this.combo++;
+        this.lastComboTime = this.time.now;
+        if (this.combo >= 2) this.playComboChime();
+      }
+      this.lastComboTime = this.time.now;
+      this.updateComboText();
+    } else if (Math.abs(delta) > 0.1) {
+      // Wrong direction resets combo & drains power
+      this.combo = 0;
+      this.comboAccum = 0;
+      this.updateComboText();
+      this.spinPower = Math.max(0, this.spinPower - 0.15);
+    }
+    this.drawPowerMeter();
+
+    // ── Spin whoosh — pitches up with spin speed ──
+    if (deltaDeg > 2 && this.time.now - this.lastWhooshTime > 120) {
+      this.playSpinWhoosh(Math.min(1, deltaDeg / 12));
+      this.lastWhooshTime = this.time.now;
+    }
+
+    // ── Progress gain — multiplied by SPIN POWER (up to 2×) ──
+    const powerMult = 1 + this.spinPower;
+    const gainMultiplier = (this.headwindActive ? 0.5 : 1) * powerMult;
+    if (this.quizActive) {
+      // Quiz mode: no rotation gain/loss while answering
+    } else if (this.hemisphere === 'northern') {
       if (delta > 0) {
-        this.totalRotation += Phaser.Math.RadToDeg(delta) * gainMultiplier;
+        this.totalRotation += deltaDeg * gainMultiplier;
       } else {
         this.totalRotation += Phaser.Math.RadToDeg(delta) * 0.5;
       }
     } else {
       if (delta < 0) {
-        this.totalRotation += Phaser.Math.RadToDeg(-delta) * gainMultiplier;
+        this.totalRotation += deltaDeg * gainMultiplier;
       } else {
         this.totalRotation -= Phaser.Math.RadToDeg(delta) * 0.5;
       }
     }
     this.totalRotation = Math.max(0, this.totalRotation);
     this.lastAngle = currentAngle;
+
+    // ── Hemisphere Quiz: spin the gesture to answer (CW = Right, CCW = Left) ──
+    if (this.quizActive && Math.abs(delta) > 0.02) {
+      const gestureCw = delta > 0;
+      const answersGesture =
+        this.quizGesture === 'cw' ? gestureCw : !gestureCw;
+      if (answersGesture) {
+        this.quizAccum += deltaDeg;
+        if (this.quizAccum >= 180) this.resolveQuiz(true);
+      }
+    }
+
+    // ── Air Mass: charge the deflector with correct-direction spin ──
+    if (this.airMassActive && !this.airMassResolved) {
+      if (!isWrongDir && deltaDeg > 0.5) {
+        this.airMassCharge = Math.min(1, this.airMassCharge + deltaDeg * 0.022);
+      } else if (Math.abs(delta) > 0.05) {
+        this.airMassCharge = Math.max(0, this.airMassCharge - deltaDeg * 0.012);
+      }
+      this.drawAirMassCharge();
+      if (this.airMassCharge >= 1) this.airMassSuccess();
+    }
 
     this.updateUI();
     this.updateVortex();
@@ -1158,6 +1976,18 @@ export class RotationScene extends Phaser.Scene {
       1,
       this.totalRotation / this.targetRotation
     );
+
+    // ── Round transitions (1 → 2 → 3) escalate difficulty ──
+    this.updateRound();
+
+    // ── Trigger Deflect-the-Air-Mass events at 33% / 66% ──
+    if (!this.airMassActive && !this.isComplete && !this.quizActive) {
+      if (this.rotationProgress >= 0.66 && this.airMassStage < 2) {
+        this.startAirMassEvent();
+      } else if (this.rotationProgress >= 0.33 && this.airMassStage < 1) {
+        this.startAirMassEvent();
+      }
+    }
 
     this.drawRings(this.rotationProgress);
     this.checkStormMilestones();
@@ -1250,14 +2080,21 @@ export class RotationScene extends Phaser.Scene {
   }
 
   private updateUI() {
-    const totalBonus = this.orbBonusScore + this.deflectionScore;
+    const totalBonus =
+      this.orbBonusScore +
+      this.deflectionScore +
+      this.airMassBonus +
+      this.quizBonus +
+      this.roundBonus;
     this.game.events.emit(GAME_EVENTS.HUD_OBJECTIVE, {
-      text: `Spin ${this.hemisphere === 'northern' ? 'clockwise' : 'counter-clockwise'}`,
+      text: `Spin ${this.hemisphere === 'northern' ? 'clockwise' : 'counter-clockwise'} — Round ${this.currentRound}/3`,
       progress: Math.round(this.totalRotation),
       target: this.targetRotation
     } satisfies HUDObjectivePayload);
     this.game.events.emit(GAME_EVENTS.HUD_SCORE, {
-      score: Math.round((this.totalRotation / this.targetRotation) * 2500) + totalBonus,
+      score:
+        Math.round((this.totalRotation / this.targetRotation) * 2500) +
+        totalBonus,
       label: 'Spin'
     } satisfies HUDScorePayload);
   }
@@ -1265,9 +2102,18 @@ export class RotationScene extends Phaser.Scene {
   private completeLevel() {
     if (this.isComplete) return;
     this.isComplete = true;
+    this.cleanupActiveEvents();
 
     const timeBonus = Math.round((this.timeRemaining / this.totalTime) * 400);
-    const score = 2500 + timeBonus + this.orbBonusScore + this.deflectionScore;
+    const score =
+      2500 +
+      timeBonus +
+      this.orbBonusScore +
+      this.deflectionScore +
+      this.airMassBonus +
+      this.quizBonus +
+      this.roundBonus +
+      this.combo * 25;
     const stars = GameManager.getStars(score, 3600);
 
     GameManager.getInstance().completeLevel(
@@ -1294,6 +2140,7 @@ export class RotationScene extends Phaser.Scene {
 
     this.cameras.main.flash(500, 255, 255, 255);
     this.cameras.main.shake(500, 0.005);
+    this.playFanfare();
 
     // Dramatic vortex finish
     this.tweens.addCounter({
@@ -1321,18 +2168,32 @@ export class RotationScene extends Phaser.Scene {
       }
     });
 
-    const bonusSummary = this.orbBonusScore + this.deflectionScore > 0
-      ? `\n💰 Bonus: +${this.orbBonusScore + this.deflectionScore} pts`
+    const totalBonus =
+      this.orbBonusScore +
+      this.deflectionScore +
+      this.airMassBonus +
+      this.quizBonus +
+      this.roundBonus;
+    const bonusSummary = totalBonus > 0
+      ? `\n💰 Bonus: +${totalBonus} pts`
+      : '';
+    const comboLine = this.combo >= 2
+      ? `\n🔥 Best combo: x${this.combo} (+${this.combo * 25})`
       : '';
     const victoryText = this.add
-      .text(GAME_WIDTH / 2, 180, `Coriolis Effect Active!${bonusSummary}`, {
-        fontFamily: FONTS.DISPLAY,
-        fontSize: '30px',
-        color: '#06D6A0',
-        stroke: '#000000',
-        strokeThickness: 4,
-        align: 'center'
-      })
+      .text(
+        GAME_WIDTH / 2,
+        180,
+        `Coriolis Effect Active!${bonusSummary}${comboLine}`,
+        {
+          fontFamily: FONTS.DISPLAY,
+          fontSize: '30px',
+          color: '#06D6A0',
+          stroke: '#000000',
+          strokeThickness: 4,
+          align: 'center'
+        }
+      )
       .setOrigin(0.5)
       .setDepth(DEPTH.OVERLAY)
       .setAlpha(0);
@@ -1355,6 +2216,8 @@ export class RotationScene extends Phaser.Scene {
   private failLevel() {
     if (this.isComplete) return;
     this.isComplete = true;
+    this.cleanupActiveEvents();
+    this.playFailJingle();
 
     this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Not Enough Spin!', {
@@ -1388,6 +2251,9 @@ export class RotationScene extends Phaser.Scene {
     if (this.orbSpawnTimer) this.orbSpawnTimer.remove();
     if (this.deflectionSpawnTimer) this.deflectionSpawnTimer.remove();
     if (this.rainTimer) this.rainTimer.remove();
+    if (this.quizTickTimer) this.quizTickTimer.remove();
+    if (this.quizTimer) this.quizTimer.remove();
+    if (this.airMassTimer) this.airMassTimer.remove();
     this.rainStreakPool.forEach(s => s.destroy());
     this.rainStreakPool = [];
   }

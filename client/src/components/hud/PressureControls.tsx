@@ -78,8 +78,14 @@ export default function PressureControls() {
 
   const isHighSelected = state.selectedType === 'high';
   const isLowSelected = state.selectedType === 'low';
-  const canStart = state.placedCount >= 6;
   const remaining = 6 - state.placedCount;
+  const wrongCount = slots.filter(
+    (s) => s.placed != null && s.placed !== s.correct
+  ).length;
+  const allFixed = state.placedCount >= 6 && wrongCount === 0;
+  // Buttons stay usable while there are wrong slots to fix
+  const canSelect = remaining > 0 || wrongCount > 0;
+  const canStart = allFixed;
 
   return (
     <div className="absolute bottom-8 left-60 z-30 pointer-events-none">
@@ -143,12 +149,12 @@ export default function PressureControls() {
           {/* H (High) Button */}
           <button
             onClick={() => selectType('high')}
-            disabled={remaining === 0}
+            disabled={!canSelect}
             className={`
               relative flex flex-col items-center justify-center
               h-16 w-16 rounded-full font-bold text-white
               transition-all duration-150 select-none
-              ${remaining === 0 ? 'opacity-30 cursor-not-allowed' : ''}
+              ${!canSelect ? 'opacity-30 cursor-not-allowed' : ''}
               ${
                 isHighSelected
                   ? 'scale-110 ring-2 ring-white/50'
@@ -174,12 +180,12 @@ export default function PressureControls() {
           {/* L (Low) Button */}
           <button
             onClick={() => selectType('low')}
-            disabled={remaining === 0}
+            disabled={!canSelect}
             className={`
               relative flex flex-col items-center justify-center
               h-16 w-16 rounded-full font-bold text-white
               transition-all duration-150 select-none
-              ${remaining === 0 ? 'opacity-30 cursor-not-allowed' : ''}
+              ${!canSelect ? 'opacity-30 cursor-not-allowed' : ''}
               ${
                 isLowSelected
                   ? 'scale-110 ring-2 ring-white/50'
@@ -205,9 +211,13 @@ export default function PressureControls() {
 
         {/* Status instruction / remaining count */}
         <div className="mb-2 text-center">
-          {remaining === 0 ? (
+          {wrongCount > 0 ? (
+            <span className="text-xs font-bold text-[#FF5252]">
+              ❌ {wrongCount} wrong — pick H or L, then tap the red circles to fix
+            </span>
+          ) : remaining === 0 ? (
             <span className="text-xs font-bold text-accent-green">
-              ✅ All slots filled! Ready to go!
+              ✅ All correct! Ready to fly!
             </span>
           ) : (
             <span className="text-xs text-gray-400">
