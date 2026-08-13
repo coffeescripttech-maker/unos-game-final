@@ -21,7 +21,7 @@ export default function HUDHealth() {
   if (bars.length === 0) return null;
 
   return (
-    <div className="absolute top-[110px] left-1/2 -translate-x-1/2 z-30 flex gap-5 retro-card !p-3 !bg-storm-dark/80 shadow-lg shadow-black/20">
+    <div className="hud-health absolute top-[110px] left-1/2 -translate-x-1/2 z-30 flex gap-5 retro-card !p-3 !bg-storm-dark/80 shadow-lg shadow-black/20">
       {bars.map(bar => {
         const pct = bar.max > 0 ? bar.current / bar.max : 0;
         const isLow = pct < 0.3;

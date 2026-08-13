@@ -88,7 +88,7 @@ export default function PressureControls() {
   const canStart = allFixed;
 
   return (
-    <div className="absolute bottom-8 left-60 z-30 pointer-events-none">
+    <div className="pressure-controls absolute bottom-8 left-60 z-30 pointer-events-none">
       <div
         className="pointer-events-auto mx-4 rounded-xl border-3 border-white/20 p-4 shadow-retro"
         style={{

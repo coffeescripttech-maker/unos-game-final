@@ -150,15 +150,15 @@ export default function LevelSelectCards() {
   };
 
   return (
-    <div className="absolute inset-0 z-20 flex items-start justify-center overflow-y-auto py-20 px-4 pointer-events-none">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 max-w-5xl w-full pointer-events-auto">
+    <div className="level-select-overlay absolute inset-0 z-20 flex items-start justify-center overflow-y-auto py-20 px-4 pointer-events-none">
+      <div className="level-select-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 max-w-5xl w-full pointer-events-auto">
         {cards.map(card => {
           const locked = !card.unlocked;
           return (
             <Card
               key={card.id}
               className={cn(
-                'flex flex-col overflow-hidden transition-all duration-150',
+                'level-card flex flex-col overflow-hidden transition-all duration-150',
                 locked
                   ? 'border-storm-light/20'
                   : card.completed

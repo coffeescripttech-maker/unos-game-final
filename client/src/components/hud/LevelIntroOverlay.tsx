@@ -37,8 +37,8 @@ export default function LevelIntroOverlay() {
   if (!intro) return null;
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div className="retro-card max-w-md w-[90%] !overflow-hidden !bg-storm-dark animate-in zoom-in-95 duration-300">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-2">
+      <div className="retro-card modal-card max-w-md w-[95%] max-h-[95vh] overflow-y-auto !bg-storm-dark animate-in zoom-in-95 duration-300">
         {/* ── Level badge ── */}
         <div className="flex justify-center -mt-1">
           <span className="retro-badge bg-warning-red text-white text-xs px-6 py-1 -translate-y-1/2">

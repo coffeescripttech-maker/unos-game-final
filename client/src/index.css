@@ -15,6 +15,320 @@
     overflow: hidden;
   }
 
+  html {
+    /* Use dynamic viewport height on mobile browsers */
+    height: 100dvh;
+  }
+
+  body {
+    /* Prevent pull-to-refresh and overscroll on mobile */
+    overscroll-behavior: none;
+    touch-action: none;
+    -webkit-overflow-scrolling: auto;
+  }
+
+  /* Game canvas fills the viewport with no gaps */
+  #game-container {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  #game-container canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  /* Mobile landscape: keep overlays compact and prevent any body scroll */
+  @media (max-height: 500px) and (orientation: landscape) {
+    html, body, #root, #game-container {
+      overflow: hidden !important;
+    }
+
+    .modal-card {
+      padding: 0.75rem !important;
+      max-width: 22rem !important;
+      gap: 0.5rem !important;
+    }
+
+    .modal-card .font-display.text-3xl,
+    .modal-card .font-display.text-2xl,
+    .modal-card .font-display.text-xl {
+      font-size: 1.125rem !important;
+      line-height: 1.2 !important;
+    }
+
+    .modal-card .font-body.text-sm,
+    .modal-card .font-body.text-xs {
+      font-size: 0.7rem !important;
+      line-height: 1.3 !important;
+    }
+
+    .modal-card .space-y-2\.5,
+    .modal-card .space-y-4,
+    .modal-card .space-y-5,
+    .modal-card .space-y-3 {
+      gap: 0.375rem !important;
+    }
+
+    .modal-card .retro-btn {
+      padding: 0.375rem 0.75rem !important;
+      font-size: 0.75rem !important;
+      margin-top: 0.5rem !important;
+    }
+
+    .modal-card .p-2\.5,
+    .modal-card .p-3,
+    .modal-card .p-4,
+    .modal-card .p-5,
+    .modal-card .px-5,
+    .modal-card .py-3,
+    .modal-card .py-5 {
+      padding: 0.375rem !important;
+    }
+
+    .modal-card .mb-4,
+    .modal-card .mb-3,
+    .modal-card .mb-2,
+    .modal-card .mt-6,
+    .modal-card .mt-4,
+    .modal-card .mt-3,
+    .modal-card .mt-2 {
+      margin: 0.25rem 0 !important;
+    }
+
+    .modal-card svg,
+    .modal-card .w-full.max-w-\[340px\] {
+      max-height: 120px !important;
+    }
+
+    /* Pressure controls: center at bottom on mobile landscape */
+    .pressure-controls {
+      left: 50% !important;
+      right: auto !important;
+      bottom: 0.5rem !important;
+      transform: translateX(-50%) !important;
+    }
+
+    .pressure-controls > div {
+      width: 260px !important;
+      padding: 0.75rem !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+
+    .pressure-controls button {
+      width: 3.5rem !important;
+      height: 3.5rem !important;
+    }
+
+    /* Typhoon controls: reposition to bottom-left, narrower on mobile */
+    .typhoon-controls {
+      left: 0.5rem !important;
+      top: auto !important;
+      bottom: 0.5rem !important;
+    }
+
+    .typhoon-controls > div {
+      width: 300px !important;
+      padding: 0.75rem !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+
+    .typhoon-controls .py-1\.5 {
+      padding-top: 0.25rem !important;
+      padding-bottom: 0.25rem !important;
+    }
+
+    /* HUD top bar: more compact on mobile landscape */
+    .hud-topbar {
+      padding: 0.375rem 0.75rem !important;
+    }
+
+    .hud-topbar .font-display.text-lg {
+      font-size: 0.875rem !important;
+    }
+
+    .hud-topbar .font-display.text-2xl {
+      font-size: 1rem !important;
+    }
+
+    .hud-topbar .font-display.text-sm {
+      font-size: 0.65rem !important;
+    }
+
+    .hud-topbar button {
+      padding: 0.25rem 0.5rem !important;
+      font-size: 0.65rem !important;
+    }
+
+    .hud-topbar .w-20 {
+      width: 3rem !important;
+    }
+
+    .hud-topbar .min-w-\[64px\] {
+      min-width: 48px !important;
+    }
+
+    /* HUD back button: icon-only on mobile */
+    .hud-topbar .hud-back .back-label,
+    .world-map-header .world-map-back .back-label {
+      display: none !important;
+    }
+
+    .world-map-header .world-map-back {
+      padding: 0.375rem !important;
+    }
+
+    .world-map-header {
+      padding: 0 !important;
+    }
+
+    .world-map-header > div {
+      padding: 0.375rem 0.75rem !important;
+    }
+
+    .world-map-title {
+      font-size: 1rem !important;
+      gap: 0.375rem !important;
+    }
+
+    .world-map-title svg {
+      width: 18px !important;
+      height: 18px !important;
+    }
+
+    /* Objective bar: compact on mobile */
+    .hud-objective {
+      top: 42px !important;
+      padding: 0.25rem 0.5rem !important;
+      gap: 0.5rem !important;
+    }
+
+    .hud-objective .font-display.text-sm {
+      font-size: 0.65rem !important;
+    }
+
+    .hud-objective .h-4 {
+      height: 0.5rem !important;
+    }
+
+    .hud-objective .max-w-\[280px\] {
+      max-width: 140px !important;
+    }
+
+    .hud-objective .text-sm {
+      font-size: 0.65rem !important;
+    }
+
+    .hud-objective .w-16 {
+      width: 2.5rem !important;
+    }
+
+    .hud-objective .h-2\.5 {
+      height: 0.375rem !important;
+    }
+
+    /* Health bar: compact on mobile */
+    .hud-health {
+      top: 72px !important;
+      padding: 0.375rem !important;
+      gap: 0.75rem !important;
+    }
+
+    .hud-health .w-28 {
+      width: 5rem !important;
+    }
+
+    .hud-health .h-4 {
+      height: 0.5rem !important;
+    }
+
+    .hud-health .font-display.text-xs,
+    .hud-health .font-display.text-sm {
+      font-size: 0.65rem !important;
+    }
+
+    /* Level select: 2-column compact scrollable grid */
+    .level-select-overlay {
+      padding: 52px 0.5rem 0.5rem !important;
+      align-items: flex-start !important;
+    }
+
+    .level-select-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 0.5rem !important;
+      max-width: 100% !important;
+    }
+
+    .level-select-grid .level-card {
+      border-radius: 0.375rem !important;
+      box-shadow: 3px 3px 0 0 rgba(0,0,0,1) !important;
+    }
+
+    .level-select-grid .level-card:hover {
+      transform: none !important;
+      box-shadow: 3px 3px 0 0 rgba(0,0,0,1) !important;
+    }
+
+    .level-select-grid .level-card img,
+    .level-select-grid .level-card .aspect-video {
+      aspect-ratio: auto !important;
+      height: 60px !important;
+      min-height: 60px !important;
+    }
+
+    .level-select-grid .level-card h3,
+    .level-select-grid .level-card [class*="CardTitle"] {
+      font-size: 0.75rem !important;
+      line-height: 1.2 !important;
+    }
+
+    .level-select-grid .level-card p,
+    .level-select-grid .level-card [class*="CardDescription"] {
+      font-size: 0.55rem !important;
+      line-height: 1.25 !important;
+      display: -webkit-box !important;
+      -webkit-line-clamp: 2 !important;
+      -webkit-box-orient: vertical !important;
+      overflow: hidden !important;
+    }
+
+    .level-select-grid .level-card button {
+      padding: 0.25rem 0.5rem !important;
+      font-size: 0.6rem !important;
+      border-width: 2px !important;
+    }
+
+    .level-select-grid .level-card .text-xl {
+      font-size: 0.8rem !important;
+    }
+
+    .level-select-grid .level-card .text-\[10px\],
+    .level-select-grid .level-card .text-xs {
+      font-size: 0.5rem !important;
+    }
+
+    .level-select-grid .level-card > div[class*="p-4"],
+    .level-select-grid .level-card [class*="CardHeader"],
+    .level-select-grid .level-card [class*="CardFooter"] {
+      padding: 0.375rem !important;
+    }
+
+    .level-select-grid .level-card [class*="CardHeader"] {
+      padding-top: 0.375rem !important;
+    }
+
+    .level-select-grid .level-card [class*="CardFooter"] {
+      padding-top: 0 !important;
+    }
+  }
+
   body {
     font-family: 'Nunito', sans-serif;
     -webkit-font-smoothing: antialiased;

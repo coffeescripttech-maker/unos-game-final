@@ -185,7 +185,7 @@ export default function TyphoonControls() {
   if (sliders.length === 0) return null;
 
   return (
-    <div className="absolute left-0 top-28 z-30 pointer-events-none">
+    <div className="typhoon-controls absolute left-0 top-28 z-30 pointer-events-none">
       <div
         className="pointer-events-auto mx-4 rounded-xl border-3 border-white/20 p-4 shadow-retro"
         style={{

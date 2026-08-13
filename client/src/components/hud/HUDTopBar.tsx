@@ -46,15 +46,16 @@ export default function HUDTopBar() {
   const timeStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
   return (
-    <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-5 py-3 bg-storm-dark/90 border-b-3 border-black shadow-lg shadow-black/30">
+    <div className="hud-topbar absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-5 py-3 bg-storm-dark/90 border-b-3 border-black shadow-lg shadow-black/30">
       {/* Exit button + Level name */}
       <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={handleExit}
-          className="retro-btn bg-warning-red/80 text-white text-xs !px-2.5 !py-1.5 flex items-center gap-1.5 hover:bg-warning-red transition-colors"
+          className="hud-back retro-btn bg-warning-red/80 text-white text-xs !px-2.5 !py-1.5 flex items-center gap-1.5 hover:bg-warning-red transition-colors"
           title="Exit to menu"
+          aria-label="Exit to menu"
         >
-          ✕ Back
+          ✕ <span className="back-label">Back</span>
         </button>
         <span className="font-display text-lg text-accent-yellow truncate drop-shadow-[2px_2px_0_rgba(0,0,0,0.5)]">{levelName}</span>
       </div>

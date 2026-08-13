@@ -26,8 +26,8 @@ export default function ResultOverlay() {
   const isWin = result.type === 'complete';
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div className="retro-card max-w-sm w-[90%] text-center space-y-4 !bg-ocean-deep">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-2">
+      <div className="retro-card modal-card max-w-sm w-[95%] max-h-[95vh] overflow-y-auto text-center space-y-3 !bg-ocean-deep">
         {/* Title */}
         <div
           className={`font-display text-3xl ${isWin ? 'text-accent-green' : 'text-warning-red'}`}

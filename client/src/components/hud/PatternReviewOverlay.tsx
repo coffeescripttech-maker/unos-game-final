@@ -93,8 +93,8 @@ export default function PatternReviewOverlay() {
   }
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div className={`retro-card max-w-sm w-[90%] !overflow-hidden animate-in zoom-in-95 duration-300 ${
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-2">
+      <div className={`retro-card modal-card max-w-sm w-[95%] max-h-[95vh] overflow-y-auto animate-in zoom-in-95 duration-300 ${
         isCorrect ? '!bg-storm-dark' : '!bg-storm-dark border-warning-red/40'
       }`}>
         {/* ── Badge ── */}

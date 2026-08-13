@@ -200,9 +200,14 @@ export class EvaporationScene extends Phaser.Scene {
   // ─────────────────────────────────────────────
 
   private setupSunInteraction() {
+    const isTouch = !this.sys.game.device.os.desktop;
     const hitZone = this.add
-      .circle(SUN_X, SUN_Y, 80, 0xffffff, 0)
-      .setInteractive({ useHandCursor: true })
+      .circle(SUN_X, SUN_Y, isTouch ? 110 : 80, 0xffffff, 0)
+      .setInteractive(
+        new Phaser.Geom.Circle(0, 0, isTouch ? 110 : 80),
+        Phaser.Geom.Circle.Contains,
+        true
+      )
       .setDepth(2);
 
     hitZone.on('pointerdown', () => this.clickSun());
@@ -434,7 +439,12 @@ export class EvaporationScene extends Phaser.Scene {
     const margin = 100;
     const px = Phaser.Math.Between(margin, GAME_WIDTH - margin);
     const py = OCEAN_TOP_Y + Phaser.Math.Between(-5, 20);
-    const radius = Phaser.Math.Between(10, 18);
+    // Larger bubbles + bigger touch target on touch devices
+    const isTouch = !this.sys.game.device.os.desktop;
+    const radius = isTouch
+      ? Phaser.Math.Between(16, 24)
+      : Phaser.Math.Between(10, 18);
+    const hitPadding = isTouch ? 16 : 6;
 
     // Glow behind bubble
     const glow = this.add
@@ -446,7 +456,11 @@ export class EvaporationScene extends Phaser.Scene {
       .circle(px, py, radius, COLORS.OCEAN_LIGHT, 0.55)
       .setStrokeStyle(2, 0xffffff, 0.4)
       .setDepth(6)
-      .setInteractive({ useHandCursor: true });
+      .setInteractive(
+        new Phaser.Geom.Circle(0, 0, radius + hitPadding),
+        Phaser.Geom.Circle.Contains,
+        true
+      );
 
     // White highlight
     const highlight = this.add
@@ -520,13 +534,15 @@ export class EvaporationScene extends Phaser.Scene {
       }
     });
 
-    // Float up tween
+    // Float up tween (slower on touch devices for easier tapping)
     const windDrift = this.windDirection * Phaser.Math.Between(40, 100);
     this.tweens.add({
       targets: [bubble, glow, highlight],
       y: py - Phaser.Math.Between(250, 400),
       x: px + windDrift + Phaser.Math.Between(-30, 30),
-      duration: Phaser.Math.Between(3000, 5000),
+      duration: isTouch
+        ? Phaser.Math.Between(4500, 6500)
+        : Phaser.Math.Between(3000, 5000),
       ease: 'Quad.easeOut',
       onUpdate: (tween) => {
         const p = tween.progress;

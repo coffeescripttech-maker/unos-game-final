@@ -32,8 +32,8 @@ interface DeflectionParticle {
 }
 
 export class RotationScene extends Phaser.Scene {
-  private timeRemaining = 60;
-  private totalTime = 60;
+  private timeRemaining = 30;
+  private totalTime = 30;
   private rotationProgress = 0;
   private isComplete = false;
   private vortexGfx!: Phaser.GameObjects.Graphics;
@@ -95,6 +95,13 @@ export class RotationScene extends Phaser.Scene {
   private roundDecayMult = 0.6;
   private roundBanner!: Phaser.GameObjects.Text;
 
+  // ── Storm stages, combo ratings & inflow ──
+  private stageText!: Phaser.GameObjects.Text;
+  private comboRatingTier = 0;
+  private comboBonus = 0;
+  private inflowTimer!: Phaser.Time.TimerEvent;
+  private inflowSprites: Phaser.GameObjects.Arc[] = [];
+
   // ── Deflect the Air Mass (33% / 66%) ──
   private airMassStage = 0;
   private airMassActive = false;
@@ -134,8 +141,8 @@ export class RotationScene extends Phaser.Scene {
     this.isComplete = false;
     this.gameStarted = false;
     this.rotationProgress = 0;
-    this.timeRemaining = 60;
-    this.totalTime = 60;
+    this.timeRemaining = 30;
+    this.totalTime = 30;
     this.pointerPositions = [];
     this.totalRotation = 0;
     this.isDragging = false;
@@ -165,6 +172,9 @@ export class RotationScene extends Phaser.Scene {
     this.currentRound = 1;
     this.roundBonus = 0;
     this.roundDecayMult = 0.6;
+    this.comboRatingTier = 0;
+    this.comboBonus = 0;
+    this.hemisphere = 'northern';
 
     // ── Background (with slow zoom + drift animation) ──
     const bg = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'rotation_bg').setDepth(0);
@@ -234,12 +244,13 @@ export class RotationScene extends Phaser.Scene {
 
     // ── Hemisphere indicator ──
     this.hemisphereText = this.add
-      .text(GAME_WIDTH / 2, 70, '🌍 Northern Hemisphere (CW)', {
+      .text(GAME_WIDTH / 2, 70, '', {
         fontFamily: FONTS.BODY,
         fontSize: '14px',
         color: '#6DB3E6'
       })
       .setOrigin(0.5);
+    this.updateHemisphereText();
 
     // ── SPIN POWER meter (top center) ──
     this.powerMeterGfx = this.add.graphics().setDepth(6);
@@ -292,29 +303,18 @@ export class RotationScene extends Phaser.Scene {
     // ── Vortex graphics ──
     this.vortexGfx = this.add.graphics().setDepth(DEPTH.GAME_OBJECTS);
 
-    // ── Toggle hemisphere button ──
-    const toggleBtn = this.add
-      .text(GAME_WIDTH - 20, 75, 'Toggle', {
-        fontFamily: FONTS.BODY,
-        fontSize: '12px',
+    // ── Storm stage label (top-right) ──
+    this.stageText = this.add
+      .text(GAME_WIDTH - 20, 100, '', {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '15px',
         color: '#6DB3E6',
-        backgroundColor: '#1a1a3e',
-        padding: { x: 8, y: 4 }
+        stroke: '#000000',
+        strokeThickness: 3
       })
       .setOrigin(1, 0)
-      .setInteractive({ useHandCursor: true });
-
-    toggleBtn.on('pointerdown', () => {
-      this.hemisphere =
-        this.hemisphere === 'northern' ? 'southern' : 'northern';
-      this.hemisphereText.setText(
-        this.hemisphere === 'northern'
-          ? '🌍 Northern Hemisphere (CW)'
-          : '🌍 Southern Hemisphere (CCW)'
-      );
-      this.totalRotation = 0;
-      this.updateUI();
-    });
+      .setDepth(6);
+    this.updateStormStage();
 
     this.game.events.on(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
 
@@ -333,14 +333,14 @@ export class RotationScene extends Phaser.Scene {
       title: 'Coriolis Effect',
       subtitle: 'Spin to create the Coriolis Force!',
       mechanics: [
-        { icon: '🔄', text: 'Spin ANYWHERE around the eye — CW (Northern) or CCW (Southern)' },
-        { icon: '📊', text: '3 ROUNDS: Build → Deflect → Storm — each round gets harder!' },
+        { icon: '🔄', text: 'Spin ANYWHERE around the eye — CCW (Northern) or CW (Southern)' },
+        { icon: '🌎', text: 'HEMISPHERE CHALLENGE: rounds flip N → S → N — watch the banner!' },
+        { icon: '🌪️', text: 'Storm grows: Depression → Tropical Storm → Strong Storm → Cyclone' },
         { icon: '⚡', text: 'SPIN POWER: spin fast & steady for up to 2× progress!' },
-        { icon: '🔥', text: 'Chain steady spins into a COMBO for bonus points' },
+        { icon: '🔥', text: 'Combo ratings: GOOD → GREAT → PERFECT → SUPER SPIN!' },
         { icon: '🟤', text: 'AIR MASS events — spin to charge & deflect them away!' },
-        { icon: '💨', text: 'Headwinds appear more often — spin harder or you\'ll lose progress!' },
-        { icon: '❓', text: 'Answer hemisphere quizzes & catch orbs for bonus points' },
-        { icon: '⏱️', text: '60 seconds. Reach 20 rotations (7200°) to win!' }
+        { icon: '💨', text: 'Wind disturbances — correct the airflow to keep building!' },
+        { icon: '⏱️', text: '30 seconds. Reach 20 rotations (7200°) to form the cyclone!' }
       ]
     } satisfies HUDLevelIntroPayload);
 
@@ -353,7 +353,7 @@ export class RotationScene extends Phaser.Scene {
     // Emit level info
     this.game.events.emit(GAME_EVENTS.HUD_LEVEL_INFO, {
       name: 'Rotation',
-      description: 'Spin to build Coriolis force — power up & deflect air masses!'
+      description: 'Spin the correct direction (CCW North / CW South). Chase the right airflow, deflect air masses, ride out wind disturbances, and build a full-blown cyclone in 30 seconds!'
     } satisfies HUDLevelInfoPayload);
     this.emitObjective();
 
@@ -390,6 +390,16 @@ export class RotationScene extends Phaser.Scene {
                 : 1
         } satisfies HUDWeatherPayload);
 
+        // ⏱️ Urgent warnings at 20s / 15s / 10s / 5s
+        if (
+          this.timeRemaining === 20 ||
+          this.timeRemaining === 15 ||
+          this.timeRemaining === 10 ||
+          this.timeRemaining === 5
+        ) {
+          this.showTimeWarning(this.timeRemaining);
+        }
+
         if (this.timeRemaining <= 0) this.failLevel();
       },
       loop: true
@@ -407,6 +417,7 @@ export class RotationScene extends Phaser.Scene {
           if (this.combo > 0 && this.time.now - this.lastComboTime > 2000) {
             this.combo = 0;
             this.comboAccum = 0;
+            this.comboRatingTier = 0;
             this.updateComboText();
           }
         } else {
@@ -462,6 +473,13 @@ export class RotationScene extends Phaser.Scene {
       callback: () => this.spawnRainStreak(),
       loop: true
     });
+
+    // ── Air inflow particles spiral into the low-pressure center ──
+    this.inflowTimer = this.time.addEvent({
+      delay: 130,
+      callback: () => this.spawnInflowParticle(),
+      loop: true
+    });
   };
 
   // ═══════════════════════════════════════════════
@@ -492,8 +510,9 @@ export class RotationScene extends Phaser.Scene {
       endX - (fromLeft ? -20 : 20), gustY + 8
     );
 
-    // Show warning text
-    this.headwindText.setText('💨 HEADWIND!');
+    // Show warning text — random disturbance variety
+    const gustLabels = ['💨 HEADWIND!', '🌬️ WIND SHEAR!', '💨 GUST!'];
+    this.headwindText.setText(gustLabels[Math.floor(Math.random() * gustLabels.length)]);
     this.tweens.add({
       targets: this.headwindText,
       alpha: { from: 0, to: 1 },
@@ -1102,6 +1121,59 @@ export class RotationScene extends Phaser.Scene {
     }
   }
 
+  // ── Air inflow: spirals inward into the low-pressure center ──
+  private spawnInflowParticle() {
+    if (this.isComplete || !this.gameStarted) return;
+    const startAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    const startRadius = Phaser.Math.Between(400, 620);
+    const duration = Phaser.Math.Between(1800, 3000);
+    const curlTurns = Phaser.Math.FloatBetween(1.2, 2.2);
+    // Real physics: air spirals CCW in the Northern, CW in the Southern
+    const dirSign = this.hemisphere === 'northern' ? -1 : 1;
+    const start = this.time.now;
+    const color = Phaser.Math.Between(0, 2) === 0 ? 0x88ddff : 0xaee6ff;
+
+    const p = this.add
+      .circle(
+        this.centerX + Math.cos(startAngle) * startRadius,
+        this.centerY + Math.sin(startAngle) * startRadius,
+        2.5,
+        color,
+        0.6
+      )
+      .setDepth(DEPTH.PARTICLES);
+    this.inflowSprites.push(p);
+
+    this.tweens.add({
+      targets: p,
+      alpha: 0,
+      duration,
+      onUpdate: () => {
+        if (!p.active) return;
+        const t = Phaser.Math.Clamp(
+          (this.time.now - start) / duration,
+          0,
+          1
+        );
+        const radius = startRadius * Math.pow(1 - t, 0.75);
+        const angle = startAngle + t * curlTurns * Math.PI * 2 * dirSign;
+        p.x = this.centerX + Math.cos(angle) * radius;
+        p.y = this.centerY + Math.sin(angle) * radius;
+      },
+      onComplete: () => p.destroy()
+    });
+
+    this.time.delayedCall(duration + 50, () => {
+      const idx = this.inflowSprites.indexOf(p);
+      if (idx >= 0) this.inflowSprites.splice(idx, 1);
+    });
+
+    if (this.inflowSprites.length > 90) {
+      const old = this.inflowSprites.shift();
+      if (old && old.active) old.destroy();
+    }
+  }
+
   /**
    * Comet trail that follows the finger while spinning.
    */
@@ -1242,13 +1314,131 @@ export class RotationScene extends Phaser.Scene {
   private updateComboText() {
     if (!this.comboText) return;
     if (this.combo >= 2) {
-      this.comboText.setText(`🔥 Combo x${this.combo}`);
+      const label =
+        this.combo >= 5 ? `🔥 ${this.combo} x COMBO!` : `🔥 Combo x${this.combo}`;
+      this.comboText.setText(label);
       this.comboText.setAlpha(1);
       this.comboText.setScale(1 + Math.min(0.3, this.combo * 0.03));
+      this.comboText.setColor(this.combo >= 8 ? '#FF6B6B' : '#FFD166');
     } else {
       this.comboText.setText('');
       this.comboText.setAlpha(0);
     }
+  }
+
+  // ── Combo ratings: GOOD → GREAT → PERFECT → SUPER SPIN ──
+  private getComboRating(): number {
+    if (this.combo >= 8) return 4;
+    if (this.combo >= 6) return 3;
+    if (this.combo >= 4) return 2;
+    if (this.combo >= 2) return 1;
+    return 0;
+  }
+
+  private evalComboRating() {
+    const rating = this.getComboRating();
+    if (rating > this.comboRatingTier) {
+      this.comboRatingTier = rating;
+      this.popComboRating(rating);
+    }
+  }
+
+  private popComboRating(rating: number) {
+    const RATINGS = [
+      { name: 'GOOD', color: '#8bd450', bonus: 10, fontSize: 26 },
+      { name: 'GREAT', color: '#ffd166', bonus: 20, fontSize: 30 },
+      { name: 'PERFECT', color: '#ff9f43', bonus: 30, fontSize: 34 },
+      { name: 'SUPER SPIN!', color: '#ff6b6b', bonus: 50, fontSize: 38 }
+    ];
+    const r = RATINGS[rating - 1];
+    if (!r) return;
+    this.comboBonus += r.bonus;
+    this.playRatingSound(rating);
+    const pop = this.add
+      .text(this.centerX, this.centerY + 40, `${r.name} +${r.bonus}`, {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: `${r.fontSize}px`,
+        color: r.color,
+        stroke: '#000000',
+        strokeThickness: 5
+      })
+      .setOrigin(0.5)
+      .setDepth(12);
+    this.tweens.add({
+      targets: pop,
+      y: pop.y - 70,
+      alpha: 0,
+      scale: pop.scale * 1.4,
+      duration: 900,
+      ease: 'Cubic.easeOut',
+      onComplete: () => pop.destroy()
+    });
+  }
+
+  // ── Hemisphere indicator (flips with each round) ──
+  private updateHemisphereText() {
+    if (!this.hemisphereText) return;
+    const northern = this.hemisphere === 'northern';
+    this.hemisphereText.setText(
+      northern
+        ? '🌎 Northern Hemisphere — spin CCW ↺'
+        : '🌍 Southern Hemisphere — spin CW ↻'
+    );
+    this.hemisphereText.setColor(northern ? '#7fd4ff' : '#ffd166');
+  }
+
+  // ── Storm stage label (Depression → Cyclone) tracks progress ──
+  private updateStormStage() {
+    if (!this.stageText) return;
+    const p = this.rotationProgress;
+    let label: string;
+    let color: string;
+    if (p >= 0.75) {
+      label = '🌪️ Cyclone';
+      color = '#FF6B6B';
+    } else if (p >= 0.5) {
+      label = '🌩️ Strong Storm';
+      color = '#FFD166';
+    } else if (p >= 0.25) {
+      label = '🌦️ Tropical Storm';
+      color = '#88ddff';
+    } else {
+      label = '🌫️ Depression';
+      color = '#6DB3E6';
+    }
+    this.stageText.setText(label);
+    this.stageText.setColor(color);
+  }
+
+  // ── ⏱️ Final-10-seconds urgency popup ──
+  private showTimeWarning(seconds: number) {
+    const warn = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 90, `⏰ ${seconds}s left!`, {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '34px',
+        color: '#FF6B6B',
+        stroke: '#000000',
+        strokeThickness: 5
+      })
+      .setOrigin(0.5)
+      .setDepth(13)
+      .setAlpha(0);
+    this.tweens.add({
+      targets: warn,
+      alpha: { from: 0, to: 1 },
+      scale: { from: 0.6, to: 1.05 },
+      duration: 250,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: warn,
+          alpha: 0,
+          delay: 550,
+          duration: 300,
+          onComplete: () => warn.destroy()
+        });
+      }
+    });
   }
 
   // ═══════════════════════════════════════════════
@@ -1603,6 +1793,9 @@ export class RotationScene extends Phaser.Scene {
     if (newRound === this.currentRound) return;
     this.currentRound = newRound;
     this.roundDecayMult = newRound === 1 ? 0.6 : newRound === 2 ? 1.0 : 1.4;
+    // Hemisphere Challenge: N → S → N (real Coriolis — spin CCW North, CW South)
+    this.hemisphere = newRound === 2 ? 'southern' : 'northern';
+    this.updateHemisphereText();
     this.roundBonus += 250;
     this.showRoundBanner(newRound);
     this.playRoundChime();
@@ -1617,7 +1810,11 @@ export class RotationScene extends Phaser.Scene {
       'Weather the Storm!'
     ];
     const colors = ['#6DB3E6', '#FFD166', '#FF6B6B'];
-    this.roundBanner.setText(`ROUND ${round}/3 — ${titles[round - 1]}`);
+    const hemi =
+      round === 2 ? '🌍 SOUTHERN — spin CW ↻' : '🌎 NORTHERN — spin CCW ↺';
+    this.roundBanner.setText(
+      `ROUND ${round}/3 — ${titles[round - 1]}\n${hemi}`
+    );
     this.roundBanner.setColor(colors[round - 1]);
     this.roundBanner.setAlpha(0);
     this.roundBanner.setScale(0.6);
@@ -1739,6 +1936,18 @@ export class RotationScene extends Phaser.Scene {
     this.tone(ctx, 660 + this.combo * 30, 0.12, 'triangle', 0.12);
   }
 
+  private playRatingSound(rating: number) {
+    const ctx = this.getAudioCtx();
+    if (!ctx) return;
+    const base = [660, 784, 880, 1047][rating - 1] ?? 660;
+    this.tone(ctx, base, 0.14, 'triangle', 0.14);
+    if (rating >= 3) this.tone(ctx, base * 1.25, 0.16, 'triangle', 0.12, 0.06);
+    if (rating >= 4) {
+      this.tone(ctx, base * 1.5, 0.2, 'square', 0.08, 0.12);
+      this.tone(ctx, base * 2, 0.2, 'triangle', 0.1, 0.14);
+    }
+  }
+
   private playCollectChime() {
     const ctx = this.getAudioCtx();
     if (!ctx) return;
@@ -1827,7 +2036,7 @@ export class RotationScene extends Phaser.Scene {
 
   private emitObjective() {
     this.game.events.emit(GAME_EVENTS.HUD_OBJECTIVE, {
-      text: `Spin ${this.hemisphere === 'northern' ? 'clockwise' : 'counter-clockwise'} — Round ${this.currentRound}/3`,
+      text: `Spin ${this.hemisphere === 'northern' ? 'counter-clockwise ↺' : 'clockwise ↻'} — Round ${this.currentRound}/3`,
       progress: Math.round(this.totalRotation),
       target: this.targetRotation
     } satisfies HUDObjectivePayload);
@@ -1878,9 +2087,11 @@ export class RotationScene extends Phaser.Scene {
     if (delta < -Math.PI) delta += Math.PI * 2;
 
     // Wrong direction = LOSES progress + red sparks (suspended during quizzes)
+    // Real physics: Northern Hemisphere spins COUNTER-CLOCKWISE, Southern CLOCKWISE.
+    // (Visual screen CCW = delta < 0, CW = delta > 0.)
     const isWrongDir =
-      (this.hemisphere === 'northern' && delta < 0) ||
-      (this.hemisphere === 'southern' && delta > 0);
+      (this.hemisphere === 'northern' && delta > 0) ||
+      (this.hemisphere === 'southern' && delta < 0);
     if (isWrongDir && Math.abs(delta) > 0.1 && !this.quizActive) {
       this.spawnWrongDirectionSparks(pointer.x, pointer.y);
     }
@@ -1906,6 +2117,7 @@ export class RotationScene extends Phaser.Scene {
         this.combo++;
         this.lastComboTime = this.time.now;
         if (this.combo >= 2) this.playComboChime();
+        this.evalComboRating();
       }
       this.lastComboTime = this.time.now;
       this.updateComboText();
@@ -1913,6 +2125,7 @@ export class RotationScene extends Phaser.Scene {
       // Wrong direction resets combo & drains power
       this.combo = 0;
       this.comboAccum = 0;
+      this.comboRatingTier = 0;
       this.updateComboText();
       this.spinPower = Math.max(0, this.spinPower - 0.15);
     }
@@ -1929,18 +2142,10 @@ export class RotationScene extends Phaser.Scene {
     const gainMultiplier = (this.headwindActive ? 0.5 : 1) * powerMult;
     if (this.quizActive) {
       // Quiz mode: no rotation gain/loss while answering
-    } else if (this.hemisphere === 'northern') {
-      if (delta > 0) {
-        this.totalRotation += deltaDeg * gainMultiplier;
-      } else {
-        this.totalRotation += Phaser.Math.RadToDeg(delta) * 0.5;
-      }
+    } else if (!isWrongDir) {
+      this.totalRotation += deltaDeg * gainMultiplier;
     } else {
-      if (delta < 0) {
-        this.totalRotation += deltaDeg * gainMultiplier;
-      } else {
-        this.totalRotation -= Phaser.Math.RadToDeg(delta) * 0.5;
-      }
+      this.totalRotation -= deltaDeg * 0.5;
     }
     this.totalRotation = Math.max(0, this.totalRotation);
     this.lastAngle = currentAngle;
@@ -1976,6 +2181,9 @@ export class RotationScene extends Phaser.Scene {
       1,
       this.totalRotation / this.targetRotation
     );
+
+    // ── Storm stage label (Depression → Cyclone) tracks progress ──
+    this.updateStormStage();
 
     // ── Round transitions (1 → 2 → 3) escalate difficulty ──
     this.updateRound();
@@ -2085,9 +2293,10 @@ export class RotationScene extends Phaser.Scene {
       this.deflectionScore +
       this.airMassBonus +
       this.quizBonus +
-      this.roundBonus;
+      this.roundBonus +
+      this.comboBonus;
     this.game.events.emit(GAME_EVENTS.HUD_OBJECTIVE, {
-      text: `Spin ${this.hemisphere === 'northern' ? 'clockwise' : 'counter-clockwise'} — Round ${this.currentRound}/3`,
+      text: `Spin ${this.hemisphere === 'northern' ? 'counter-clockwise ↺' : 'clockwise ↻'} — Round ${this.currentRound}/3`,
       progress: Math.round(this.totalRotation),
       target: this.targetRotation
     } satisfies HUDObjectivePayload);
@@ -2113,6 +2322,7 @@ export class RotationScene extends Phaser.Scene {
       this.airMassBonus +
       this.quizBonus +
       this.roundBonus +
+      this.comboBonus +
       this.combo * 25;
     const stars = GameManager.getStars(score, 3600);
 
@@ -2173,7 +2383,8 @@ export class RotationScene extends Phaser.Scene {
       this.deflectionScore +
       this.airMassBonus +
       this.quizBonus +
-      this.roundBonus;
+      this.roundBonus +
+      this.comboBonus;
     const bonusSummary = totalBonus > 0
       ? `\n💰 Bonus: +${totalBonus} pts`
       : '';
@@ -2184,7 +2395,7 @@ export class RotationScene extends Phaser.Scene {
       .text(
         GAME_WIDTH / 2,
         180,
-        `Coriolis Effect Active!${bonusSummary}${comboLine}`,
+        `🌪️ CYCLONE FORMED!${bonusSummary}${comboLine}`,
         {
           fontFamily: FONTS.DISPLAY,
           fontSize: '30px',
@@ -2203,8 +2414,8 @@ export class RotationScene extends Phaser.Scene {
 
     this.game.events.emit(GAME_EVENTS.HUD_RESULT, {
       type: 'complete',
-      title: 'Coriolis Effect Active!',
-      subtitle: 'Cyclonic rotation established',
+      title: '🌪️ CYCLONE FORMED!',
+      subtitle: 'You built a full cyclone from Coriolis force',
       score,
       stars,
       levelId: 'rotation',
@@ -2254,6 +2465,9 @@ export class RotationScene extends Phaser.Scene {
     if (this.quizTickTimer) this.quizTickTimer.remove();
     if (this.quizTimer) this.quizTimer.remove();
     if (this.airMassTimer) this.airMassTimer.remove();
+    if (this.inflowTimer) this.inflowTimer.remove();
+    this.inflowSprites.forEach(s => s.destroy());
+    this.inflowSprites = [];
     this.rainStreakPool.forEach(s => s.destroy());
     this.rainStreakPool = [];
   }

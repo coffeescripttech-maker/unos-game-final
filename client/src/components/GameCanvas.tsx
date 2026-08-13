@@ -74,7 +74,7 @@ export default function GameCanvas() {
   return (
     <div
       ref={containerRef}
-      className="w-full h-full flex items-center justify-center"
+      className="w-screen h-screen overflow-hidden block"
       id="game-container"
     />
   );

@@ -34,10 +34,10 @@ export default function TutorialBriefingOverlay() {
   if (!visible) return null;
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 animate-in fade-in duration-300">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-2 animate-in fade-in duration-300">
       {/* Main briefing card — retro terminal panel */}
       <div
-        className="w-[92%] max-w-lg bg-storm-dark border-3 border-black shadow-retro animate-in zoom-in-95 duration-300"
+        className="modal-card w-[95%] max-w-lg max-h-[95vh] overflow-y-auto bg-storm-dark border-3 border-black shadow-retro animate-in zoom-in-95 duration-300"
         style={{ boxShadow: '4px 4px 0px rgba(0,0,0,0.6)' }}
       >
         {/* ── Header bar ── */}

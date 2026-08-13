@@ -1,9 +1,12 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GameProvider, useGameContext } from '../contexts/GameContext';
 import { usePhaserEvent } from '../hooks/usePhaserEvent';
 import { GAME_EVENTS } from '@shared/events';
 import GameCanvas from '../components/GameCanvas';
 import GameHUD from '../components/GameHUD';
+import RotateDeviceOverlay from '../components/RotateDeviceOverlay';
+import FullscreenButton from '../components/FullscreenButton';
 
 function GameContent() {
   const navigate = useNavigate();
@@ -12,10 +15,30 @@ function GameContent() {
     navigate('/');
   });
 
+  useEffect(() => {
+    const lockLandscape = async () => {
+      try {
+        const orientation = (screen as Screen & { orientation?: { lock?: (orientation: string) => Promise<void> } }).orientation;
+        if (orientation?.lock) {
+          await orientation.lock('landscape');
+        }
+      } catch {
+        // Ignore: lock may be denied on some devices / iframes / desktops
+      }
+    };
+
+    const mobileSized = window.innerWidth < 1024 && Math.min(window.innerWidth, window.innerHeight) < 600;
+    if (mobileSized) {
+      void lockLandscape();
+    }
+  }, []);
+
   return (
     <div className="absolute inset-0">
       <GameCanvas />
       <GameHUD />
+      <RotateDeviceOverlay />
+      <FullscreenButton />
     </div>
   );
 }
