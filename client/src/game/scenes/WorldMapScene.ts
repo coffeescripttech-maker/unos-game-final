@@ -11,7 +11,8 @@ export class WorldMapScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.fadeIn(500);
-    this.cameras.main.setBackgroundColor(COLORS.OCEAN_DEEP);
+    // Dark neutral base so the map image shows through instead of a strong blue
+    this.cameras.main.setBackgroundColor(0x060a1a);
 
     // Background map image (islands + ocean only)
     const bgKey = this.textures.exists('world_map_bg')
@@ -25,8 +26,8 @@ export class WorldMapScene extends Phaser.Scene {
         .setDepth(0);
     }
 
-    // Dark overlay — like the homepage, dims the bg so cards pop
-    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.6)
+    // Subtle dim overlay — keeps the bg visible but makes cards readable
+    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.45)
       .setDepth(1);
 
     // Signal React that we're on the world map (triggers level select overlay + header)

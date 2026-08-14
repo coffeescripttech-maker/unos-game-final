@@ -92,7 +92,8 @@ export class CondensationScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.fadeIn(500);
-    this.cameras.main.setBackgroundColor(COLORS.OCEAN_DEEP);
+    // Dark neutral base so the level bg image shows instead of a strong blue
+    this.cameras.main.setBackgroundColor(0x060a1a);
 
     this.isComplete = false;
     this.gameStarted = false;
@@ -216,7 +217,7 @@ export class CondensationScene extends Phaser.Scene {
       .setDepth(0);
 
     this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a2e, 0.2)
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.25)
       .setDepth(0);
 
     this.urgencyOverlay = this.add

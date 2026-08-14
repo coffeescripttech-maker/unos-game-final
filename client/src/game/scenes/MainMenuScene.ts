@@ -13,7 +13,7 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   create() {
-    this.cameras.main.setBackgroundColor(COLORS.OCEAN_DEEP);
+    this.cameras.main.setBackgroundColor(0x060a1a);
     // Immediately go to WorldMap — React HomePage is the real menu
     this.scene.start(SCENES.WORLD_MAP);
   }

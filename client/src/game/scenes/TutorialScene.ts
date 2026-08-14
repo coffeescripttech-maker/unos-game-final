@@ -88,7 +88,8 @@ export class TutorialScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.fadeIn(500);
-    this.cameras.main.setBackgroundColor(COLORS.OCEAN_DEEP);
+    // Dark neutral base so the bg image shows instead of a strong blue
+    this.cameras.main.setBackgroundColor(0x060a1a);
 
     this.currentStepIndex = 0;
     this.isInstructionsShown = false;

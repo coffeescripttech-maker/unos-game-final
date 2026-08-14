@@ -23,31 +23,18 @@ export default function WorldMapHeader() {
   if (!visible) return null;
 
   return (
-    <div className="world-map-header absolute top-0 left-0 right-0 z-30 pointer-events-none">
-      <div className="relative flex items-center px-5 py-3 bg-storm-dark/90 border-b-3 border-black shadow-lg shadow-black/30 pointer-events-none">
-        <button
-          onClick={handleBack}
-          className="world-map-back retro-btn bg-storm-mid text-white text-sm flex items-center gap-1.5 pointer-events-auto"
-          aria-label="Back"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="m12 19-7-7 7-7"></path>
-            <path d="M19 12H5"></path>
-          </svg>
-          <span className="back-label">Back</span>
-        </button>
-        <h1
-          className="world-map-title absolute left-1/2 -translate-x-1/2 text-2xl font-display text-accent-yellow flex items-center gap-2 whitespace-nowrap"
-          style={{ textShadow: '2px 2px 0px #000000' }}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="10"></circle>
-            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
-            <path d="M2 12h20"></path>
-          </svg>
-          <span className="title-label">World Map</span>
-        </h1>
-      </div>
+    <div className="world-map-header absolute top-2 left-2 z-30 pointer-events-none">
+      <button
+        onClick={handleBack}
+        className="world-map-back retro-btn bg-storm-mid text-white text-sm flex items-center gap-1.5 pointer-events-auto shadow-retro"
+        aria-label="Back"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="m12 19-7-7 7-7"></path>
+          <path d="M19 12H5"></path>
+        </svg>
+        <span className="back-label">Back</span>
+      </button>
     </div>
   );
 }

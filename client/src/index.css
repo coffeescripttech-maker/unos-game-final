@@ -279,31 +279,25 @@
       height: 14px !important;
     }
 
-    /* World map back button: icon-only on mobile */
-    .world-map-header .world-map-back .back-label {
-      display: none !important;
+    /* World map back button: floating icon-only on mobile */
+    .world-map-header {
+      top: 0.375rem !important;
+      left: 0.375rem !important;
+      padding: 0 !important;
     }
 
     .world-map-header .world-map-back {
       padding: 0.375rem !important;
+      border-width: 2px !important;
     }
 
-    .world-map-header {
-      padding: 0 !important;
+    .world-map-header .world-map-back .back-label {
+      display: none !important;
     }
 
-    .world-map-header > div {
-      padding: 0.375rem 0.75rem !important;
-    }
-
-    .world-map-title {
-      font-size: 1rem !important;
-      gap: 0.375rem !important;
-    }
-
-    .world-map-title svg {
-      width: 18px !important;
-      height: 18px !important;
+    .world-map-header .world-map-back svg {
+      width: 14px !important;
+      height: 14px !important;
     }
 
     /* Objective bar: compact on mobile */
@@ -357,14 +351,14 @@
       font-size: 0.65rem !important;
     }
 
-    /* Level select: 3-column compact scrollable grid */
+    /* Level select: 4-column compact grid so all 7 cards fit */
     .level-select-overlay {
-      padding: 48px 0.375rem 0.375rem !important;
+      padding: 36px 0.375rem 0.375rem !important;
       align-items: flex-start !important;
     }
 
     .level-select-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
       gap: 0.375rem !important;
       max-width: 100% !important;
     }
@@ -382,20 +376,26 @@
     .level-select-grid .level-card img,
     .level-select-grid .level-card .aspect-video {
       aspect-ratio: auto !important;
-      height: 42px !important;
-      min-height: 42px !important;
+      height: 52px !important;
+      min-height: 52px !important;
+      filter: brightness(1) !important;
+    }
+
+    /* Lighter overlay so the card bg image is visible, not overpowered by blue/dim */
+    .level-select-grid .level-card .absolute.inset-0.bg-black\/35 {
+      background-color: rgba(0, 0, 0, 0.15) !important;
     }
 
     .level-select-grid .level-card h3,
     .level-select-grid .level-card [class*="CardTitle"] {
-      font-size: 0.65rem !important;
-      line-height: 1.15 !important;
+      font-size: 0.6rem !important;
+      line-height: 1.1 !important;
     }
 
     .level-select-grid .level-card p,
     .level-select-grid .level-card [class*="CardDescription"] {
-      font-size: 0.5rem !important;
-      line-height: 1.2 !important;
+      font-size: 0.45rem !important;
+      line-height: 1.15 !important;
       display: -webkit-box !important;
       -webkit-line-clamp: 2 !important;
       -webkit-box-orient: vertical !important;
@@ -403,28 +403,28 @@
     }
 
     .level-select-grid .level-card button {
-      padding: 0.2rem 0.375rem !important;
-      font-size: 0.55rem !important;
+      padding: 0.15rem 0.25rem !important;
+      font-size: 0.5rem !important;
       border-width: 2px !important;
     }
 
     .level-select-grid .level-card .text-xl {
-      font-size: 0.7rem !important;
+      font-size: 0.65rem !important;
     }
 
     .level-select-grid .level-card .text-\[10px\],
     .level-select-grid .level-card .text-xs {
-      font-size: 0.45rem !important;
+      font-size: 0.4rem !important;
     }
 
     .level-select-grid .level-card [class*="CardHeader"],
     .level-select-grid .level-card [class*="CardFooter"] {
-      padding: 0.25rem !important;
+      padding: 0.2rem !important;
     }
 
     .level-select-grid .level-card [class*="CardHeader"] {
-      padding-top: 0.25rem !important;
-      gap: 0.25rem !important;
+      padding-top: 0.2rem !important;
+      gap: 0.125rem !important;
     }
 
     .level-select-grid .level-card [class*="CardFooter"] {
@@ -432,11 +432,367 @@
     }
 
     .level-select-grid .level-card [class*="gap-2"] {
-      gap: 0.25rem !important;
+      gap: 0.125rem !important;
     }
 
     .level-select-grid .level-card [class*="mb-1"] {
-      margin-bottom: 0.125rem !important;
+      margin-bottom: 0.0625rem !important;
+    }
+
+    .level-select-grid .level-card [class*="Badge"] {
+      padding: 0.1rem 0.25rem !important;
+      font-size: 0.4rem !important;
+    }
+
+    /* Home page: compact so it fits without scrolling */
+    .home-page h1 {
+      font-size: 2.25rem !important;
+      line-height: 1 !important;
+    }
+
+    .home-page h1 + p {
+      font-size: 0.875rem !important;
+      margin-top: 0.25rem !important;
+    }
+
+    .home-page .home-main-actions {
+      gap: 0.5rem !important;
+      margin-top: 1rem !important;
+    }
+
+    .home-page .home-main-actions .retro-btn,
+    .home-page .home-main-actions .retro-btn-primary {
+      padding: 0.5rem 0.875rem !important;
+      font-size: 0.875rem !important;
+    }
+
+    .home-page .home-main-actions svg {
+      width: 18px !important;
+      height: 18px !important;
+    }
+
+    .home-page .home-secondary-nav {
+      gap: 0.375rem !important;
+      margin-top: 0.75rem !important;
+    }
+
+    .home-page .home-secondary-nav .retro-btn {
+      padding: 0.375rem 0.625rem !important;
+      font-size: 0.65rem !important;
+    }
+
+    .home-page .home-secondary-nav svg {
+      width: 14px !important;
+      height: 14px !important;
+    }
+
+    /* Settings page: compact so it fits without scrolling */
+    .settings-page {
+      padding: 0.5rem !important;
+    }
+
+    .settings-page h1 {
+      font-size: 1.125rem !important;
+    }
+
+    .settings-page h1 svg {
+      width: 20px !important;
+      height: 20px !important;
+    }
+
+    .settings-page .retro-card {
+      padding: 0.5rem !important;
+      margin-bottom: 0.5rem !important;
+      border-radius: 0.5rem !important;
+    }
+
+    .settings-page .retro-card h2 {
+      font-size: 0.875rem !important;
+      margin-bottom: 0.5rem !important;
+    }
+
+    .settings-page .settings-slider {
+      height: 6px !important;
+    }
+
+    .settings-page label,
+    .settings-page .font-body.text-sm {
+      font-size: 0.75rem !important;
+    }
+
+    .settings-page .retro-btn {
+      padding: 0.375rem 0.75rem !important;
+      font-size: 0.75rem !important;
+    }
+
+    .settings-page .space-y-3,
+    .settings-page .space-y-4 {
+      gap: 0.5rem !important;
+    }
+
+    .settings-page .mb-4,
+    .settings-page .mb-6 {
+      margin-bottom: 0.5rem !important;
+    }
+
+    /* Credits page: same compact treatment */
+    .credits-page {
+      padding: 0.5rem !important;
+    }
+
+    .credits-page h1 {
+      font-size: 1.125rem !important;
+    }
+
+    .credits-page h1 svg {
+      width: 20px !important;
+      height: 20px !important;
+    }
+
+    .credits-page .retro-card {
+      padding: 0.5rem !important;
+      margin-bottom: 0.5rem !important;
+      border-radius: 0.5rem !important;
+    }
+
+    .credits-page .font-display.text-4xl {
+      font-size: 1.75rem !important;
+    }
+
+    .credits-page .font-display.text-base {
+      font-size: 0.875rem !important;
+    }
+
+    .credits-page .credits-name-card {
+      padding: 0.5rem 0.75rem !important;
+    }
+
+    .credits-page .credits-avatar {
+      width: 1.875rem !important;
+      height: 1.875rem !important;
+      font-size: 0.75rem !important;
+    }
+
+    .credits-page .font-body.text-sm {
+      font-size: 0.75rem !important;
+    }
+
+    .credits-page .space-y-2,
+    .credits-page .space-y-3 {
+      gap: 0.375rem !important;
+    }
+
+    .credits-page .mb-4,
+    .credits-page .mb-6 {
+      margin-bottom: 0.5rem !important;
+    }
+
+    /* Achievements page: compact */
+    .achievements-page {
+      padding: 0.5rem !important;
+    }
+
+    .achievements-page h1 {
+      font-size: 1.125rem !important;
+    }
+
+    .achievements-page h1 svg {
+      width: 20px !important;
+      height: 20px !important;
+    }
+
+    .achievements-page .retro-card {
+      padding: 0.5rem !important;
+      margin-bottom: 0.375rem !important;
+      border-radius: 0.5rem !important;
+    }
+
+    .achievements-page .retro-card h3 {
+      font-size: 0.875rem !important;
+    }
+
+    .achievements-page .font-body.text-sm,
+    .achievements-page .font-body.text-xs {
+      font-size: 0.7rem !important;
+    }
+
+    .achievements-page svg {
+      width: 18px !important;
+      height: 18px !important;
+    }
+
+    /* Dashboard page: compact */
+    .dashboard-page {
+      padding: 0.5rem !important;
+    }
+
+    .dashboard-page h1 {
+      font-size: 1.125rem !important;
+    }
+
+    .dashboard-page h1 svg {
+      width: 20px !important;
+      height: 20px !important;
+    }
+
+    .dashboard-page .retro-card {
+      padding: 0.5rem !important;
+      border-radius: 0.5rem !important;
+    }
+
+    .dashboard-page .font-display.text-xl,
+    .dashboard-page .font-display.text-2xl {
+      font-size: 1.125rem !important;
+    }
+
+    .dashboard-page .font-body.text-\[10px\],
+    .dashboard-page .font-body.text-xs {
+      font-size: 0.6rem !important;
+    }
+
+    .dashboard-page .retro-btn {
+      padding: 0.375rem 0.625rem !important;
+      font-size: 0.7rem !important;
+    }
+
+    .dashboard-page svg {
+      width: 18px !important;
+      height: 18px !important;
+    }
+
+    /* Encyclopedia page: compact */
+    .encyclopedia-page {
+      padding: 0.5rem !important;
+    }
+
+    .encyclopedia-page h1 {
+      font-size: 1.125rem !important;
+    }
+
+    .encyclopedia-page h1 svg {
+      width: 20px !important;
+      height: 20px !important;
+    }
+
+    .encyclopedia-page .retro-card {
+      padding: 0.5rem !important;
+      margin-bottom: 0.375rem !important;
+      border-radius: 0.5rem !important;
+    }
+
+    .encyclopedia-page .retro-card h3 {
+      font-size: 0.875rem !important;
+    }
+
+    .encyclopedia-page .font-body.text-sm,
+    .encyclopedia-page .font-body.text-xs,
+    .encyclopedia-page .font-body.text-\[10px\] {
+      font-size: 0.7rem !important;
+    }
+
+    .encyclopedia-page svg {
+      width: 16px !important;
+      height: 16px !important;
+    }
+
+    /* Leaderboard page: compact */
+    .leaderboard-page {
+      padding: 0.5rem !important;
+    }
+
+    .leaderboard-page h1 {
+      font-size: 1.125rem !important;
+    }
+
+    .leaderboard-page h1 svg {
+      width: 20px !important;
+      height: 20px !important;
+    }
+
+    .leaderboard-page .retro-card {
+      padding: 0.5rem !important;
+      border-radius: 0.5rem !important;
+    }
+
+    .leaderboard-page .font-display.text-lg {
+      font-size: 1rem !important;
+    }
+
+    .leaderboard-page .font-body.text-sm {
+      font-size: 0.75rem !important;
+    }
+
+    .leaderboard-page svg {
+      width: 28px !important;
+      height: 28px !important;
+    }
+
+    /* Uniform compact buttons across all app pages */
+    .settings-page .retro-btn,
+    .credits-page .retro-btn,
+    .achievements-page .retro-btn,
+    .dashboard-page .retro-btn,
+    .encyclopedia-page .retro-btn,
+    .leaderboard-page .retro-btn {
+      padding: 0.375rem 0.75rem !important;
+      font-size: 0.75rem !important;
+      border-width: 2px !important;
+    }
+
+    /* Uniform header sizing across all app pages */
+    .settings-page h1,
+    .credits-page h1,
+    .achievements-page h1,
+    .dashboard-page h1,
+    .encyclopedia-page h1,
+    .leaderboard-page h1 {
+      font-size: 1.125rem !important;
+    }
+
+    .settings-page h1 svg,
+    .credits-page h1 svg,
+    .achievements-page h1 svg,
+    .dashboard-page h1 svg,
+    .encyclopedia-page h1 svg,
+    .leaderboard-page h1 svg {
+      width: 20px !important;
+      height: 20px !important;
+    }
+
+    /* Uniform card spacing */
+    .settings-page,
+    .credits-page,
+    .achievements-page,
+    .dashboard-page,
+    .encyclopedia-page,
+    .leaderboard-page {
+      padding: 0.5rem !important;
+    }
+
+    .settings-page .mb-4,
+    .settings-page .mb-6,
+    .credits-page .mb-4,
+    .credits-page .mb-6,
+    .achievements-page .mb-4,
+    .achievements-page .mb-6,
+    .dashboard-page .mb-4,
+    .dashboard-page .mb-6,
+    .encyclopedia-page .mb-4,
+    .encyclopedia-page .mb-6,
+    .leaderboard-page .mb-4,
+    .leaderboard-page .mb-6 {
+      margin-bottom: 0.5rem !important;
+    }
+
+    .settings-page .retro-card,
+    .credits-page .retro-card,
+    .achievements-page .retro-card,
+    .dashboard-page .retro-card,
+    .encyclopedia-page .retro-card,
+    .leaderboard-page .retro-card {
+      padding: 0.5rem !important;
+      border-radius: 0.5rem !important;
+      border-width: 2px !important;
     }
   }
 
@@ -483,7 +839,148 @@
   }
 }
 
+@layer utilities {
+  /* Settings sliders */
+  .settings-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 2px solid black;
+    outline: none;
+  }
+
+  .settings-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #ffd166;
+    border: 2px solid black;
+    cursor: pointer;
+    transition: transform 0.1s ease;
+  }
+
+  .settings-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+  }
+
+  .settings-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #ffd166;
+    border: 2px solid black;
+    cursor: pointer;
+  }
+
+  /* Reduced motion: tone down React UI animations */
+  .reduced-motion *,
+  .reduced-motion *::before,
+  .reduced-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Colorblind-friendly contrast tweaks */
+  .colorblind-mode .text-accent-green {
+    color: #4ecdc4;
+  }
+
+  .colorblind-mode .text-warning-red {
+    color: #ff9f43;
+  }
+}
+
 @keyframes startPulse {
   0%, 100% { opacity: 0.85; box-shadow: 0 4px 15px rgba(45,106,63,0.4); }
   50% { opacity: 1; box-shadow: 0 4px 30px rgba(45,106,63,0.85), 0 0 15px rgba(45,106,63,0.3); }
+}
+
+/* Credits page animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out both;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite both;
+}
+
+.credits-name-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 2px solid black;
+  border-radius: 0.5rem;
+  box-shadow: 3px 3px 0 0 rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  animation: fadeInUp 0.5s ease-out forwards;
+}
+
+.credits-name-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 4px 4px 0 0 rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.credits-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: #ffd166;
+  color: #1a2639;
+  font-family: 'Fredoka One', cursive, sans-serif;
+  font-size: 0.875rem;
+  border: 2px solid black;
+  flex-shrink: 0;
+}
+
+/* Custom scrollbar for scrollable overlays */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #ffd166 rgba(0, 0, 0, 0.25);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #ffd166;
+  border: 2px solid black;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #ffdf8e;
 }

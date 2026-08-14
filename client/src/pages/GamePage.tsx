@@ -48,7 +48,7 @@ export default function GamePage() {
         className="w-full h-full flex flex-col relative overflow-hidden"
         style={{
           background:
-            'radial-gradient(ellipse at center, #1e5aa0 0%, #0a2472 50%, #060a1a 100%)'
+            'radial-gradient(ellipse at center, #1a1a2e 0%, #0f0f1a 50%, #000000 100%)'
         }}>
         {/* Subtle ambient glow overlay */}
         <div

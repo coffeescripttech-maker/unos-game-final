@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import {
   Gamepad2,
-  Users,
   LayoutDashboard,
   BookOpen,
   Trophy,
@@ -9,11 +8,12 @@ import {
   Settings,
   ScrollText
 } from 'lucide-react';
+import FullscreenButton from '../components/FullscreenButton';
 
 export default function HomePage() {
   return (
     <div
-      className="w-full h-full flex flex-col items-center justify-center relative overflow-hidden px-4"
+      className="home-page w-full h-full flex flex-col items-center justify-center relative overflow-hidden px-4"
       style={{
         backgroundImage: `url(${new URL('/images/Main Menu BG.png', window.location.origin).href})`,
         backgroundSize: 'cover',
@@ -22,16 +22,19 @@ export default function HomePage() {
       {/* Darken overlay */}
       <div className="absolute inset-0 bg-black/40" />
 
+      {/* Fullscreen toggle */}
+      <FullscreenButton />
+
       {/* Content — centered */}
       <div className="relative z-10 flex flex-col items-center max-w-sm w-full">
         {/* Title */}
         <h1
-          className="font-display text-6xl md:text-7xl text-accent-yellow text-center"
+          className="font-display text-5xl sm:text-6xl md:text-7xl text-accent-yellow text-center"
           style={{ textShadow: '4px 4px 0px #000000' }}>
           UNOS
         </h1>
         <p
-          className="font-display text-xl text-ocean-surface mt-1 text-center"
+          className="font-display text-lg sm:text-xl text-ocean-surface mt-1 text-center"
           style={{ textShadow: '2px 2px 0px #000000' }}>
           Birth of the Typhoon
         </p>
@@ -43,57 +46,51 @@ export default function HomePage() {
         </p> */}
 
         {/* Main actions */}
-        <div className="flex flex-col gap-3 w-full mt-8">
+        <div className="home-main-actions flex flex-col gap-3 w-full max-w-[260px] mx-auto mt-8">
           <Link
             to="/game"
-            className="retro-btn-primary text-center text-lg flex items-center justify-center gap-2">
-            <Gamepad2 size={26} />
+            className="retro-btn-primary text-center text-base sm:text-lg flex items-center justify-center gap-2">
+            <Gamepad2 size={22} className="sm:w-[26px] sm:h-[26px]" />
             Start Game
           </Link>
-          {/* <Link
-            to="/multiplayer"
-            className="retro-btn bg-storm-mid text-white text-center flex items-center justify-center gap-2">
-            <Users size={26} />
-            Multiplayer
-          </Link> */}
           <Link
             to="/dashboard"
-            className="retro-btn bg-ocean-mid text-white text-center flex items-center justify-center gap-2">
-            <LayoutDashboard size={26} />
+            className="retro-btn bg-ocean-mid text-white text-center text-base sm:text-lg flex items-center justify-center gap-2">
+            <LayoutDashboard size={22} className="sm:w-[26px] sm:h-[26px]" />
             Dashboard
           </Link>
         </div>
 
         {/* Secondary nav */}
-        <div className="flex flex-wrap justify-center gap-2 mt-6">
+        <div className="home-secondary-nav flex flex-wrap justify-center gap-2 mt-6">
           <Link
             to="/encyclopedia"
-            className="retro-btn bg-storm-dark text-white text-xs !px-3 !py-2 flex items-center gap-1.5">
-            <BookOpen size={18} />
+            className="retro-btn bg-storm-dark text-white text-[11px] sm:text-xs !px-2.5 sm:!px-3 !py-1.5 sm:!py-2 flex items-center gap-1.5">
+            <BookOpen size={16} className="sm:w-[18px] sm:h-[18px]" />
             Encyclopedia
           </Link>
           <Link
             to="/achievements"
-            className="retro-btn bg-storm-dark text-white text-xs !px-3 !py-2 flex items-center gap-1.5">
-            <Trophy size={18} />
+            className="retro-btn bg-storm-dark text-white text-[11px] sm:text-xs !px-2.5 sm:!px-3 !py-1.5 sm:!py-2 flex items-center gap-1.5">
+            <Trophy size={16} className="sm:w-[18px] sm:h-[18px]" />
             Achievements
           </Link>
           <Link
             to="/leaderboard"
-            className="retro-btn bg-storm-dark text-white text-xs !px-3 !py-2 flex items-center gap-1.5">
-            <Medal size={18} />
+            className="retro-btn bg-storm-dark text-white text-[11px] sm:text-xs !px-2.5 sm:!px-3 !py-1.5 sm:!py-2 flex items-center gap-1.5">
+            <Medal size={16} className="sm:w-[18px] sm:h-[18px]" />
             Leaderboard
           </Link>
           <Link
             to="/settings"
-            className="retro-btn bg-storm-dark text-white text-xs !px-3 !py-2 flex items-center gap-1.5">
-            <Settings size={18} />
+            className="retro-btn bg-storm-dark text-white text-[11px] sm:text-xs !px-2.5 sm:!px-3 !py-1.5 sm:!py-2 flex items-center gap-1.5">
+            <Settings size={16} className="sm:w-[18px] sm:h-[18px]" />
             Settings
           </Link>
           <Link
             to="/credits"
-            className="retro-btn bg-storm-dark text-white text-xs !px-3 !py-2 flex items-center gap-1.5">
-            <ScrollText size={18} />
+            className="retro-btn bg-storm-dark text-white text-[11px] sm:text-xs !px-2.5 sm:!px-3 !py-1.5 sm:!py-2 flex items-center gap-1.5">
+            <ScrollText size={16} className="sm:w-[18px] sm:h-[18px]" />
             Credits
           </Link>
         </div>

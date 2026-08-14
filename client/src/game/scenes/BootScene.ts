@@ -9,7 +9,7 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     // Set background and immediately transition to preload
-    this.cameras.main.setBackgroundColor(COLORS.OCEAN_DEEP);
+    this.cameras.main.setBackgroundColor(0x060a1a);
 
     // Register the GameManager in the registry so all scenes can access it
     this.registry.set('gameManager', true);

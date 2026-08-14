@@ -62,7 +62,8 @@ export class EvaporationScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.fadeIn(500);
-    this.cameras.main.setBackgroundColor(COLORS.OCEAN_DEEP);
+    // Dark neutral base so the level bg image shows instead of a strong blue
+    this.cameras.main.setBackgroundColor(0x060a1a);
 
     this.sunHeat = 0;
     this.vaporCount = 0;
@@ -140,6 +141,10 @@ export class EvaporationScene extends Phaser.Scene {
   private buildScene() {
     this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'evap_sky')
       .setDisplaySize(GAME_WIDTH, GAME_HEIGHT).setDepth(0);
+
+    // Subtle dim so the bg image stays visible but game objects pop
+    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.25)
+      .setDepth(0);
 
     this.urgencyOverlay = this.add.rectangle(
       GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0

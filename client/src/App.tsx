@@ -5,13 +5,13 @@ import GamePage from './pages/GamePage';
 import DashboardPage from './pages/DashboardPage';
 import AchievementsPage from './pages/AchievementsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
-import MultiplayerLobbyPage from './pages/MultiplayerLobbyPage';
 import SettingsPage from './pages/SettingsPage';
 import EncyclopediaPage from './pages/EncyclopediaPage';
 import CreditsPage from './pages/CreditsPage';
 import BossPage from './pages/BossPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import { audioService } from './services/audio';
+import { loadSettings, applySettings } from './services/settings';
 
 export default function App() {
   const location = useLocation();
@@ -29,6 +29,12 @@ export default function App() {
       window.removeEventListener('pointerdown', unlockAudio);
       window.removeEventListener('keydown', unlockAudio);
     };
+  }, []);
+
+  // Load and apply saved settings on app start
+  useEffect(() => {
+    const settings = loadSettings();
+    applySettings(settings);
   }, []);
 
   // Route-based background music
@@ -64,7 +70,6 @@ export default function App() {
           <Route path="/achievements" element={<AchievementsPage />} />
           <Route path="/encyclopedia" element={<EncyclopediaPage />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />
-          <Route path="/multiplayer" element={<MultiplayerLobbyPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/credits" element={<CreditsPage />} />
           <Route path="/boss" element={<BossPage />} />
