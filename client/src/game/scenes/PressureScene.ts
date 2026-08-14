@@ -12,6 +12,7 @@ import type {
 } from '@shared/events';
 import { FONTS, GAME_WIDTH, GAME_HEIGHT } from '../constants';
 import { GameManager } from '../managers/GameManager';
+import { playChime, playBuzz } from '../utils/audio';
 
 const TOTAL_TIME = 90;
 const TARGET_X = 1100;
@@ -1490,6 +1491,7 @@ export class PressureScene extends Phaser.Scene {
   private completeLevel() {
     if (this.isComplete) return;
     this.isComplete = true;
+    playChime(this, 'large');
     const score =
       2000 +
       Math.round((this.timeRemaining / TOTAL_TIME) * 500) +
@@ -1572,6 +1574,7 @@ export class PressureScene extends Phaser.Scene {
   private failLevel() {
     if (this.isComplete) return;
     this.isComplete = true;
+    playBuzz(this);
     this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT / 2, "Time's Up!", {
         fontFamily: FONTS.DISPLAY,

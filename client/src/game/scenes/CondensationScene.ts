@@ -11,6 +11,7 @@ import type {
 } from '@shared/events';
 import { COLORS, FONTS, GAME_WIDTH, GAME_HEIGHT, DEPTH } from '../constants';
 import { GameManager } from '../managers/GameManager';
+import { playFreeze, playChime, playBuzz, playWhoosh } from '../utils/audio';
 
 // ── Layout ──
 const OCEAN_Y = 580;
@@ -486,6 +487,7 @@ export class CondensationScene extends Phaser.Scene {
   private activateZone(zone: CoolZoneData, zx: number, zy: number) {
     if (this.isComplete || !this.gameStarted) return;
     if (zone.isOnCooldown) return;
+    playFreeze(this);
 
     // Flash
     zone.sprite.setTint(0xaee8ff);
@@ -549,6 +551,7 @@ export class CondensationScene extends Phaser.Scene {
     }
 
     if (condensed === 0) {
+      playBuzz(this);
       // Show why — different messages based on vapor nearby but wrong type
       const hasWrongType = this.vapors.some(v =>
         v.active && v.sprite.active &&
@@ -592,6 +595,7 @@ export class CondensationScene extends Phaser.Scene {
             zone.isOnCooldown = false;
             zone.label.setText('❄');
             zone.label.setColor('#E3F2FD');
+            playChime(this, 'small');
             this.drawCooldownOverlay(zone.cooldownOverlay, zx, zy, 0);
             cooldownInterval.destroy();
           }
@@ -607,6 +611,7 @@ export class CondensationScene extends Phaser.Scene {
   private startWindGust() {
     if (this.isComplete) return;
     this.windGustActive = true;
+    playWhoosh(this, 0.7);
     this.windGustDirection = Math.random() > 0.5 ? 1 : -1;
     this.windGustStrength = Phaser.Math.Between(140, 220);
 
@@ -786,6 +791,7 @@ export class CondensationScene extends Phaser.Scene {
 
   private condenseVapor(vapor: RisingVapor, inSweetSpot: boolean, vy: number) {
     vapor.active = false;
+    playChime(this, inSweetSpot ? 'medium' : 'small');
     const idx = this.vapors.indexOf(vapor);
     if (idx >= 0) this.vapors.splice(idx, 1);
 
@@ -979,6 +985,7 @@ export class CondensationScene extends Phaser.Scene {
   private completeLevel() {
     if (this.isComplete) return;
     this.isComplete = true;
+    playChime(this, 'large');
     if (this.vaporSpawnTimer) this.vaporSpawnTimer.remove();
 
     const timeBonus = Math.round((this.timeRemaining / this.TOTAL_TIME) * 500);
@@ -1051,6 +1058,7 @@ export class CondensationScene extends Phaser.Scene {
   private failLevel() {
     if (this.isComplete) return;
     this.isComplete = true;
+    playBuzz(this);
     if (this.vaporSpawnTimer) this.vaporSpawnTimer.remove();
 
     this.add

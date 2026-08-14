@@ -14,6 +14,7 @@ import type {
 } from '@shared/events';
 import { COLORS, FONTS, GAME_WIDTH, GAME_HEIGHT, DEPTH } from '../constants';
 import { GameManager } from '../managers/GameManager';
+import { playChime, playBuzz, playWhoosh } from '../utils/audio';
 
 // Used to emit configs to React. Matches shared TyphoonSliderConfig but with
 // Phaser-specific color as number (converted to hex string for React).
@@ -43,6 +44,7 @@ export class TyphoonScene extends Phaser.Scene {
   private cloudLayers: Phaser.GameObjects.Arc[] = [];
   private rainParticles: Phaser.GameObjects.Arc[] = [];
   private matches = 0;
+  private prevMatches = 0;
   private gameStarted = false;
   private stormTime = 0;
 
@@ -78,6 +80,7 @@ export class TyphoonScene extends Phaser.Scene {
     this.cloudLayers = [];
     this.rainParticles = [];
     this.matches = 0;
+    this.prevMatches = 0;
     this.lastMilestone = 0;
     this.lightningBoltPool = [];
     this.timeRemaining = this.totalTime;
@@ -301,6 +304,11 @@ export class TyphoonScene extends Phaser.Scene {
     }
     this.emitObjective();
 
+    if (this.matches > this.prevMatches) {
+      playChime(this, 'small');
+    }
+    this.prevMatches = this.matches;
+
     const avgValue = this.sliderValues.reduce((a, v) => a + v, 0) / this.sliderValues.length;
     const intensity = avgValue / 100;
 
@@ -369,6 +377,7 @@ export class TyphoonScene extends Phaser.Scene {
     const currentMilestone = Math.floor(intensity * 10);
     if (currentMilestone > this.lastMilestone) {
       this.lastMilestone = currentMilestone;
+      playChime(this, currentMilestone >= 7 ? 'medium' : 'small');
 
       // Storm overlay darkens with intensity
       const stormAlpha = Math.min(0.35, intensity * 0.35);
@@ -429,6 +438,10 @@ export class TyphoonScene extends Phaser.Scene {
   }
 
   private flashLightning() {
+    const avgValue = this.sliderValues.reduce((a, v) => a + v, 0) / this.sliderValues.length;
+    const intensity = avgValue / 100;
+    playWhoosh(this, 0.4 + intensity * 0.5);
+
     // White flash overlay
     this.lightningGfx.clear();
     this.lightningGfx.fillStyle(0xffffff, 0.5);
@@ -968,6 +981,7 @@ export class TyphoonScene extends Phaser.Scene {
   private completeLevel(intensity: number) {
     if (this.isComplete) return;
     this.isComplete = true;
+    playChime(this, 'large');
 
     const intensityBonus = Math.round(intensity * 500);
     const matchBonus = this.matches * 250;
@@ -1030,6 +1044,7 @@ export class TyphoonScene extends Phaser.Scene {
   private failLevel() {
     if (this.isComplete) return;
     this.isComplete = true;
+    playBuzz(this);
 
     const failText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Time\'s Up!', {
       fontFamily: FONTS.DISPLAY, fontSize: '36px', color: '#D62828',
