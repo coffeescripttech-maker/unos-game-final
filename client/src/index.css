@@ -106,24 +106,52 @@
       max-height: 120px !important;
     }
 
-    /* Pressure controls: center at bottom on mobile landscape */
+    /* Pressure controls: bottom-left, compact on mobile landscape */
     .pressure-controls {
-      left: 50% !important;
+      left: 0.5rem !important;
       right: auto !important;
       bottom: 0.5rem !important;
-      transform: translateX(-50%) !important;
+      transform: none !important;
     }
 
     .pressure-controls > div {
-      width: 260px !important;
-      padding: 0.75rem !important;
+      width: 190px !important;
+      padding: 0.5rem !important;
       margin-left: 0 !important;
       margin-right: 0 !important;
+      border-radius: 0.625rem !important;
     }
 
     .pressure-controls button {
-      width: 3.5rem !important;
-      height: 3.5rem !important;
+      width: 2.75rem !important;
+      height: 2.75rem !important;
+    }
+
+    .pressure-controls .mb-1\.5,
+    .pressure-controls .mb-2,
+    .pressure-controls .mb-3 {
+      margin-bottom: 0.25rem !important;
+    }
+
+    .pressure-controls .text-xs,
+    .pressure-controls .text-\[10px\],
+    .pressure-controls .text-\[9px\],
+    .pressure-controls .text-\[8px\] {
+      font-size: 0.6rem !important;
+    }
+
+    .pressure-controls .h-3\.5,
+    .pressure-controls .w-3\.5 {
+      width: 0.75rem !important;
+      height: 0.75rem !important;
+    }
+
+    .pressure-controls .gap-1 {
+      gap: 0.25rem !important;
+    }
+
+    .pressure-controls .gap-2 {
+      gap: 0.375rem !important;
     }
 
     /* Typhoon controls: reposition to bottom-left, narrower on mobile */
@@ -254,45 +282,45 @@
       font-size: 0.65rem !important;
     }
 
-    /* Level select: 2-column compact scrollable grid */
+    /* Level select: 3-column compact scrollable grid */
     .level-select-overlay {
-      padding: 52px 0.5rem 0.5rem !important;
+      padding: 48px 0.375rem 0.375rem !important;
       align-items: flex-start !important;
     }
 
     .level-select-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-      gap: 0.5rem !important;
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+      gap: 0.375rem !important;
       max-width: 100% !important;
     }
 
     .level-select-grid .level-card {
       border-radius: 0.375rem !important;
-      box-shadow: 3px 3px 0 0 rgba(0,0,0,1) !important;
+      box-shadow: 2px 2px 0 0 rgba(0,0,0,1) !important;
     }
 
     .level-select-grid .level-card:hover {
       transform: none !important;
-      box-shadow: 3px 3px 0 0 rgba(0,0,0,1) !important;
+      box-shadow: 2px 2px 0 0 rgba(0,0,0,1) !important;
     }
 
     .level-select-grid .level-card img,
     .level-select-grid .level-card .aspect-video {
       aspect-ratio: auto !important;
-      height: 60px !important;
-      min-height: 60px !important;
+      height: 42px !important;
+      min-height: 42px !important;
     }
 
     .level-select-grid .level-card h3,
     .level-select-grid .level-card [class*="CardTitle"] {
-      font-size: 0.75rem !important;
-      line-height: 1.2 !important;
+      font-size: 0.65rem !important;
+      line-height: 1.15 !important;
     }
 
     .level-select-grid .level-card p,
     .level-select-grid .level-card [class*="CardDescription"] {
-      font-size: 0.55rem !important;
-      line-height: 1.25 !important;
+      font-size: 0.5rem !important;
+      line-height: 1.2 !important;
       display: -webkit-box !important;
       -webkit-line-clamp: 2 !important;
       -webkit-box-orient: vertical !important;
@@ -300,32 +328,40 @@
     }
 
     .level-select-grid .level-card button {
-      padding: 0.25rem 0.5rem !important;
-      font-size: 0.6rem !important;
+      padding: 0.2rem 0.375rem !important;
+      font-size: 0.55rem !important;
       border-width: 2px !important;
     }
 
     .level-select-grid .level-card .text-xl {
-      font-size: 0.8rem !important;
+      font-size: 0.7rem !important;
     }
 
     .level-select-grid .level-card .text-\[10px\],
     .level-select-grid .level-card .text-xs {
-      font-size: 0.5rem !important;
+      font-size: 0.45rem !important;
     }
 
-    .level-select-grid .level-card > div[class*="p-4"],
     .level-select-grid .level-card [class*="CardHeader"],
     .level-select-grid .level-card [class*="CardFooter"] {
-      padding: 0.375rem !important;
+      padding: 0.25rem !important;
     }
 
     .level-select-grid .level-card [class*="CardHeader"] {
-      padding-top: 0.375rem !important;
+      padding-top: 0.25rem !important;
+      gap: 0.25rem !important;
     }
 
     .level-select-grid .level-card [class*="CardFooter"] {
       padding-top: 0 !important;
+    }
+
+    .level-select-grid .level-card [class*="gap-2"] {
+      gap: 0.25rem !important;
+    }
+
+    .level-select-grid .level-card [class*="mb-1"] {
+      margin-bottom: 0.125rem !important;
     }
   }
 

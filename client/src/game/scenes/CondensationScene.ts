@@ -377,7 +377,9 @@ export class CondensationScene extends Phaser.Scene {
   // ═══════════════════════════════════════════════
 
   private createCoolZone(x: number, y: number) {
-    const SCALE = 0.15;
+    const isTouch = !this.sys.game.device.os.desktop;
+    const SCALE = isTouch ? 0.22 : 0.15;
+
     const sprite = this.add
       .image(x, y, 'cool_zone')
       .setDepth(3)
@@ -408,17 +410,19 @@ export class CondensationScene extends Phaser.Scene {
     const cooldownOverlay = this.add.graphics().setDepth(3);
     this.drawCooldownOverlay(cooldownOverlay, x, y, 0);
 
-    let wasDragged = false;
+    let dragStartX = x;
+    let dragStartY = y;
+    const tapThreshold = isTouch ? 25 : 12;
 
     sprite.on('dragstart', () => {
-      wasDragged = false;
+      dragStartX = sprite.x;
+      dragStartY = sprite.y;
       sprite.setScale(SCALE * 1.12);
       label.setScale(1.12);
       sprite.setDepth(4);
     });
 
     sprite.on('drag', (_ptr: Phaser.Input.Pointer, dragX: number, dragY: number) => {
-      wasDragged = true;
       const cx = Phaser.Math.Clamp(dragX, 50, GAME_WIDTH - 50);
       const cy = Phaser.Math.Clamp(dragY, 120, OCEAN_Y - 50);
       sprite.setPosition(cx, cy);
@@ -434,16 +438,16 @@ export class CondensationScene extends Phaser.Scene {
       sprite.setDepth(3);
     });
 
-    // Activate on click (not drag)
+    // Activate on tap/click (not drag)
     sprite.on('pointerup', () => {
-      if (wasDragged) {
-        wasDragged = false;
-        return;
+      // Use distance moved instead of wasDragged flag for mobile-friendly taps
+      const dist = Phaser.Math.Distance.Between(dragStartX, dragStartY, sprite.x, sprite.y);
+      if (dist < tapThreshold) {
+        this.activateZone(
+          { sprite, label, glow, cooldownOverlay, cooldownTimer: 0, isOnCooldown: false, detectionRadius: ZONE_DETECTION_R },
+          sprite.x, sprite.y
+        );
       }
-      this.activateZone(
-        { sprite, label, glow, cooldownOverlay, cooldownTimer: 0, isOnCooldown: false, detectionRadius: ZONE_DETECTION_R },
-        sprite.x, sprite.y
-      );
     });
 
     this.coolZones.push({

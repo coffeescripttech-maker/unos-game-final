@@ -201,16 +201,29 @@ export class EvaporationScene extends Phaser.Scene {
 
   private setupSunInteraction() {
     const isTouch = !this.sys.game.device.os.desktop;
+    const sunHitRadius = isTouch ? 150 : 110;
+
+    // Large invisible hit zone ON TOP of everything for reliable clicking
     const hitZone = this.add
-      .circle(SUN_X, SUN_Y, isTouch ? 110 : 80, 0xffffff, 0)
-      .setInteractive(
-        new Phaser.Geom.Circle(0, 0, isTouch ? 110 : 80),
-        Phaser.Geom.Circle.Contains,
-        true
-      )
-      .setDepth(2);
+      .circle(SUN_X, SUN_Y, sunHitRadius, 0xffffff, 0.001)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(100);
 
     hitZone.on('pointerdown', () => this.clickSun());
+
+    // Subtle scale feedback on press
+    this.sunImg.setInteractive({ useHandCursor: true });
+    this.sunImg.on('pointerdown', () => {
+      this.tweens.add({
+        targets: this.sunImg,
+        scaleX: 0.32,
+        scaleY: 0.32,
+        duration: 80,
+        yoyo: true,
+        ease: 'Quad.easeOut'
+      });
+      this.clickSun();
+    });
 
     this.tweens.add({
       targets: this.sunImg,
@@ -436,40 +449,43 @@ export class EvaporationScene extends Phaser.Scene {
   }
 
   private createVaporBubble() {
-    const margin = 100;
+    const margin = 120;
     const px = Phaser.Math.Between(margin, GAME_WIDTH - margin);
     const py = OCEAN_TOP_Y + Phaser.Math.Between(-5, 20);
-    // Larger bubbles + bigger touch target on touch devices
+    // Bigger bubbles for easier tapping on both desktop and mobile
     const isTouch = !this.sys.game.device.os.desktop;
     const radius = isTouch
-      ? Phaser.Math.Between(16, 24)
-      : Phaser.Math.Between(10, 18);
-    const hitPadding = isTouch ? 16 : 6;
+      ? Phaser.Math.Between(22, 30)
+      : Phaser.Math.Between(16, 22);
 
     // Glow behind bubble
     const glow = this.add
-      .circle(px, py, radius + 6, 0x6db3e6, 0.15)
+      .circle(px, py, radius + 10, 0x6db3e6, 0.25)
       .setDepth(6);
 
-    // Bubble body
+    // Bubble body — larger and more opaque for visibility
     const bubble = this.add
-      .circle(px, py, radius, COLORS.OCEAN_LIGHT, 0.55)
-      .setStrokeStyle(2, 0xffffff, 0.4)
-      .setDepth(6)
-      .setInteractive(
-        new Phaser.Geom.Circle(0, 0, radius + hitPadding),
-        Phaser.Geom.Circle.Contains,
-        true
-      );
+      .circle(px, py, radius, COLORS.OCEAN_LIGHT, 0.75)
+      .setStrokeStyle(2, 0xffffff, 0.55)
+      .setDepth(6);
 
     // White highlight
     const highlight = this.add
-      .circle(px - radius * 0.25, py - radius * 0.25, radius * 0.3, 0xffffff, 0.5)
+      .circle(px - radius * 0.25, py - radius * 0.25, radius * 0.3, 0xffffff, 0.65)
       .setDepth(7);
 
-    // Collect on click
-    bubble.on('pointerdown', () => {
+    // Large invisible touch pad on top for easy clicking
+    const touchPad = this.add
+      .circle(px, py, radius + (isTouch ? 22 : 14), 0xffffff, 0.001)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(8);
+
+    const popBubble = () => {
       if (this.isComplete) return;
+
+      // Prevent double clicks
+      touchPad.disableInteractive();
+      bubble.disableInteractive();
 
       // Pop animation
       this.tweens.add({
@@ -484,8 +500,11 @@ export class EvaporationScene extends Phaser.Scene {
         alpha: 0,
         duration: 100
       });
-
-      bubble.disableInteractive();
+      this.tweens.add({
+        targets: touchPad,
+        alpha: 0,
+        duration: 100
+      });
 
       // Score + vapor count
       this.vaporCount++;
@@ -532,29 +551,33 @@ export class EvaporationScene extends Phaser.Scene {
       if (this.vaporCount >= VAPOR_TARGET) {
         this.completeLevel();
       }
-    });
+    };
+
+    touchPad.on('pointerdown', popBubble);
+    bubble.on('pointerdown', popBubble);
 
     // Float up tween (slower on touch devices for easier tapping)
-    const windDrift = this.windDirection * Phaser.Math.Between(40, 100);
+    const windDrift = this.windDirection * Phaser.Math.Between(15, 40);
     this.tweens.add({
-      targets: [bubble, glow, highlight],
-      y: py - Phaser.Math.Between(250, 400),
-      x: px + windDrift + Phaser.Math.Between(-30, 30),
+      targets: [bubble, glow, highlight, touchPad],
+      y: py - Phaser.Math.Between(160, 260),
+      x: px + windDrift + Phaser.Math.Between(-15, 15),
       duration: isTouch
-        ? Phaser.Math.Between(4500, 6500)
-        : Phaser.Math.Between(3000, 5000),
+        ? Phaser.Math.Between(6000, 8000)
+        : Phaser.Math.Between(4500, 6500),
       ease: 'Quad.easeOut',
       onUpdate: (tween) => {
         const p = tween.progress;
-        bubble.setAlpha(0.55 * (1 - p * 0.5));
-        glow.setAlpha(0.15 * (1 - p));
-        highlight.setAlpha(0.5 * (1 - p * 0.6));
+        bubble.setAlpha(0.75 * (1 - p * 0.5));
+        glow.setAlpha(0.25 * (1 - p));
+        highlight.setAlpha(0.65 * (1 - p * 0.6));
       },
       onComplete: () => {
         // Bubble escaped — no vapor collected
         bubble.destroy();
         glow.destroy();
         highlight.destroy();
+        touchPad.destroy();
       }
     });
   }

@@ -54,7 +54,7 @@ export default function HUDObjectiveBar() {
   const pct = target > 0 ? Math.min(1, progress / target) : 0;
 
   return (
-    <div className="hud-objective absolute top-[60px] left-0 right-0 z-30 flex items-center gap-4 px-5 py-2.5 bg-storm-dark/80 border-b border-black/30 shadow-md shadow-black/20">
+    <div className="hud-objective absolute top-[60px] left-0 right-0 z-30 flex items-center gap-4 px-5 py-2.5 bg-storm-dark/80 border-b border-black/30 shadow-md shadow-black/20 pointer-events-none">
       <span className="font-display text-sm text-white/90 whitespace-nowrap drop-shadow-[1px_1px_0_rgba(0,0,0,0.5)]">{text}</span>
       {target > 0 && (
         <div className="flex items-center gap-3 flex-1">
