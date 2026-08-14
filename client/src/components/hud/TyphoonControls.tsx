@@ -5,6 +5,7 @@ import {
   GAME_EVENTS,
   type TyphoonSliderConfig,
   type TyphoonSliderUpdatePayload,
+  type HUDLevelInfoPayload,
 } from '@shared/events';
 import { Flame, Droplets, Wind, Compass } from 'lucide-react';
 
@@ -60,24 +61,24 @@ function SliderBar({ slider, onChange, disabled }: SliderBarProps) {
   const IconComp = LUCIDE_ICONS[config.index] ?? Flame;
 
   return (
-    <div className={`flex items-center gap-3 py-1.5 ${disabled ? 'opacity-40' : ''}`}>
+    <div className={`flex items-center gap-2 lg:gap-3 py-1 lg:py-1.5 ${disabled ? 'opacity-40' : ''}`}>
       {/* Icon */}
       <div
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+        className="flex h-7 w-7 lg:h-8 lg:w-8 shrink-0 items-center justify-center rounded-full"
         style={{ backgroundColor: color + '22' }}
       >
-        <IconComp size={18} color={color} />
+        <IconComp size={16} className="lg:w-[18px] lg:h-[18px]" color={color} />
       </div>
 
-      {/* Label */}
-      <span className="w-20 shrink-0 text-xs font-bold text-gray-300">
+      {/* Label (desktop only) */}
+      <span className="hidden lg:block w-20 shrink-0 text-xs font-bold text-gray-300 truncate">
         {config.label}
       </span>
 
       {/* Custom slider track */}
       <div
         ref={trackRef}
-        className="relative h-6 flex-1 cursor-pointer select-none"
+        className="relative h-5 lg:h-6 flex-1 cursor-pointer select-none"
         onPointerDown={(e) => {
           if (disabled) return;
           setDragging(true);
@@ -86,7 +87,7 @@ function SliderBar({ slider, onChange, disabled }: SliderBarProps) {
         style={{ touchAction: 'none' }}
       >
         {/* Track background */}
-        <div className="absolute inset-y-[5px] left-0 right-0 overflow-hidden rounded-full bg-[#1a1a3e]">
+        <div className="absolute inset-y-[4px] lg:inset-y-[5px] left-0 right-0 overflow-hidden rounded-full bg-[#1a1a3e]">
           {/* Target zone */}
           <div
             className="absolute inset-y-0 rounded-full"
@@ -115,12 +116,12 @@ function SliderBar({ slider, onChange, disabled }: SliderBarProps) {
         >
           {/* Glow ring */}
           <div
-            className="absolute -inset-1.5 rounded-full opacity-30"
+            className="absolute -inset-1 lg:-inset-1.5 rounded-full opacity-30"
             style={{ backgroundColor: color }}
           />
           {/* Core thumb */}
           <div
-            className="relative h-4 w-4 rounded-full border-2 border-white shadow-md"
+            className="relative h-3 w-3 lg:h-4 lg:w-4 rounded-full border-2 border-white shadow-md"
             style={{
               backgroundColor: color,
               transform: dragging ? 'scale(1.25)' : 'scale(1)',
@@ -132,7 +133,7 @@ function SliderBar({ slider, onChange, disabled }: SliderBarProps) {
 
       {/* Value badge */}
       <div
-        className="flex h-6 w-10 shrink-0 items-center justify-center rounded-md text-xs font-bold text-white"
+        className="flex h-5 w-8 lg:h-6 lg:w-10 shrink-0 items-center justify-center rounded-md text-[10px] lg:text-xs font-bold text-white"
         style={{ backgroundColor: color, opacity: 0.85 }}
       >
         {value}
@@ -146,6 +147,17 @@ export default function TyphoonControls() {
   const [sliders, setSliders] = useState<TyphoonSlider[]>([]);
   const [gameStarted, setGameStarted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [levelName, setLevelName] = useState('');
+
+  // Track current scene so this HUD only shows on Typhoon Formation
+  usePhaserEvent(GAME_EVENTS.HUD_LEVEL_INFO, (payload: HUDLevelInfoPayload) => {
+    setLevelName(payload.name);
+    if (payload.name !== 'Typhoon Formation') {
+      setSliders([]);
+      setGameStarted(false);
+      setIsComplete(false);
+    }
+  });
 
   // Receive slider configs from Phaser (on scene create / restart)
   usePhaserEvent(
@@ -181,35 +193,34 @@ export default function TyphoonControls() {
     [game, gameStarted, isComplete],
   );
 
-  // Don't render at all until slider configs received from Phaser
-  if (sliders.length === 0) return null;
+  // Don't render at all until slider configs received from Phaser and we're on the right level
+  if (levelName !== 'Typhoon Formation' || sliders.length === 0) return null;
 
   return (
-    <div className="typhoon-controls absolute left-0 top-28 z-30 pointer-events-none">
+    <div className="typhoon-controls absolute bottom-4 left-4 z-30 pointer-events-none lg:top-28 lg:bottom-auto lg:left-0">
       <div
-        className="pointer-events-auto mx-4 rounded-xl border-3 border-white/20 p-4 shadow-retro"
+        className="pointer-events-auto rounded-xl border-3 border-white/20 p-2.5 lg:p-4 shadow-retro w-[220px] lg:w-[380px]"
         style={{
           background: 'linear-gradient(180deg, #1a1a3ecc 0%, #0d0d1acc 100%)',
           backdropFilter: 'blur(8px)',
           WebkitBackdropFilter: 'blur(8px)',
-          width: '380px',
         }}
       >
         {/* Header */}
-        <div className="mb-2 flex items-center gap-2 border-b border-white/10 pb-2">
-          <span className="text-sm font-display text-white">🌀 Conditions</span>
+        <div className="mb-1.5 lg:mb-2 flex items-center gap-2 border-b border-white/10 pb-1.5 lg:pb-2">
+          <span className="text-xs lg:text-sm font-display text-white">🌀 Conditions</span>
           <span
-            className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold ${
+            className={`ml-auto rounded-full px-1.5 lg:px-2 py-0.5 text-[10px] font-bold ${
               gameStarted
                 ? 'bg-accent-green/20 text-accent-green'
                 : 'bg-white/10 text-gray-400'
             }`}
           >
-            {gameStarted ? 'ACTIVE' : 'WAITING'}
+            {gameStarted ? 'ON' : 'WAIT'}
           </span>
         </div>
 
-        <div className="flex flex-col gap-0.5">
+        <div className="flex flex-col gap-0">
           {sliders.map((s) => (
             <SliderBar
               key={s.config.index}

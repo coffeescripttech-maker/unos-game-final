@@ -10,6 +10,7 @@ import type {
 } from '@shared/events';
 import { COLORS, FONTS, GAME_WIDTH, GAME_HEIGHT, DEPTH } from '../constants';
 import { GameManager } from '../managers/GameManager';
+import { playPop, playChime, playHeat, playWhoosh, playBuzz } from '../utils/audio';
 
 const SUN_X = 160;
 const SUN_Y = 200;
@@ -264,6 +265,7 @@ export class EvaporationScene extends Phaser.Scene {
 
     // ── Click burst: flash rays on each click ──
     this.burstRays();
+    playHeat(this);
 
     // ── Vapor ──
     if (this.sunHeat >= 60) {
@@ -301,6 +303,7 @@ export class EvaporationScene extends Phaser.Scene {
     if (this.isComplete || this.isClouded) return;
     this.isClouded = true;
     this.cloudHp = CLOUD_HP;
+    playWhoosh(this, 0.5);
 
     // Storm cloud image over the sun (tinted dark)
     this.cloudCover = this.add.image(SUN_X + 150, SUN_Y, 'evap_clouds')
@@ -367,6 +370,7 @@ export class EvaporationScene extends Phaser.Scene {
     if (!this.isClouded || !this.cloudCover) return;
 
     this.cloudHp--;
+    playPop(this, 'mid');
 
     // Shake feedback
     this.tweens.add({
@@ -383,6 +387,7 @@ export class EvaporationScene extends Phaser.Scene {
 
   private clearCloud() {
     this.isClouded = false;
+    playChime(this, 'small');
 
     if (this.cloudCover) {
       // Slide away to the right + fade
@@ -506,7 +511,8 @@ export class EvaporationScene extends Phaser.Scene {
         duration: 100
       });
 
-      // Score + vapor count
+      // Sound + score + vapor count
+      playPop(this, 'high');
       this.vaporCount++;
       this.emitObjective();
       const score = Math.max(0, 2000 - this.overheatCount * 200);
@@ -819,6 +825,7 @@ export class EvaporationScene extends Phaser.Scene {
   // ─────────────────────────────────────────────
 
   private milestoneBurst() {
+    playChime(this, 'medium');
     for (let i = 0; i < 6; i++) {
       this.time.delayedCall(i * 50, () => {
         const px = Phaser.Math.Between(100, GAME_WIDTH - 100);
@@ -843,6 +850,7 @@ export class EvaporationScene extends Phaser.Scene {
   private overheatSun() {
     this.overheatCount++;
     this.cameras.main.shake(300, 0.015);
+    playBuzz(this);
 
     this.sunImg.setTint(0xff4444);
     this.time.delayedCall(400, () => this.sunImg.clearTint());
@@ -897,6 +905,7 @@ export class EvaporationScene extends Phaser.Scene {
   private completeLevel() {
     if (this.isComplete) return;
     this.isComplete = true;
+    playChime(this, 'large');
 
     const comboBonus = Math.floor(this.combo * 50);
     const score = Math.max(0, 2000 - this.overheatCount * 200 + Math.round((this.timeRemaining / 60) * 300) + comboBonus);
@@ -945,6 +954,7 @@ export class EvaporationScene extends Phaser.Scene {
   private failLevel() {
     if (this.isComplete) return;
     this.isComplete = true;
+    playBuzz(this);
 
     this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, "Time's Up!", {
       fontFamily: FONTS.DISPLAY,

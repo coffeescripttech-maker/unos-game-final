@@ -3,9 +3,12 @@ import { usePhaserEvent } from '../../hooks/usePhaserEvent';
 import { useGameContext } from '../../contexts/GameContext';
 import { GAME_EVENTS } from '@shared/events';
 import type { HUDTimerPayload, HUDScorePayload, HUDLevelInfoPayload } from '@shared/events';
+import { useFullscreen } from '../../hooks/useFullscreen';
+import { Maximize2, Minimize2 } from 'lucide-react';
 
 export default function HUDTopBar() {
   const { game } = useGameContext();
+  const { isFullscreen, isSupported, toggle } = useFullscreen();
   const [score, setScore] = useState(0);
   const [label, setLabel] = useState('Score');
   const [remaining, setRemaining] = useState(0);
@@ -46,46 +49,60 @@ export default function HUDTopBar() {
   const timeStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
   return (
-    <div className="hud-topbar absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-5 py-3 bg-storm-dark/90 border-b-3 border-black shadow-lg shadow-black/30 pointer-events-none">
-      {/* Exit button + Level name */}
-      <div className="flex items-center gap-3 min-w-0">
+    <div className="hud-topbar absolute top-0 left-0 right-0 z-30 grid grid-cols-3 items-center px-5 py-3 bg-storm-dark/90 border-b-3 border-black shadow-lg shadow-black/30 pointer-events-none">
+      {/* Left: Level name */}
+      <div className="flex items-center min-w-0">
+        <span className="font-display text-base lg:text-lg text-accent-yellow truncate drop-shadow-[2px_2px_0_rgba(0,0,0,0.5)] max-w-[140px] lg:max-w-[240px]">{levelName}</span>
+      </div>
+
+      {/* Center: Score */}
+      <div className="flex items-center justify-center gap-1.5 lg:gap-2">
+        <span className="hidden md:inline font-display text-sm text-white/60 uppercase tracking-wider">{label}</span>
+        <span className="font-display text-xl lg:text-2xl text-accent-yellow tabular-nums drop-shadow-[2px_2px_0_rgba(0,0,0,0.5)]">{score.toLocaleString()}</span>
+      </div>
+
+      {/* Right: Timer → Exit → Fullscreen */}
+      <div className="flex items-center justify-end gap-2">
+        {showTimer && (
+          <div className={`hud-timer flex items-center gap-2 px-2 py-1 rounded-md ${isUrgent ? 'bg-warning-red/20 animate-pulse' : 'bg-white/5'}`}>
+            <div className="w-16 lg:w-20 h-3.5 lg:h-4 bg-ui-black/50 rounded-full overflow-hidden border border-white/10">
+              <div
+                className={`h-full transition-all duration-500 rounded-full ${
+                  isUrgent ? 'bg-warning-red' : 'bg-accent-yellow'
+                }`}
+                style={{ width: `${Math.max(0, timerPct * 100)}%` }}
+              />
+            </div>
+            <span
+              className={`font-display text-lg lg:text-2xl tabular-nums min-w-[48px] lg:min-w-[64px] text-center drop-shadow-[2px_2px_0_rgba(0,0,0,0.5)] ${
+                remaining <= 0 ? 'text-warning-red' : isUrgent ? 'text-warning-red' : 'text-white'
+              }`}
+            >
+              {timeStr}
+            </span>
+          </div>
+        )}
+
         <button
           onClick={handleExit}
-          className="hud-back retro-btn bg-warning-red/80 text-white text-xs !px-2.5 !py-1.5 flex items-center gap-1.5 hover:bg-warning-red transition-colors pointer-events-auto"
+          className="hud-back flex h-8 w-8 lg:h-9 lg:w-9 items-center justify-center rounded-md border-2 border-black bg-warning-red/90 text-white shadow-retro transition-transform hover:bg-warning-red active:scale-95 pointer-events-auto"
           title="Exit to menu"
           aria-label="Exit to menu"
         >
-          ✕ <span className="back-label">Back</span>
+          ✕
         </button>
-        <span className="font-display text-lg text-accent-yellow truncate drop-shadow-[2px_2px_0_rgba(0,0,0,0.5)]">{levelName}</span>
-      </div>
 
-      {/* Score */}
-      <div className="flex items-center gap-2">
-        <span className="font-display text-sm text-white/60 uppercase tracking-wider">{label}</span>
-        <span className="font-display text-2xl text-accent-yellow tabular-nums drop-shadow-[2px_2px_0_rgba(0,0,0,0.5)]">{score.toLocaleString()}</span>
-      </div>
-
-      {/* Timer */}
-      {showTimer && (
-        <div className={`flex items-center gap-3 px-3 py-1 rounded-md ${isUrgent ? 'bg-warning-red/20 animate-pulse' : 'bg-white/5'}`}>
-          <div className="w-20 h-4 bg-ui-black/50 rounded-full overflow-hidden border border-white/10">
-            <div
-              className={`h-full transition-all duration-500 rounded-full ${
-                isUrgent ? 'bg-warning-red' : 'bg-accent-yellow'
-              }`}
-              style={{ width: `${Math.max(0, timerPct * 100)}%` }}
-            />
-          </div>
-          <span
-            className={`font-display text-2xl tabular-nums min-w-[64px] text-center drop-shadow-[2px_2px_0_rgba(0,0,0,0.5)] ${
-              remaining <= 0 ? 'text-warning-red' : isUrgent ? 'text-warning-red' : 'text-white'
-            }`}
+        {isSupported && (
+          <button
+            onClick={toggle}
+            className="flex h-8 w-8 lg:h-9 lg:w-9 items-center justify-center rounded-md border-2 border-black bg-storm-mid text-white shadow-retro transition-transform hover:bg-storm-light active:scale-95 pointer-events-auto"
+            title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
           >
-            {timeStr}
-          </span>
-        </div>
-      )}
+            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

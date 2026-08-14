@@ -1,4 +1,5 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import HomePage from './pages/HomePage';
 import GamePage from './pages/GamePage';
 import DashboardPage from './pages/DashboardPage';
@@ -10,8 +11,49 @@ import EncyclopediaPage from './pages/EncyclopediaPage';
 import CreditsPage from './pages/CreditsPage';
 import BossPage from './pages/BossPage';
 import ErrorBoundary from './components/ErrorBoundary';
+import { audioService } from './services/audio';
 
 export default function App() {
+  const location = useLocation();
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+
+  // Initialize audio on first user interaction (browsers require a gesture)
+  useEffect(() => {
+    const unlockAudio = () => {
+      audioService.init();
+      setAudioUnlocked(true);
+    };
+    window.addEventListener('pointerdown', unlockAudio, { once: true });
+    window.addEventListener('keydown', unlockAudio, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
+  }, []);
+
+  // Route-based background music
+  useEffect(() => {
+    if (!audioUnlocked) return;
+    audioService.stopBgm();
+    if (location.pathname === '/') {
+      audioService.playMenuBgm();
+    } else if (location.pathname === '/game' || location.pathname === '/boss') {
+      audioService.playLevelBgm();
+    }
+  }, [location.pathname, audioUnlocked]);
+
+  // Global button / link click sound
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('button, a, [role="button"], .retro-btn')) {
+        audioService.playClick();
+      }
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
+
   return (
     <ErrorBoundary>
       <div className="w-full h-full bg-ocean-deep overflow-hidden">

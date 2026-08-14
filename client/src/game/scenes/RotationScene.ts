@@ -97,6 +97,7 @@ export class RotationScene extends Phaser.Scene {
 
   // ── Storm stages, combo ratings & inflow ──
   private stageText!: Phaser.GameObjects.Text;
+  private bottomInfoPanel!: Phaser.GameObjects.Graphics;
   private comboRatingTier = 0;
   private comboBonus = 0;
   private inflowTimer!: Phaser.Time.TimerEvent;
@@ -242,32 +243,46 @@ export class RotationScene extends Phaser.Scene {
 
     this.windGustGfx = this.add.graphics().setDepth(2);
 
-    // ── Hemisphere indicator ──
+    // ── Bottom info panel (behind relocated labels) ──
+    this.bottomInfoPanel = this.add.graphics().setDepth(4);
+    const panelW = 320;
+    const panelH = 110;
+    const panelX = GAME_WIDTH / 2 - panelW / 2;
+    const panelY = GAME_HEIGHT - 160;
+    this.bottomInfoPanel.fillStyle(0x0d1b2a, 0.72);
+    this.bottomInfoPanel.fillRoundedRect(panelX, panelY, panelW, panelH, 14);
+    this.bottomInfoPanel.lineStyle(2, 0x4a6fa5, 0.45);
+    this.bottomInfoPanel.strokeRoundedRect(panelX, panelY, panelW, panelH, 14);
+
+    // ── Hemisphere indicator (moved to bottom) ──
     this.hemisphereText = this.add
-      .text(GAME_WIDTH / 2, 70, '', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 95, '', {
         fontFamily: FONTS.BODY,
-        fontSize: '14px',
-        color: '#6DB3E6'
+        fontSize: '15px',
+        color: '#6DB3E6',
+        stroke: '#000000',
+        strokeThickness: 3
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(6);
     this.updateHemisphereText();
 
-    // ── SPIN POWER meter (top center) ──
+    // ── SPIN POWER meter (moved to bottom center) ──
     this.powerMeterGfx = this.add.graphics().setDepth(6);
     this.powerLabel = this.add
-      .text(GAME_WIDTH / 2, 112, 'SPIN POWER ×1', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 150, 'SPIN POWER ×1', {
         fontFamily: FONTS.DISPLAY,
-        fontSize: '12px',
+        fontSize: '13px',
         color: '#9fb8d8',
         stroke: '#000000',
-        strokeThickness: 2
+        strokeThickness: 3
       })
       .setOrigin(0.5)
       .setDepth(6);
     this.comboText = this.add
-      .text(GAME_WIDTH / 2, 130, '', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 175, '', {
         fontFamily: FONTS.DISPLAY,
-        fontSize: '14px',
+        fontSize: '15px',
         color: '#FF6B6B',
         stroke: '#000000',
         strokeThickness: 3
@@ -303,16 +318,16 @@ export class RotationScene extends Phaser.Scene {
     // ── Vortex graphics ──
     this.vortexGfx = this.add.graphics().setDepth(DEPTH.GAME_OBJECTS);
 
-    // ── Storm stage label (top-right) ──
+    // ── Storm stage label (bottom-right) ──
     this.stageText = this.add
-      .text(GAME_WIDTH - 20, 100, '', {
+      .text(GAME_WIDTH - 24, GAME_HEIGHT - 95, '', {
         fontFamily: FONTS.DISPLAY,
         fontSize: '15px',
         color: '#6DB3E6',
         stroke: '#000000',
         strokeThickness: 3
       })
-      .setOrigin(1, 0)
+      .setOrigin(1, 0.5)
       .setDepth(6);
     this.updateStormStage();
 
@@ -1270,7 +1285,7 @@ export class RotationScene extends Phaser.Scene {
     if (!this.powerMeterGfx) return;
     this.powerMeterGfx.clear();
     const x = GAME_WIDTH / 2 - 120;
-    const y = 100;
+    const y = GAME_HEIGHT - 130;
     const w = 240;
     const h = 10;
 

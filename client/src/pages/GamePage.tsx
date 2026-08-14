@@ -6,7 +6,6 @@ import { GAME_EVENTS } from '@shared/events';
 import GameCanvas from '../components/GameCanvas';
 import GameHUD from '../components/GameHUD';
 import RotateDeviceOverlay from '../components/RotateDeviceOverlay';
-import FullscreenButton from '../components/FullscreenButton';
 
 function GameContent() {
   const navigate = useNavigate();
@@ -38,7 +37,6 @@ function GameContent() {
       <GameCanvas />
       <GameHUD />
       <RotateDeviceOverlay />
-      <FullscreenButton />
     </div>
   );
 }
