@@ -27,6 +27,18 @@
     -webkit-overflow-scrolling: auto;
   }
 
+  /* Boss level modal overlay */
+  .boss-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(6, 10, 26, 0.75);
+    pointer-events: auto;
+  }
+
   /* Game canvas fills the viewport with no gaps */
   #game-container {
     width: 100vw;
@@ -798,6 +810,83 @@
       padding: 0.5rem !important;
       border-radius: 0.5rem !important;
       border-width: 2px !important;
+    }
+
+    /* Boss level: compact HUD + overlays for mobile landscape */
+
+    /* Topbar header */
+    .boss-hud .absolute.top-0 {
+      top: 0 !important;
+      left: 0.375rem !important;
+      right: 0.375rem !important;
+      padding: 0.25rem 0.375rem !important;
+    }
+
+    .boss-hud .absolute.top-0 .font-display {
+      font-size: 0.7rem !important;
+    }
+
+    .boss-hud .absolute.top-0 .font-display.text-2xl {
+      font-size: 1rem !important;
+    }
+
+    /* Top panels row (below topbar) */
+    .boss-hud .absolute.top-\[64px\] {
+      top: 36px !important;
+    }
+
+    /* Left objectives panel */
+    .boss-hud .absolute.top-\[100px\] {
+      top: 56px !important;
+      left: 0.375rem !important;
+      min-width: auto !important;
+    }
+
+    .boss-hud .bg-ocean-deep\/90,
+    .boss-hud .hud-topbar {
+      padding: 0.375rem !important;
+      border-width: 2px !important;
+    }
+
+    .boss-hud .font-display.text-lg,
+    .boss-hud .font-display.text-xl,
+    .boss-hud .font-display.text-2xl,
+    .boss-hud .font-display.text-3xl {
+      font-size: 0.875rem !important;
+    }
+
+    .boss-hud .font-body.text-xs,
+    .boss-hud .font-body.text-sm,
+    .boss-hud .font-body.text-\[10px\] {
+      font-size: 0.6rem !important;
+    }
+
+    .boss-hud .h-2\.5 {
+      height: 0.375rem !important;
+    }
+
+    .boss-hud canvas {
+      width: 56px !important;
+      height: 56px !important;
+    }
+
+    .boss-hud .absolute.bottom-4 {
+      bottom: 0.375rem !important;
+      padding: 0.375rem 0.625rem !important;
+    }
+
+    .boss-hud .absolute.bottom-4.right-3 {
+      padding: 0.375rem !important;
+    }
+
+    .boss-hud .retro-btn,
+    .boss-hud .hud-back,
+    .boss-hud .hud-topbar button {
+      padding: 0.25rem 0.5rem !important;
+      font-size: 0.6rem !important;
+      border-width: 2px !important;
+      width: 28px !important;
+      height: 28px !important;
     }
   }
 

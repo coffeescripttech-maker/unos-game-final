@@ -27,6 +27,7 @@ export function createDefaultMissionState(): MissionState {
     ],
     distanceToEye: 200,
     isInEye: false,
+    quizBonus: 0,
   };
 }
 

@@ -6,18 +6,19 @@ import type { StormParams } from '../types';
 interface RainProps {
   storm: StormParams;
   isInEye: boolean;
+  boatPosition: THREE.Vector3;
 }
 
 const RAIN_COUNT = 4000;
-const RAIN_AREA = 500;
+const RAIN_AREA = 280;
 const RAIN_HEIGHT = 100;
 
 /**
  * Heavy rain particle system.
  * Dense sheets of rain that blow in the wind direction.
- * Each particle is a thin streak for realistic look.
+ * The particle field follows the boat so the storm is always around the player.
  */
-export default function Rain({ storm, isInEye }: RainProps) {
+export default function Rain({ storm, isInEye, boatPosition }: RainProps) {
   const pointsRef = useRef<THREE.Points>(null);
   const timeRef = useRef(0);
 
@@ -79,6 +80,9 @@ export default function Rain({ storm, isInEye }: RainProps) {
     pointsRef.current.visible = visible;
     if (!visible) return;
 
+    // Keep the rain centered on the boat
+    pointsRef.current.position.set(boatPosition.x, 0, boatPosition.z);
+
     // Opacity follows storm intensity
     mat.opacity = Math.min(0.7, storm.rainIntensity * 0.5);
 
@@ -93,7 +97,7 @@ export default function Rain({ storm, isInEye }: RainProps) {
       pos[i * 3 + 1] -= speed * delta;
       pos[i * 3 + 2] += windZ * delta;
 
-      // Reset at top
+      // Reset at top, local to the boat
       if (pos[i * 3 + 1] < -10) {
         pos[i * 3] = (Math.random() - 0.5) * RAIN_AREA;
         pos[i * 3 + 1] = RAIN_HEIGHT - 10;

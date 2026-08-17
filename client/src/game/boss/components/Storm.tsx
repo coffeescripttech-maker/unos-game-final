@@ -1,7 +1,8 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import type { StormParams } from '../types';
+import { createCloudTexture, useBossTexture } from '../utils/textures';
 
 interface StormProps {
   storm: StormParams;
@@ -12,21 +13,28 @@ const EYE_POSITION = new THREE.Vector3(0, 0, -150);
 const EYE_RADIUS = 30;
 
 /**
- * The typhoon storm system — rotating cloud bands, eyewall, and eye.
- * Visible from across the map. Intensifies as player approaches.
+ * Flat top-down typhoon system.
+ * Spiral cloud bands, a rotating eyewall ring, and a calm-eye disc.
+ * Uses /assets/boss/cloud.png when available, falling back to a generated puff.
  */
 export default function Storm({ storm, isInEye }: StormProps) {
   const groupRef = useRef<THREE.Group>(null);
   const cloudRef = useRef<THREE.Group>(null);
   const rotationRef = useRef(0);
+  const cloudTexture = useBossTexture('/assets/boss/cloud.png', createCloudTexture);
 
-  // Generate cloud band positions (spiral arms)
+  useEffect(() => {
+    cloudTexture.magFilter = THREE.LinearFilter;
+    cloudTexture.minFilter = THREE.LinearFilter;
+    cloudTexture.needsUpdate = true;
+  }, [cloudTexture]);
+
   const cloudBands = useMemo(() => {
     const bands: {
       angle: number;
       radius: number;
       width: number;
-      height: number;
+      length: number;
       color: string;
       opacity: number;
     }[] = [];
@@ -35,115 +43,96 @@ export default function Storm({ storm, isInEye }: StormProps) {
       for (let ring = 0; ring < 12; ring++) {
         const t = ring / 12;
         const angle = baseAngle + t * 4 * Math.PI;
-        const radius = 15 + t * 110;
-        const width = 5 + t * 15;
-        const height = 0.5 + t * 2;
-        const opacity = 0.4 - t * 0.25;
+        const radius = 20 + t * 110;
+        const width = 5 + t * 18;
+        const length = 8 + t * 18;
+        const opacity = 0.35 - t * 0.22;
         bands.push({
           angle,
           radius,
           width,
-          height,
-          color: t < 0.3 ? '#b0b0b8' : '#606068',
-          opacity: Math.max(0.05, opacity),
+          length,
+          color: t < 0.3 ? '#b8b8c0' : '#606068',
+          opacity: Math.max(0.06, opacity),
         });
       }
     }
     return bands;
   }, []);
 
-  // Eyewall cloud segments
-  const eyewall = useMemo(() => {
-    const segs: { angle: number; color: string; height: number }[] = [];
-    for (let i = 0; i < 24; i++) {
-      const angle = (i / 24) * Math.PI * 2;
-      const height = 10 + Math.sin(i * 3.7) * 5;
-      segs.push({
-        angle,
-        color: i % 2 === 0 ? '#c0c0c8' : '#909098',
-        height,
-      });
-    }
-    return segs;
-  }, []);
+  const eyewallGeo = useMemo(() => new THREE.RingGeometry(13, 19, 32), []);
+  const eyeDiscGeo = useMemo(() => new THREE.CircleGeometry(13, 32), []);
+  const centerMassGeo = useMemo(() => new THREE.CircleGeometry(22, 32), []);
 
   useFrame((_, delta) => {
     if (!groupRef.current || !cloudRef.current) return;
-    rotationRef.current += delta * (0.1 + storm.intensity * 0.15);
-
-    // Rotate the cloud system
+    rotationRef.current += delta * (0.08 + storm.intensity * 0.12);
     cloudRef.current.rotation.y = rotationRef.current;
 
-    // Scale group based on storm intensity
     const scale = 0.8 + storm.intensity * 0.4;
     groupRef.current.scale.setScalar(scale);
-
-    // Position
-    groupRef.current.position.set(0, 5 + storm.intensity * 15, -150);
+    groupRef.current.position.set(0, 0.5, -150);
   });
 
   return (
     <group ref={groupRef}>
       <group ref={cloudRef}>
-        {/* Outer cloud bands */}
+        {/* Outer spiral cloud bands — flat planes facing the top-down camera */}
         {cloudBands.map((band, i) => (
           <mesh
             key={`band-${i}`}
             position={[
               Math.cos(band.angle) * band.radius,
-              -2 + Math.sin(i) * 1,
+              0,
               Math.sin(band.angle) * band.radius,
             ]}
-            rotation={[0, -band.angle, 0]}
+            rotation={[-Math.PI / 2, 0, -band.angle]}
           >
-            <planeGeometry args={[band.width, band.height]} />
+            <planeGeometry args={[band.width, band.length]} />
             <meshBasicMaterial
+              map={cloudTexture}
               color={band.color}
               transparent
               opacity={band.opacity * storm.intensity}
               depthWrite={false}
               side={THREE.DoubleSide}
+              alphaTest={0.05}
             />
           </mesh>
         ))}
 
         {/* Central cloud mass */}
-        <mesh position={[0, 5, 0]}>
-          <sphereGeometry args={[20 + storm.intensity * 15, 16, 12]} />
-          <meshLambertMaterial
+        <mesh rotation={[-Math.PI / 2, 0, 0]} geometry={centerMassGeo}>
+          <meshBasicMaterial
+            map={cloudTexture}
             color="#606068"
             transparent
-            opacity={0.3 + storm.intensity * 0.4}
+            opacity={0.25 + storm.intensity * 0.35}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+            alphaTest={0.05}
           />
         </mesh>
 
         {/* Eyewall ring */}
-        {eyewall.map((seg, i) => (
-          <mesh
-            key={`eye-${i}`}
-            position={[
-              Math.cos(seg.angle) * 16,
-              seg.height * (0.3 + storm.intensity * 0.3),
-              Math.sin(seg.angle) * 16,
-            ]}
-            scale={[3, seg.height * 0.2, 3]}
-          >
-            <boxGeometry args={[1, 1, 1]} />
-            <meshLambertMaterial
-              color={seg.color}
-              transparent
-              opacity={0.4 + storm.intensity * 0.4}
-            />
-          </mesh>
-        ))}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} geometry={eyewallGeo}>
+          <meshBasicMaterial
+            color="#909098"
+            transparent
+            opacity={0.35 + storm.intensity * 0.45}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
 
-        {/* Eye glow */}
-        <mesh position={[0, 3, 0]}>
-          <sphereGeometry args={[6, 16, 12]} />
+        {/* Calm eye disc */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} geometry={eyeDiscGeo}>
           <meshBasicMaterial
             color="#ccddff"
             transparent
-            opacity={0.15}
+            opacity={0.12}
+            depthWrite={false}
+            side={THREE.DoubleSide}
           />
         </mesh>
 
@@ -157,7 +146,7 @@ export default function Storm({ storm, isInEye }: StormProps) {
   );
 }
 
-/** Spiral rainband arc */
+/** Spiral rainband arc drawn flat on the water */
 function RainBand({ radius, angle, storm }: { radius: number; angle: number; storm: StormParams }) {
   const points = useMemo(() => {
     const pts: THREE.Vector3[] = [];
@@ -173,12 +162,12 @@ function RainBand({ radius, angle, storm }: { radius: number; angle: number; sto
   const curve = useMemo(() => new THREE.CatmullRomCurve3(points), [points]);
 
   return (
-    <mesh>
+    <mesh rotation={[-Math.PI / 2, 0, 0]}>
       <tubeGeometry args={[curve, 40, 0.3 + storm.intensity * 0.5, 4, false]} />
       <meshBasicMaterial
         color="#404050"
         transparent
-        opacity={0.15 * storm.intensity}
+        opacity={0.12 * storm.intensity}
         depthWrite={false}
       />
     </mesh>

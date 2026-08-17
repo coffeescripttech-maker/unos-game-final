@@ -37,6 +37,7 @@ export interface MissionState {
   nearCollectible: ObjectiveId | null;  // which collectible is nearby
   interactionPrompt: string | null;     // what to show as "Press E to..."
   lastNotification: NotificationData | null;
+  quizBonus: number;                     // points earned from science quizzes
 }
 
 /** Toast notification */
@@ -74,6 +75,7 @@ export interface GiantWaveData {
   height: number;
   width: number;
   active: boolean;
+  radius: number;
 }
 
 /** Lightning strike with warning */
@@ -101,6 +103,7 @@ export interface BoatState {
   speed: number;
   engineOn: boolean;
   integrity: number;
+  boosting: boolean;
 }
 
 /** Storm intensity parameters (0-1 scale for each) */

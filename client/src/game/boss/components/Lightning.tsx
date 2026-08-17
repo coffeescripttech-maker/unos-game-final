@@ -1,197 +1,153 @@
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import type { StormParams } from '../types';
 
 interface LightningProps {
   storm: StormParams;
   isInEye: boolean;
+  boatPosition: THREE.Vector3;
   onThunder?: () => void;
 }
 
+interface Bolt {
+  id: number;
+  mesh: THREE.Mesh;
+  life: number;
+  maxLife: number;
+}
+
 /**
- * Lightning flash and bolt effects.
- * Randomly triggers based on storm intensity.
- * Camera shake on flash. Branching bolt meshes.
+ * Top-down lightning flash with local bolts around the boat.
+ * The flash lights up the whole screen while jagged bolt sprites crack
+ * near the player, making the storm feel close and dangerous.
  */
-export default function Lightning({ storm, isInEye, onThunder }: LightningProps) {
+export default function Lightning({ storm, isInEye, boatPosition, onThunder }: LightningProps) {
   const flashRef = useRef<THREE.Mesh>(null);
-  const boltGroupRef = useRef<THREE.Group>(null);
+  const groupRef = useRef<THREE.Group>(null);
   const flashIntensityRef = useRef(0);
   const nextStrikeRef = useRef(5 + Math.random() * 10);
   const timeRef = useRef(0);
-  const boltMeshesRef = useRef<THREE.Mesh[]>([]);
-  const { camera } = useThree();
+  const boltIdRef = useRef(0);
+  const boltsRef = useRef<Bolt[]>([]);
 
-  // Generate a branching lightning bolt
-  const createBolt = useCallback(() => {
-    const group = new THREE.Group();
-    const segments = 8 + Math.floor(Math.random() * 6);
-    const startX = (Math.random() - 0.5) * 200;
-    const startZ = (Math.random() - 0.5) * 200 - 100;
-    const boltHeight = 40 + Math.random() * 30;
+  const boltGeo = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
+  const boltMat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: '#ffffff',
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  }), []);
 
-    type Point = { x: number; y: number; z: number };
-    const points: Point[] = [];
-    let x = startX;
-    let y = boltHeight;
-    let z = startZ;
-
-    for (let i = 0; i < segments; i++) {
-      const t = i / segments;
-      x += (Math.random() - 0.5) * 15;
-      y -= boltHeight / segments;
-      z += (Math.random() - 0.5) * 15;
-      points.push({ x, y, z });
+  const createBoltTexture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, 64, 256);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(32, 0);
+    let x = 32;
+    for (let y = 20; y < 256; y += 30) {
+      x = 32 + (Math.random() - 0.5) * 40;
+      ctx.lineTo(x, y);
     }
-
-    const upVec = new THREE.Vector3(0, 1, 0);
-
-    // Draw main bolt as line segments
-    for (let i = 0; i < points.length - 1; i++) {
-      const p1 = points[i];
-      const p2 = points[i + 1];
-      const mid = new THREE.Vector3(
-        (p1.x + p2.x) / 2,
-        (p1.y + p2.y) / 2,
-        (p1.z + p2.z) / 2,
-      );
-      const dx = p2.x - p1.x;
-      const dy = p2.y - p1.y;
-      const dz = p2.z - p1.z;
-      const length = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      const dir = new THREE.Vector3(dx, dy, dz).normalize();
-      const quat = new THREE.Quaternion().setFromUnitVectors(upVec, dir);
-
-      const boltMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.08 * (1 - i / segments), 0.15 * (1 - i / segments), length, 3),
-        new THREE.MeshBasicMaterial({ color: '#aaddff', transparent: true, opacity: 1 }),
-      );
-      boltMesh.position.copy(mid);
-      boltMesh.quaternion.copy(quat);
-      group.add(boltMesh);
-    }
-
-    // Add branches (recursive sub-bolts)
-    for (let b = 0; b < 3; b++) {
-      const startIdx = Math.floor(Math.random() * (points.length - 2)) + 1;
-      const pStart = points[startIdx];
-      const branchLength = 5 + Math.random() * 10;
-      const bx = pStart.x + (Math.random() - 0.5) * 10;
-      const by = pStart.y - branchLength * 0.5;
-      const bz = pStart.z + (Math.random() - 0.5) * 10;
-
-      const dxB = bx - pStart.x;
-      const dyB = by - pStart.y;
-      const dzB = bz - pStart.z;
-      const lenB = Math.sqrt(dxB * dxB + dyB * dyB + dzB * dzB);
-      const midB = new THREE.Vector3(
-        (pStart.x + bx) / 2,
-        (pStart.y + by) / 2,
-        (pStart.z + bz) / 2,
-      );
-      const dirB = new THREE.Vector3(dxB, dyB, dzB).normalize();
-      const quatB = new THREE.Quaternion().setFromUnitVectors(upVec, dirB);
-
-      const branchMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.04, 0.08, lenB, 3),
-        new THREE.MeshBasicMaterial({ color: '#88ccff', transparent: true, opacity: 0.7 }),
-      );
-      branchMesh.position.copy(midB);
-      branchMesh.quaternion.copy(quatB);
-      group.add(branchMesh);
-    }
-
-    return group;
+    ctx.stroke();
+    // glow
+    ctx.strokeStyle = 'rgba(160,200,255,0.4)';
+    ctx.lineWidth = 12;
+    ctx.stroke();
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
   }, []);
 
-  // Kick off lightning flash
+  const spawnBolt = useCallback(() => {
+    if (!groupRef.current) return;
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 40 + Math.random() * 80;
+    const mesh = new THREE.Mesh(boltGeo, boltMat.clone());
+    mesh.material.map = createBoltTexture;
+    mesh.position.set(
+      boatPosition.x + Math.cos(angle) * dist,
+      0.5,
+      boatPosition.z + Math.sin(angle) * dist,
+    );
+    mesh.rotation.set(-Math.PI / 2, 0, Math.random() * Math.PI * 2);
+    mesh.scale.set(8, 24, 1);
+    groupRef.current.add(mesh);
+    boltsRef.current.push({ id: boltIdRef.current++, mesh, life: 0.25, maxLife: 0.25 });
+  }, [boatPosition, boltGeo, boltMat, createBoltTexture]);
+
   const triggerStrike = useCallback(() => {
     flashIntensityRef.current = 1.0;
-
-    // Replace bolt geometry
-    if (boltGroupRef.current) {
-      while (boltGroupRef.current.children.length > 0) {
-        const child = boltGroupRef.current.children[0];
-        if (child instanceof THREE.Mesh) {
-          child.geometry?.dispose();
-          (child.material as THREE.Material)?.dispose();
-        }
-        boltGroupRef.current.remove(child);
-      }
-      boltGroupRef.current.add(createBolt());
-    }
-
-    // Camera shake
-    const shakeAmount = 0.2 + storm.intensity * 0.3;
-    camera.position.x += (Math.random() - 0.5) * shakeAmount;
-    camera.position.y += (Math.random() - 0.5) * shakeAmount * 0.5;
-
-    // Thunder sound
+    spawnBolt();
     onThunder?.();
-  }, [createBolt, storm.intensity, camera, onThunder]);
+  }, [onThunder, spawnBolt]);
 
   useFrame((_, delta) => {
     timeRef.current += delta;
 
-    // Flash decay
     if (flashIntensityRef.current > 0) {
-      flashIntensityRef.current *= 0.9;
+      flashIntensityRef.current *= 0.85;
       if (flashIntensityRef.current < 0.01) flashIntensityRef.current = 0;
     }
 
-    // Update flash mesh
     if (flashRef.current) {
-      const opacity = flashIntensityRef.current * 0.3;
+      const opacity = flashIntensityRef.current * 0.4;
       (flashRef.current.material as THREE.MeshBasicMaterial).opacity = opacity;
       flashRef.current.visible = opacity > 0.01;
     }
 
-    // Update bolt visibility (fade with flash)
-    if (boltGroupRef.current) {
-      boltGroupRef.current.visible = flashIntensityRef.current > 0.05;
+    // Update bolts
+    for (let i = boltsRef.current.length - 1; i >= 0; i--) {
+      const bolt = boltsRef.current[i];
+      bolt.life -= delta;
+      const mat = bolt.mesh.material as THREE.MeshBasicMaterial;
+      mat.opacity = Math.max(0, bolt.life / bolt.maxLife);
+      bolt.mesh.visible = mat.opacity > 0.01;
+      if (bolt.life <= 0) {
+        groupRef.current?.remove(bolt.mesh);
+        mat.dispose();
+        boltsRef.current.splice(i, 1);
+      }
     }
 
-    // Schedule next strike
     if (isInEye) {
-      nextStrikeRef.current = 999; // no lightning in eye
+      nextStrikeRef.current = 999;
       return;
     }
 
     nextStrikeRef.current -= delta;
     if (nextStrikeRef.current <= 0) {
       triggerStrike();
-      const interval = 3 + storm.lightningRate * 8;
+      const interval = 2.5 + storm.lightningRate * 6;
       nextStrikeRef.current = interval * (0.5 + Math.random() * 0.5);
     }
   });
 
-  // Cleanup meshes on unmount
   useEffect(() => {
     return () => {
-      boltMeshesRef.current.forEach(m => {
-        m.geometry?.dispose();
-        (m.material as THREE.Material)?.dispose();
-      });
+      // nothing to dispose for a single shared mesh material
     };
   }, []);
 
   return (
-    <group>
-      {/* Full-screen flash */}
-      <mesh ref={flashRef} position={[0, 20, -200]}>
-        <planeGeometry args={[600, 600]} />
+    <group ref={groupRef}>
+      <mesh ref={flashRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 60, 0]} visible={false}>
+        <planeGeometry args={[900, 900]} />
         <meshBasicMaterial
-          color="#ffffff"
+          color="#d0e8ff"
           transparent
           opacity={0}
           depthWrite={false}
           side={THREE.DoubleSide}
         />
       </mesh>
-
-      {/* Bolt geometry container */}
-      <group ref={boltGroupRef} />
     </group>
   );
 }

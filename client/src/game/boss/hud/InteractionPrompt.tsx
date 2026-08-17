@@ -12,40 +12,11 @@ export default function InteractionPrompt({
   if (!visible) return null;
 
   return (
-    <div style={{
-      position: 'absolute',
-      bottom: '50%',
-      left: '50%',
-      transform: 'translate(-50%, 80px)',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10,
-      background: 'rgba(0,0,0,0.6)',
-      padding: '8px 18px',
-      borderRadius: 8,
-      border: '1px solid rgba(255,255,255,0.2)',
-      backdropFilter: 'blur(6px)',
-      pointerEvents: 'none',
-      zIndex: 60,
-      animation: 'floatUp 1.5s ease-in-out infinite',
-    }}>
-      <span style={{
-        background: 'rgba(78,205,196,0.3)',
-        border: '1px solid #4ecdc4',
-        borderRadius: 4,
-        padding: '2px 8px',
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#4ecdc4',
-        fontFamily: "'Courier New', monospace",
-      }}>
+    <div className="absolute bottom-1/2 left-1/2 -translate-x-1/2 translate-y-20 z-50 flex items-center gap-2 bg-ocean-deep/90 border-3 border-black shadow-retro px-4 py-2 pointer-events-none animate-float">
+      <span className="bg-accent-yellow/20 border border-accent-yellow text-accent-yellow rounded px-2 py-0.5 font-body text-xs font-bold">
         E
       </span>
-      <span style={{
-        fontSize: 13,
-        color: '#e0e0e0',
-        fontFamily: "'Courier New', monospace",
-      }}>
+      <span className="font-body text-sm text-white">
         {text}
       </span>
     </div>

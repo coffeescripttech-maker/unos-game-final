@@ -135,6 +135,22 @@ export class AudioManager {
     }
   }
 
+  /** Eye-approach swell: drop wind to near-zero, shift to an eerie low hum */
+  setEyeApproach(nearness: number) {
+    // nearness 0 = outside, 1 = inside the eye
+    if (!this.windGain || !this.windFilter) return;
+    // fade out howling wind as we approach calm eye
+    this.windGain.gain.linearRampToValueAtTime(
+      (1 - nearness) * 0.3,
+      this.ctx?.currentTime! + 2,
+    );
+    // shift filter lower → more ominous
+    this.windFilter.frequency.linearRampToValueAtTime(
+      150 + (1 - nearness) * 600,
+      this.ctx?.currentTime! + 2,
+    );
+  }
+
   /** Update rain volume (0-1) */
   setRainIntensity(intensity: number) {
     if (!this.rainGain) return;

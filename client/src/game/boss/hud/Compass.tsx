@@ -1,15 +1,17 @@
 import { useRef, useEffect } from 'react';
+import type { StormParams } from '../types';
 
 interface CompassProps {
   boatYaw: number;
   targetAngle?: number; // angle to the Eye
+  storm?: StormParams;
 }
 
 /**
  * Compass rose showing boat heading and direction to target.
  * HTML canvas-drawn compass with N/S/E/W labels.
  */
-export default function Compass({ boatYaw, targetAngle }: CompassProps) {
+export default function Compass({ boatYaw, targetAngle, storm }: CompassProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const size = 60;
 
@@ -22,6 +24,10 @@ export default function Compass({ boatYaw, targetAngle }: CompassProps) {
     const cx = size / 2;
     const cy = size / 2;
     const r = size / 2 - 4;
+
+    // Compass jitter from wind — stronger storms shake the needle
+    const jitterMag = storm ? (storm.intensity * 0.08 + storm.windSpeed * 0.002) : 0;
+    const jitter = jitterMag > 0 ? (Math.random() - 0.5) * jitterMag : 0;
 
     ctx.clearRect(0, 0, size, size);
 
@@ -54,7 +60,7 @@ export default function Compass({ boatYaw, targetAngle }: CompassProps) {
     // Boat heading indicator
     ctx.save();
     ctx.translate(cx, cy);
-    ctx.rotate(-boatYaw);
+    ctx.rotate(-boatYaw + jitter);
     ctx.beginPath();
     ctx.moveTo(0, -r + 2);
     ctx.lineTo(-3, -r + 8);
@@ -68,7 +74,7 @@ export default function Compass({ boatYaw, targetAngle }: CompassProps) {
     if (targetAngle !== undefined) {
       ctx.save();
       ctx.translate(cx, cy);
-      ctx.rotate(-boatYaw);
+      ctx.rotate(-boatYaw + jitter);
       ctx.rotate(targetAngle);
       ctx.beginPath();
       ctx.moveTo(0, -r + 4);
@@ -80,7 +86,7 @@ export default function Compass({ boatYaw, targetAngle }: CompassProps) {
       ctx.restore();
     }
 
-  }, [boatYaw, targetAngle]);
+  }, [boatYaw, targetAngle, storm]);
 
   return (
     <canvas

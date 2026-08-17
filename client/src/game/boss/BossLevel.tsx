@@ -1,8 +1,11 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
+import DamageFlash from './components/DamageFlash';
+import WindIndicator from './components/WindIndicator';
+import type { DamageFlashHandle } from './components/DamageFlash';
 import Ocean from './components/Ocean';
-import Sky from './components/Sky';
+import Fish from './components/Fish';
 import Storm from './components/Storm';
 import Philippines from './components/Philippines';
 import Boat from './components/Boat';
@@ -11,16 +14,22 @@ import Lightning from './components/Lightning';
 import LightningWarning from './components/LightningWarning';
 import GiantWave from './components/GiantWave';
 import Hazards from './components/Hazards';
-import Birds from './components/Birds';
-import GodRays from './components/GodRays';
 import BoatWake from './components/BoatWake';
 import WindParticles from './components/WindParticles';
 import OceanSpray from './components/OceanSpray';
+import StormClouds from './components/StormClouds';
+import StormVignette from './components/StormVignette';
 import Collectible from './components/Collectible';
 import WeatherBuoy from './components/WeatherBuoy';
 import BossHUD from './hud/BossHUD';
+import QuizModal from './hud/QuizModal';
+import { getQuizQuestions } from './hud/QuizData';
+import type { QuizQuestion } from './hud/QuizData';
 import { AudioManager } from './AudioManager';
+import { useBossTexture, createEyeMarkerTexture } from './utils/textures';
 import { useBoatController } from './BoatController';
+import { LEVEL_CONFIGS } from '@shared/constants';
+import type { LevelProgress } from '@shared/types';
 import {
   computeStormParams, getNextObjective, getPhase,
   checkEyeEntry, distanceToEye,
@@ -30,10 +39,10 @@ import type { MissionState, StormParams, CollectibleData, ObjectiveId, Notificat
 
 // ── Collectible world positions ──
 const COLLECTIBLE_DATA: CollectibleData[] = [
-  { id: 'collect_temperature', position: new THREE.Vector3(80, 2, 20), label: 'Temperature', icon: '🌡️', color: '#ff6b6b', collected: false },
-  { id: 'collect_humidity', position: new THREE.Vector3(-60, 2, -40), label: 'Humidity', icon: '💧', color: '#4ecdc4', collected: false },
-  { id: 'collect_pressure', position: new THREE.Vector3(40, 2, -80), label: 'Pressure', icon: '🌀', color: '#a8e6cf', collected: false },
-  { id: 'collect_windspeed', position: new THREE.Vector3(-90, 2, 0), label: 'Wind Speed', icon: '💨', color: '#95e1d3', collected: false },
+  { id: 'collect_temperature', position: new THREE.Vector3(80, 0.3, 20), label: 'Temperature', icon: '🌡️', color: '#ff6b6b', collected: false },
+  { id: 'collect_humidity', position: new THREE.Vector3(-60, 0.3, -40), label: 'Humidity', icon: '💧', color: '#4ecdc4', collected: false },
+  { id: 'collect_pressure', position: new THREE.Vector3(40, 0.3, -80), label: 'Pressure', icon: '🌀', color: '#a8e6cf', collected: false },
+  { id: 'collect_windspeed', position: new THREE.Vector3(-90, 0.3, 0), label: 'Wind Speed', icon: '💨', color: '#95e1d3', collected: false },
 ];
 
 // ── Educational facts ──
@@ -55,7 +64,6 @@ const EDUCATIONAL_FACTS = [
   },
 ];
 
-// ── Interaction proximity ──
 const COLLECT_DISTANCE = 6;
 
 /**
@@ -73,6 +81,7 @@ function SceneContent({
   onBoatHit,
   onNearCollectible,
   onLightningStrike,
+  showQuiz,
 }: {
   boatRef: React.MutableRefObject<THREE.Group | null>;
   mission: MissionState;
@@ -85,21 +94,26 @@ function SceneContent({
   onBoatHit: (damage: number) => void;
   onNearCollectible: (id: ObjectiveId | null) => void;
   onLightningStrike: (pos: THREE.Vector3) => void;
+  showQuiz: boolean;
+  damageFlashRef: React.MutableRefObject<{ triggerFlash: () => void } | null>;
 }) {
   const [boatPos, setBoatPos] = useState(new THREE.Vector3(0, 0, 120));
   const [engineRunning, setEngineRunning] = useState(false);
   const [buoyPosition, setBuoyPosition] = useState<THREE.Vector3 | null>(null);
   const [buoyDeployed, setBuoyDeployed] = useState(false);
   const [boatYaw, setBoatYaw] = useState(0);
+  const [boatSpeedLocal, setBoatSpeedLocal] = useState(0);
+  const damageFlashRef = useRef<DamageFlashHandle | null>(null);
 
-  // Boat controller
   const { yaw } = useBoatController({
     boatRef,
     storm,
     isInEye,
+    disabled: showQuiz,
     onBoatMove: (state) => {
       setBoatPos(state.position.clone());
       setBoatYaw(yaw.current);
+      setBoatSpeedLocal(Math.abs(state.speed));
       setEngineRunning(state.speed > 0.5);
       audioRef.current?.setEngineSpeed(Math.abs(state.speed) / 20);
     },
@@ -112,13 +126,11 @@ function SceneContent({
       }
     },
     onInteract: () => {
-      // Press E — check if near a collectible
       const nearest = getNearestCollectible(boatPos);
       if (nearest) onCollect(nearest);
     },
   });
 
-  // Check proximity to collectibles each frame
   const getNearestCollectible = (pos: THREE.Vector3): ObjectiveId | null => {
     const available = COLLECTIBLE_DATA.filter(d => !d.collected && !mission.collectedData.includes(d.id));
     for (const c of available) {
@@ -128,41 +140,39 @@ function SceneContent({
     return null;
   };
 
-  // Proximity detection loop
   const proximityRef = useRef(0);
   useFrameEffect(() => {
     proximityRef.current++;
-    if (proximityRef.current % 10 !== 0) return; // check every ~10 frames
+    if (proximityRef.current % 10 !== 0) return;
     const nearest = getNearestCollectible(boatPos);
     onNearCollectible(nearest);
   });
 
-  // Audio update loop
   useFrameEffect(() => {
     audioRef.current?.setWindIntensity(storm.windSpeed * storm.intensity);
     audioRef.current?.setRainIntensity(storm.rainIntensity);
+    // Smooth ear-swell: 0 outside eye, 1 at eye center, fades on approach
+    const eyeDist = boatPos.distanceTo(EYE_POSITION);
+    const nearness = isInEye ? 1 : Math.max(0, 1 - eyeDist / 60);
+    audioRef.current?.setEyeApproach(nearness);
   });
-
-  const showEyeContent = isInEye;
 
   return (
     <>
-      {/* Lighting */}
-      <ambientLight intensity={isInEye ? 0.6 : 0.15} color={isInEye ? '#aaddff' : '#445566'} />
-      <directionalLight
-        position={[100, 80, -80]}
-        intensity={isInEye ? 1.2 : 0.3}
-        color={isInEye ? '#ffdd99' : '#6688aa'}
-      />
-      <hemisphereLight args={['#aaddff', '#223344', isInEye ? 0.6 : 0.2]} />
+      {/* Flat lighting for the 2D look */}
+      <ambientLight intensity={0.9} color="#ffffff" />
+      <directionalLight position={[0, 50, 0]} intensity={0.3} color="#ffffff" />
 
       {/* World */}
       <Ocean storm={storm} isInEye={isInEye} boatRef={boatRef} />
-      <Sky storm={storm} isInEye={isInEye} boatRef={boatRef} />
       <Storm storm={storm} isInEye={isInEye} />
       <Philippines />
-      <Rain storm={storm} isInEye={isInEye} />
-      <WindParticles storm={storm} isInEye={isInEye} />
+      <Fish storm={storm} isInEye={isInEye} boatPosition={boatPos} />
+      <Rain storm={storm} isInEye={isInEye} boatPosition={boatPos} />
+      <WindParticles storm={storm} isInEye={isInEye} boatPosition={boatPos} />
+      <OceanSpray storm={storm} boatPosition={boatPos} boatYaw={boatYaw} boatSpeed={boatSpeedLocal} />
+      <StormClouds storm={storm} isInEye={isInEye} boatPosition={boatPos} />
+      <StormVignette storm={storm} isInEye={isInEye} />
       <LightningWarning
         storm={storm}
         isInEye={isInEye}
@@ -172,6 +182,7 @@ function SceneContent({
       <Lightning
         storm={storm}
         isInEye={isInEye}
+        boatPosition={boatPos}
         onThunder={() => audioRef.current?.playThunder()}
       />
       <GiantWave
@@ -187,12 +198,10 @@ function SceneContent({
         onBoatHit={onBoatHit}
       />
 
-      {/* Ocean spray / mist */}
-      <OceanSpray
-        storm={storm}
-        isInEye={isInEye}
-        boatPosition={boatPos}
-      />
+      {/* Eye of the Typhoon marker (only until reached) */}
+      {!mission.collectedData.includes('reach_eye') && (
+        <EyeMarker position={EYE_POSITION} isInEye={isInEye} />
+      )}
 
       {/* Boat */}
       <Boat
@@ -203,31 +212,29 @@ function SceneContent({
       <BoatWake
         boatPosition={boatPos}
         boatYaw={boatYaw}
-        boatSpeed={Math.abs(mission.collectedData.length > 0 ? 5 : 0)}
+        boatSpeed={boatSpeedLocal}
         visible={phase >= 1}
       />
 
-      {/* Collectibles (show only in appropriate phases + if not collected) */}
-      {COLLECTIBLE_DATA.filter(d => !d.collected).map(data => {
-        // Show only if phase allows (Phase 2+ for first 4 collectibles)
-        const showInPhase = phase >= 2;
-        if (!showInPhase) return null;
-        return (
-          <Collectible
-            key={data.id}
-            data={data}
-            boatPosition={boatPos}
-            onCollect={onCollect}
-          />
-        );
-      })}
+      {/* Collectibles — only the current objective marker is visible at a time */}
+      {COLLECTIBLE_DATA.filter(d => !d.collected && d.id === mission.currentObjective).map(data => (
+        <Collectible
+          key={data.id}
+          data={data}
+          boatPosition={boatPos}
+          onCollect={onCollect}
+        />
+      ))}
 
       {/* Weather buoy */}
       <WeatherBuoy position={buoyPosition} deployed={buoyDeployed} />
 
-      {/* Eye content */}
-      <Birds visible={showEyeContent} />
-      <GodRays visible={showEyeContent} />
+      {/* Damage flash + low-hull vignette */}
+      <DamageFlash
+        ref={damageFlashRef}
+        hullIntegrity={mission.boatIntegrity}
+        maxIntegrity={mission.maxIntegrity}
+      />
     </>
   );
 }
@@ -248,8 +255,47 @@ function useFrameEffect(callback: () => void) {
   }, []);
 }
 
+/** Pulsing top-down eye-of-the-typhoon marker sprite. */
+function EyeMarker({ position, isInEye }: { position: THREE.Vector3; isInEye: boolean }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const planeGeo = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
+  const texture = useBossTexture('/assets/boss/marker_eye.png', createEyeMarkerTexture);
+
+  useEffect(() => {
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+    texture.needsUpdate = true;
+  }, [texture]);
+
+  useFrame(() => {
+    if (!meshRef.current) return;
+    const pulse = 1 + Math.sin(Date.now() * 0.004) * 0.06;
+    meshRef.current.scale.setScalar(pulse * (isInEye ? 0.6 : 1.4));
+    (meshRef.current.material as THREE.MeshBasicMaterial).opacity =
+      isInEye ? 0.35 : 0.9 - Math.sin(Date.now() * 0.003) * 0.15;
+  });
+
+  return (
+    <mesh
+      ref={meshRef}
+      position={position}
+      rotation={[-Math.PI / 2, 0, 0]}
+      geometry={planeGeo}
+      renderOrder={8}
+    >
+      <meshBasicMaterial
+        map={texture}
+        transparent
+        alphaTest={0.05}
+        side={THREE.DoubleSide}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+}
+
 /** Main BossLevel component */
-export default function BossLevel({ onComplete }: { onComplete?: () => void }) {
+export default function BossLevel({ onComplete, onExit }: { onComplete?: () => void; onExit?: () => void }) {
   const [mission, setMission] = useState<MissionState>(createDefaultMissionState());
   const [storm, setStorm] = useState<StormParams>({
     intensity: 0, windSpeed: 0, rainIntensity: 0,
@@ -264,21 +310,35 @@ export default function BossLevel({ onComplete }: { onComplete?: () => void }) {
   const [showEducation, setShowEducation] = useState(false);
   const [resultMessage, setResultMessage] = useState('');
   const [isPaused, setIsPaused] = useState(false);
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
+  const [quizTopicLabel, setQuizTopicLabel] = useState('');
+  const [quizRun, setQuizRun] = useState(0); // bumped to force-remount the modal on retry
   const [boatPos, setBoatPos] = useState(new THREE.Vector3(0, 0, 120));
   const [boatYaw, setBoatYaw] = useState(0);
+  const [boatSpeed, setBoatSpeed] = useState(0);
 
   const boatRef = useRef<THREE.Group>(null);
   const audioRef = useRef<AudioManager | null>(null);
+  const damageFlashRef = useRef<{ triggerFlash: () => void } | null>(null);
   const notificationIdRef = useRef(0);
   const timeRef = useRef(0);
+  const progressSavedRef = useRef(false);
+  const prevBoatPosRef = useRef(new THREE.Vector3(0, 0, 120));
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Initialize audio
   useEffect(() => {
     audioRef.current = new AudioManager();
     return () => audioRef.current?.dispose();
   }, []);
 
-  // Create notification
+  // Keep the game area focused so keyboard events are reliably captured
+  useEffect(() => {
+    if (!showIntro && containerRef.current) {
+      containerRef.current.focus({ preventScroll: true });
+    }
+  }, [showIntro]);
+
   const notify = useCallback((icon: string, message: string, color: string): NotificationData => ({
     id: `n-${notificationIdRef.current++}`,
     icon,
@@ -287,7 +347,56 @@ export default function BossLevel({ onComplete }: { onComplete?: () => void }) {
     timestamp: Date.now(),
   }), []);
 
-  // Handle collect (called from SceneContent on E press)
+  // Readable labels for each quiz topic (collectibles + milestones)
+  const QUIZ_TOPIC_LABELS: Record<ObjectiveId, string> = {
+    collect_temperature: 'Ocean Temperature',
+    collect_humidity: 'Atmospheric Humidity',
+    collect_pressure: 'Barometric Pressure',
+    collect_windspeed: 'Wind Speed',
+    deploy_buoy: 'Weather Buoy',
+    reach_eye: 'Eye of the Typhoon',
+    complete: 'Mission Complete',
+  };
+
+  /** Trigger a cumulative science quiz after a data item is collected. */
+  const startQuiz = useCallback((collected: ObjectiveId[], lastId: ObjectiveId) => {
+    const count = collected.length; // 1 question for 1st collect, 2 for 2nd, etc.
+    const questions = getQuizQuestions(collected, count);
+    setQuizQuestions(questions);
+    setQuizTopicLabel(QUIZ_TOPIC_LABELS[lastId] || lastId);
+    setShowQuiz(true);
+  }, []);
+
+  /** Called after each answer pick: wrong → hull rattled, correct → hull steadied. */
+  const handleQuizAnswer = useCallback((correct: boolean) => {
+    if (!correct) damageFlashRef.current?.triggerFlash();
+    setMission(prev => {
+      const delta = correct ? 3 : -8; // storm punishes misjudgment, rewards good science
+      const capped = Math.max(0, Math.min(prev.maxIntegrity, prev.boatIntegrity + delta));
+      return {
+        ...prev,
+        boatIntegrity: capped,
+        lastNotification: correct
+          ? notify('✅', 'Good science! Hull stabilized.', '#4ecdc4')
+          : notify('⚠️', "Storm doesn't forgive mistakes! Hull rattled.", '#ff4444'),
+      };
+    });
+  }, [notify]);
+
+  const handleQuizClose = useCallback((correct: number, total: number) => {
+    const bonus = correct * 50; // science bonus added to the running score
+    setMission(prev => ({ ...prev, quizBonus: (prev.quizBonus ?? 0) + bonus }));
+    setShowQuiz(false);
+  }, []);
+
+  /** Reshuffle to fresh questions. Penalty from wrong answers stays locked in. */
+  const handleQuizRetry = useCallback(() => {
+    const collected = [...mission.collectedData];
+    if (collected.length === 0) return;
+    setQuizQuestions(getQuizQuestions(collected, collected.length, Date.now()));
+    setQuizRun(r => r + 1);
+  }, [mission.collectedData]);
+
   const handleCollect = useCallback((id: string) => {
     if (mission.collectedData.includes(id as ObjectiveId)) return;
     const coll = COLLECTIBLE_DATA.find(d => d.id === id);
@@ -313,9 +422,11 @@ export default function BossLevel({ onComplete }: { onComplete?: () => void }) {
     });
 
     audioRef.current?.playCollect();
-  }, [mission.collectedData, notify]);
 
-  // Handle deploy buoy
+    // Trigger a cumulative science quiz for the newly-collected data
+    startQuiz([...mission.collectedData, id as ObjectiveId], id as ObjectiveId);
+  }, [mission.collectedData, notify, startQuiz]);
+
   const handleDeployBuoy = useCallback(() => {
     setMission(prev => {
       if (prev.collectedData.includes('deploy_buoy')) return prev;
@@ -329,22 +440,25 @@ export default function BossLevel({ onComplete }: { onComplete?: () => void }) {
         collectedData: collected,
         currentObjective: nextObj,
         objectives,
-        lastNotification: notify('🛟', 'Weather Buoy Deployed!', '#ffeaa7'),
+        lastNotification: notify('🛟️', 'Weather Buoy Deployed!', '#ffeaa7'),
       };
     });
     audioRef.current?.playCollect();
-  }, [notify]);
 
-  // Handle boat damage
+    // Quiz the player on buoy science after deploying
+    startQuiz([...mission.collectedData, 'deploy_buoy' as ObjectiveId], 'deploy_buoy');
+  }, [notify, mission.collectedData, startQuiz]);
+
   const handleBoatHit = useCallback((damage: number) => {
+    damageFlashRef.current?.triggerFlash();
     setMission(prev => {
       const newHp = Math.max(0, prev.boatIntegrity - damage);
       return { ...prev, boatIntegrity: newHp };
     });
   }, []);
 
-  // Handle lightning strike (major damage)
   const handleLightningStrike = useCallback((_pos: THREE.Vector3) => {
+    damageFlashRef.current?.triggerFlash();
     setMission(prev => {
       const newHp = Math.max(0, prev.boatIntegrity - 15);
       return {
@@ -355,7 +469,6 @@ export default function BossLevel({ onComplete }: { onComplete?: () => void }) {
     });
   }, [notify]);
 
-  // Near collectible
   const handleNearCollectible = useCallback((id: ObjectiveId | null) => {
     setMission(prev => {
       if (prev.interactionPrompt && !id) return { ...prev, interactionPrompt: null };
@@ -373,7 +486,7 @@ export default function BossLevel({ onComplete }: { onComplete?: () => void }) {
 
   // Main game loop
   useEffect(() => {
-    if (showIntro || showResult || showFailed || isPaused) return;
+    if (showIntro || showResult || showFailed || isPaused || showQuiz) return;
 
     const interval = setInterval(() => {
       timeRef.current += 0.1;
@@ -383,19 +496,20 @@ export default function BossLevel({ onComplete }: { onComplete?: () => void }) {
       if (!pos) return;
       setBoatPos(pos.clone());
 
+      const moved = pos.distanceTo(prevBoatPosRef.current);
+      prevBoatPosRef.current.copy(pos);
+      setBoatSpeed(moved / 0.1);
+
       const dist = distanceToEye(pos, EYE_POSITION);
       const inside = checkEyeEntry(pos, EYE_POSITION, EYE_RADIUS);
 
-      // Compute phase
       const currentPhase = getPhase(mission.collectedData, inside);
       setPhase(currentPhase);
 
-      // Compute storm from phase + distance
       const newStorm = computeStormParams(dist, currentPhase as any);
       setStorm(newStorm);
       setIsInEye(inside);
 
-      // Update mission state
       setMission(prev => {
         const updated = {
           ...prev,
@@ -403,8 +517,11 @@ export default function BossLevel({ onComplete }: { onComplete?: () => void }) {
           isInEye: inside,
         };
 
-        // Check if reach_eye objective should auto-complete
-        if (inside && !prev.collectedData.includes('reach_eye')) {
+        if (
+          inside &&
+          !prev.collectedData.includes('reach_eye') &&
+          prev.collectedData.includes('deploy_buoy')
+        ) {
           const collected = [...prev.collectedData, 'reach_eye' as ObjectiveId];
           const objectives = prev.objectives.map(o =>
             o.id === 'reach_eye' ? { ...o, completed: true } : o
@@ -422,16 +539,15 @@ export default function BossLevel({ onComplete }: { onComplete?: () => void }) {
         return updated;
       });
 
-      // Auto-fail check
       if (mission.boatIntegrity <= 0) {
         setShowFailed(true);
       }
     }, 100);
 
     return () => clearInterval(interval);
-  }, [showIntro, showResult, showFailed, isPaused, mission.collectedData, notify]);
+  }, [showIntro, showResult, showFailed, isPaused, showQuiz, mission.collectedData, notify]);
 
-  // Trigger mission complete when in eye and all collected
+  // Trigger mission complete
   useEffect(() => {
     if (mission.status === 'eye' && !showResult && !showFailed) {
       const timer = setTimeout(() => {
@@ -443,19 +559,41 @@ export default function BossLevel({ onComplete }: { onComplete?: () => void }) {
     }
   }, [mission.status, showResult, showFailed]);
 
-  // Start game
+  // Save progress once when the result screen appears
+  useEffect(() => {
+    if (!showResult || progressSavedRef.current) return;
+
+    const raw = localStorage.getItem('unos_progress');
+    const allProgress: Record<string, LevelProgress> = raw ? JSON.parse(raw) : {};
+    const existing = allProgress.boss;
+
+    const score = Math.min(
+      LEVEL_CONFIGS.boss.maxScore,
+      Math.round(mission.boatIntegrity * 25 + Math.max(0, 300 - elapsedTime) * 3 + (mission.quizBonus ?? 0))
+    );
+    const next: LevelProgress = {
+      completed: true,
+      bestScore: Math.max(existing?.bestScore ?? 0, score),
+      bestTime: Math.min(existing?.bestTime ?? Infinity, elapsedTime),
+      stars: 1,
+      attempts: (existing?.attempts ?? 0) + 1,
+      factsUnlocked: Array.from(new Set([...(existing?.factsUnlocked ?? []), 'fact_boss'])),
+    };
+
+    const updated = { ...allProgress, boss: next };
+    localStorage.setItem('unos_progress', JSON.stringify(updated));
+    progressSavedRef.current = true;
+  }, [showResult, elapsedTime, mission.boatIntegrity]);
+
   const handleStart = useCallback(() => {
     setShowIntro(false);
     audioRef.current?.init();
     audioRef.current?.playEngineStart();
   }, []);
 
-  // Pause
   const handlePause = useCallback(() => setIsPaused(p => !p), []);
 
-  // Failed → restart
   const handleRestart = useCallback(() => {
-    // Reset everything
     setMission(createDefaultMissionState());
     setStorm({ intensity: 0, windSpeed: 0, rainIntensity: 0, lightningRate: 0, cloudCover: 0, waveHeight: 0 });
     setPhase(1);
@@ -465,10 +603,11 @@ export default function BossLevel({ onComplete }: { onComplete?: () => void }) {
     setShowResult(false);
     setShowEducation(false);
     setBoatPos(new THREE.Vector3(0, 0, 120));
+    prevBoatPosRef.current.set(0, 0, 120);
     timeRef.current = 0;
+    progressSavedRef.current = false;
     COLLECTIBLE_DATA.forEach(c => c.collected = false);
 
-    // Reset boat position
     if (boatRef.current) {
       boatRef.current.position.set(0, 0, 120);
       boatRef.current.rotation.set(0, 0, 0);
@@ -484,15 +623,16 @@ export default function BossLevel({ onComplete }: { onComplete?: () => void }) {
   }, []);
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden' }}>
+    <div
+      ref={containerRef}
+      tabIndex={0}
+      className="relative w-full h-full overflow-hidden bg-[#060a1a] outline-none"
+    >
       <Canvas
-        camera={{ position: [0, 15, 30], fov: 60, near: 1, far: 600 }}
-        onCreated={({ gl, scene }) => {
-          gl.setClearColor('#0a1628');
-          gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.2;
-          // Atmospheric fog
-          scene.fog = new THREE.FogExp2(0x0a1628, 0.0018);
+        orthographic
+        camera={{ zoom: 12, position: [0, 80, 0], near: 1, far: 500 }}
+        onCreated={({ gl }) => {
+          gl.setClearColor('#060a1a');
         }}
       >
         <SceneContent
@@ -507,6 +647,8 @@ export default function BossLevel({ onComplete }: { onComplete?: () => void }) {
           onBoatHit={handleBoatHit}
           onNearCollectible={handleNearCollectible}
           onLightningStrike={handleLightningStrike}
+          showQuiz={showQuiz}
+          damageFlashRef={damageFlashRef as unknown as React.MutableRefObject<{ triggerFlash: () => void } | null>}
         />
       </Canvas>
 
@@ -516,167 +658,150 @@ export default function BossLevel({ onComplete }: { onComplete?: () => void }) {
         elapsedTime={elapsedTime}
         boatPosition={boatPos}
         boatYaw={boatYaw}
+        boatSpeed={boatSpeed}
+        storm={storm}
         collectibles={COLLECTIBLE_DATA}
         buoyDeployed={mission.collectedData.includes('deploy_buoy')}
         onPause={handlePause}
+        onExit={onExit}
       />
+
+      {/* Science quiz — pauses the storm + boat while answering */}
+
+      {/* Wind / storm-push direction indicator */}
+      <WindIndicator
+        windAngle={Math.atan2(boatPos.x, boatPos.z + 150)}
+        windSpeed={storm.windSpeed}
+        stormIntensity={storm.intensity}
+        isInEye={isInEye}
+      />
+      {showQuiz && (
+        <QuizModal
+          key={quizRun}
+          topicLabel={quizTopicLabel}
+          questions={quizQuestions}
+          onClose={handleQuizClose}
+          onAnswer={handleQuizAnswer}
+          onRetry={handleQuizRetry}
+        />
+      )}
 
       {/* Pause */}
       {isPaused && (
-        <div style={{
-          position: 'absolute', inset: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(0,0,0,0.7)', zIndex: 100,
-        }}>
-          <OverlayCard>
-            <h2 style={{ fontSize: 32, marginBottom: 16 }}>⏸ PAUSED</h2>
-            <button onClick={handlePause} style={btnStyle}>▶ Resume</button>
-          </OverlayCard>
-        </div>
+        <BossOverlay>
+          <BossModal>
+            <h2 className="font-display text-3xl text-accent-yellow" style={{ textShadow: '3px 3px 0px #000' }}>⏸ PAUSED</h2>
+            <button onClick={handlePause} className="retro-btn-primary">
+              ▶ Resume
+            </button>
+          </BossModal>
+        </BossOverlay>
       )}
 
       {/* Intro */}
       {showIntro && (
-        <div style={{
-          position: 'absolute', inset: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(0,0,10,0.85)', zIndex: 100,
-        }}>
-          <OverlayCard>
-            <div style={{ fontSize: 48, marginBottom: 8 }}>🌀</div>
-            <h1 style={{ fontSize: 28, margin: '0 0 8px', color: '#4ecdc4' }}>
+        <BossOverlay>
+          <BossModal className="max-w-md">
+            <span className="retro-badge bg-warning-red text-white text-xs px-6 py-1">BOSS LEVEL</span>
+            <div className="text-5xl animate-float">🌀</div>
+            <h1 className="font-display text-3xl text-accent-yellow" style={{ textShadow: '3px 3px 0px #000' }}>
               RIDE THE STORM
             </h1>
-            <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 16, letterSpacing: 2 }}>
-              — THE EYE OF THE TYPHOON —
+            <div className="font-body text-xs uppercase tracking-widest text-storm-light">
+              — The Eye of the Typhoon —
             </div>
-            <p style={{ fontSize: 14, lineHeight: 1.6, opacity: 0.8, marginBottom: 20 }}>
+            <p className="font-body text-sm text-white/80 leading-relaxed">
               Pilot the PAGASA research vessel into the heart of the super typhoon.
               Collect weather data, deploy a scientific buoy, and reach the calm
               Eye of the Typhoon.
             </p>
-            <div style={{
-              fontSize: 12, opacity: 0.6, marginBottom: 20,
-              padding: '8px 12px', background: 'rgba(0,0,0,0.3)', borderRadius: 8,
-            }}>
-              <div>WASD — Steer · Shift — Boost</div>
-              <div>Mouse — Look · Space — Deploy Buoy · E — Interact</div>
+            <div className="bg-black/25 border-2 border-black/40 rounded-lg p-3 font-body text-xs text-storm-light space-y-1">
+              <div>WASD / Arrows — Steer · Shift — Boost</div>
+              <div>Space — Deploy Buoy · E — Interact</div>
             </div>
-            <button onClick={handleStart} style={{
-              ...btnStyle, background: 'linear-gradient(135deg, #4ecdc4, #44bd9e)',
-              padding: '10px 40px', fontSize: 16,
-            }}>
+            <button onClick={handleStart} className="retro-btn-primary">
               DEPLOY
             </button>
-          </OverlayCard>
-        </div>
+          </BossModal>
+        </BossOverlay>
       )}
 
       {/* Mission Failed */}
       {showFailed && (
-        <div style={{
-          position: 'absolute', inset: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(10,0,0,0.8)', zIndex: 100,
-        }}>
-          <OverlayCard border="#ff4444">
-            <div style={{ fontSize: 48, marginBottom: 8 }}>💥</div>
-            <h1 style={{ fontSize: 28, margin: '0 0 8px', color: '#ff4444' }}>
+        <BossOverlay>
+          <BossModal className="border-warning-red">
+            <div className="text-5xl">💥</div>
+            <h1 className="font-display text-3xl text-warning-red" style={{ textShadow: '3px 3px 0px #000' }}>
               MISSION FAILED
             </h1>
-            <p style={{ fontSize: 14, lineHeight: 1.6, opacity: 0.8, marginBottom: 20 }}>
+            <p className="font-body text-sm text-white/80 leading-relaxed">
               Your research vessel sustained too much damage.
               The storm was too powerful.
             </p>
-            <button onClick={handleRestart} style={{
-              ...btnStyle, background: 'linear-gradient(135deg, #ff6b6b, #e17055)',
-              padding: '10px 40px', fontSize: 16,
-            }}>
+            <button onClick={handleRestart} className="retro-btn-danger">
               TRY AGAIN
             </button>
-          </OverlayCard>
-        </div>
+          </BossModal>
+        </BossOverlay>
       )}
 
       {/* Mission Complete */}
       {showResult && (
-        <div style={{
-          position: 'absolute', inset: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(0,0,10,0.8)', zIndex: 100,
-        }}>
-          <OverlayCard border="#fdcb6e">
-            <div style={{ fontSize: 48, marginBottom: 8 }}>🏆</div>
-            <h1 style={{ fontSize: 28, margin: '0 0 8px', color: '#fdcb6e' }}>
+        <BossOverlay>
+          <BossModal className="border-accent-yellow max-w-lg">
+            <div className="text-5xl">🏆</div>
+            <h1 className="font-display text-3xl text-accent-yellow" style={{ textShadow: '3px 3px 0px #000' }}>
               MISSION COMPLETE
             </h1>
-            <p style={{ fontSize: 14, lineHeight: 1.6, opacity: 0.9, marginBottom: 16 }}>
+            <p className="font-body text-sm text-white/80 leading-relaxed">
               {resultMessage}
             </p>
-            <div style={{
-              fontSize: 12, opacity: 0.7, marginBottom: 20,
-              padding: '8px 12px', background: 'rgba(0,0,0,0.3)', borderRadius: 8,
-            }}>
+            <div className="bg-black/25 border-2 border-black/40 rounded-lg p-3 font-body text-xs text-storm-light space-y-1 text-left w-full">
               <div>⏱️ Time: {Math.floor(elapsedTime / 60)}m {Math.floor(elapsedTime % 60)}s</div>
               <div>📊 Data Collected: {mission.collectedData.length}/7</div>
-              <div>🛟 Buoy Deployed: {mission.collectedData.includes('deploy_buoy') ? '✅' : '❌'}</div>
+              <div>🛟️ Buoy Deployed: {mission.collectedData.includes('deploy_buoy') ? '✅' : '❌'}</div>
               <div>👁️ Eye Reached: {mission.collectedData.includes('reach_eye') ? '✅' : '❌'}</div>
             </div>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-              <button onClick={handleShowEducation} style={{
-                ...btnStyle, background: 'linear-gradient(135deg, #fdcb6e, #e17055)',
-                padding: '10px 20px', fontSize: 14,
-              }}>
+            <div className="flex flex-wrap gap-3 justify-center">
+              <button onClick={handleShowEducation} className="retro-btn-primary">
                 📖 Learn More
               </button>
-              <button onClick={() => onComplete?.()} style={{
-                ...btnStyle, background: 'rgba(255,255,255,0.1)',
-                padding: '10px 20px', fontSize: 14,
-              }}>
+              <button onClick={() => onComplete?.()} className="retro-btn bg-storm-mid">
                 Back to Map
               </button>
             </div>
-          </OverlayCard>
-        </div>
+          </BossModal>
+        </BossOverlay>
       )}
 
       {/* Educational Content */}
       {showEducation && (
-        <div style={{
-          position: 'absolute', inset: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(0,0,10,0.85)', zIndex: 100,
-          overflow: 'auto',
-        }}>
-          <OverlayCard border="#4ecdc4" maxWidth={550}>
-            <div style={{ fontSize: 36, marginBottom: 8 }}>🌍</div>
-            <h1 style={{ fontSize: 24, margin: '0 0 16px', color: '#4ecdc4' }}>
+        <BossOverlay>
+          <BossModal className="border-accent-green max-w-xl w-[calc(100%-2rem)] my-8">
+            <div className="text-4xl">🌍</div>
+            <h1 className="font-display text-3xl text-accent-green" style={{ textShadow: '3px 3px 0px #000' }}>
               Weather Science
             </h1>
-            {EDUCATIONAL_FACTS.map((fact, i) => (
-              <div key={i} style={{
-                marginBottom: 16,
-                padding: '12px 16px',
-                background: 'rgba(255,255,255,0.05)',
-                borderRadius: 8,
-                textAlign: 'left',
-              }}>
-                <div style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>
-                  {fact.icon} {fact.title}
+            <div className="space-y-3 w-full">
+              {EDUCATIONAL_FACTS.map((fact, i) => (
+                <div
+                  key={i}
+                  className="bg-black/25 border-2 border-black/40 rounded-lg p-3 text-left"
+                >
+                  <div className="font-display text-sm text-accent-yellow mb-1">
+                    {fact.icon} {fact.title}
+                  </div>
+                  <p className="font-body text-xs text-storm-light leading-relaxed">
+                    {fact.body}
+                  </p>
                 </div>
-                <p style={{ fontSize: 13, lineHeight: 1.5, opacity: 0.8, margin: 0 }}>
-                  {fact.body}
-                </p>
-              </div>
-            ))}
-            <button onClick={() => onComplete?.()} style={{
-              ...btnStyle, background: 'linear-gradient(135deg, #4ecdc4, #44bd9e)',
-              padding: '10px 40px', fontSize: 16, marginTop: 8,
-            }}>
+              ))}
+            </div>
+            <button onClick={() => onComplete?.()} className="retro-btn-primary">
               BACK TO MAP
             </button>
-          </OverlayCard>
-        </div>
+          </BossModal>
+        </BossOverlay>
       )}
     </div>
   );
@@ -691,36 +816,26 @@ const OBJECTIVE_LABEL_MAP: Record<string, string> = {
   collect_windspeed: 'Wind Speed',
 };
 
-function OverlayCard({ children, border, maxWidth }: {
-  children: React.ReactNode;
-  border?: string;
-  maxWidth?: number;
-}) {
+function BossOverlay({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{
-      maxWidth: maxWidth || 500,
-      textAlign: 'center',
-      color: '#e0e0e0',
-      fontFamily: "'Courier New', monospace",
-      background: 'rgba(20,40,60,0.9)',
-      padding: '32px 40px',
-      borderRadius: 16,
-      border: `1px solid ${border || 'rgba(78,205,196,0.3)'}`,
-      backdropFilter: 'blur(12px)',
-    }}>
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-2">
       {children}
     </div>
   );
 }
 
-const btnStyle: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.1)',
-  border: '1px solid rgba(255,255,255,0.2)',
-  color: '#e0e0e0',
-  padding: '8px 24px',
-  borderRadius: 8,
-  cursor: 'pointer',
-  fontWeight: 'bold',
-  letterSpacing: 1,
-  fontFamily: "'Courier New', monospace",
-};
+function BossModal({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={[
+        'modal-card',
+        'retro-card max-w-md w-[calc(100%-2rem)] max-h-[95vh] overflow-y-auto',
+        'flex flex-col items-center gap-3 text-center',
+        '!bg-storm-dark text-white',
+        className || '',
+      ].join(' ')}
+    >
+      {children}
+    </div>
+  );
+}

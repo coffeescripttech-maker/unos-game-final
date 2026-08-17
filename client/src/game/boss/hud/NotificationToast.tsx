@@ -7,7 +7,7 @@ interface NotificationToastProps {
 
 /**
  * Animated toast notification for collection events and mission updates.
- * Fades in, auto-dismisses after 3 seconds.
+ * Uses the game's retro card style.
  */
 export default function NotificationToast({ notification }: NotificationToastProps) {
   const [visible, setVisible] = useState(false);
@@ -26,33 +26,13 @@ export default function NotificationToast({ notification }: NotificationToastPro
   if (!visible || !current) return null;
 
   return (
-    <div style={{
-      position: 'absolute',
-      top: 80,
-      right: 16,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10,
-      background: `rgba(0,0,0,0.7)`,
-      padding: '10px 18px',
-      borderRadius: 10,
-      border: `1px solid ${current.color}44`,
-      backdropFilter: 'blur(8px)',
-      pointerEvents: 'none',
-      zIndex: 60,
-      animation: 'slideInRight 0.3s ease-out',
-      maxWidth: 320,
-    }}>
-      <span style={{ fontSize: 22 }}>{current.icon}</span>
-      <div>
-        <div style={{
-          fontSize: 13,
-          color: '#e0e0e0',
-          fontFamily: "'Courier New', monospace",
-          fontWeight: 600,
-        }}>
-          {current.message}
-        </div>
+    <div
+      className="absolute top-20 right-3 z-50 flex items-center gap-3 bg-ocean-deep/95 border-3 border-black shadow-retro px-4 py-2 pointer-events-none max-w-[320px] animate-fade-in-up"
+      style={{ borderColor: `${current.color}44` }}
+    >
+      <span className="text-2xl">{current.icon}</span>
+      <div className="font-body text-sm text-white font-semibold">
+        {current.message}
       </div>
     </div>
   );

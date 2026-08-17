@@ -1,7 +1,8 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import type { StormParams } from '../types';
+import { createWaterTileTexture, useBossTexture } from '../utils/textures';
 
 interface OceanProps {
   storm: StormParams;
@@ -10,17 +11,26 @@ interface OceanProps {
 }
 
 /**
- * Realistic ocean with Gerstner wave approximation.
- * Multiple octaves, specular highlights, foam on crests,
- * Fresnel reflection, and color shift inside the eye.
+ * Stylised flat ocean for the top-down 2D boss view.
+ * Uses /assets/boss/water.png when available, falling back to a generated
+ * tileable water texture. Adds directional swell, wind-driven foam streaks,
+ * and whitecaps that intensify with the storm.
  */
 export default function Ocean({ storm, isInEye }: OceanProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const timeRef = useRef(0);
 
-  // Higher resolution grid for more detailed waves
+  const waterTexture = useBossTexture('/assets/boss/water.png', createWaterTileTexture);
+
+  useEffect(() => {
+    waterTexture.wrapS = THREE.RepeatWrapping;
+    waterTexture.wrapT = THREE.RepeatWrapping;
+    waterTexture.repeat.set(18, 18);
+    waterTexture.needsUpdate = true;
+  }, [waterTexture]);
+
   const geo = useMemo(() => {
-    const g = new THREE.PlaneGeometry(800, 800, 200, 200);
+    const g = new THREE.PlaneGeometry(900, 900, 2, 2);
     g.rotateX(-Math.PI / 2);
     return g;
   }, []);
@@ -28,150 +38,98 @@ export default function Ocean({ storm, isInEye }: OceanProps) {
   const uniforms = useMemo(() => ({
     uTime: { value: 0 },
     uWaveHeight: { value: 0.5 },
+    uWindSpeed: { value: 0 },
     uEyeBlend: { value: 0 },
-    uSunDir: { value: new THREE.Vector3(0.3, 0.8, -0.5).normalize() },
-    uCameraPos: { value: new THREE.Vector3(0, 10, 0) },
-  }), []);
+    uColorDeep: { value: new THREE.Color('#0a2472') },
+    uColorMid: { value: new THREE.Color('#1e5aa0') },
+    uColorEye: { value: new THREE.Color('#1e7a8a') },
+    uColorFoam: { value: new THREE.Color('#cceeff') },
+    uColorWhitecap: { value: new THREE.Color('#ffffff') },
+    uWaterTex: { value: waterTexture },
+    uTexOffset: { value: new THREE.Vector2(0, 0) },
+    uWindDir: { value: new THREE.Vector2(1, 0.3) },
+  }), [waterTexture]);
 
   const mat = useMemo(() => {
     return new THREE.ShaderMaterial({
       uniforms,
       vertexShader: `
-        uniform float uTime;
-        uniform float uWaveHeight;
-        uniform float uEyeBlend;
-
-        varying vec2 vUv;
-        varying float vElevation;
-        varying vec3 vNormal;
-        varying vec3 vWorldPos;
-        varying float vFoam;
-
-        // Gerstner wave function
-        vec3 gerstnerWave(vec4 wave, vec3 p, inout vec3 tangent, inout vec3 binormal) {
-          float steepness = wave.z;
-          float wavelength = wave.w;
-          float k = 2.0 * 3.14159 / wavelength;
-          float c = sqrt(9.8 / k);
-          vec2 d = normalize(wave.xy);
-          float f = k * (dot(d, p.xz) - c * uTime);
-          float a = steepness / k;
-
-          tangent += vec3(
-            -d.x * d.x * (steepness * sin(f)),
-            d.x * (steepness * cos(f)),
-            -d.x * d.y * (steepness * sin(f))
-          );
-          binormal += vec3(
-            -d.x * d.y * (steepness * sin(f)),
-            d.y * (steepness * cos(f)),
-            -d.y * d.y * (steepness * sin(f))
-          );
-
-          return vec3(
-            d.x * (a * cos(f)),
-            a * sin(f),
-            d.y * (a * cos(f))
-          );
-        }
-
+        varying vec2 vWorldPos;
         void main() {
-          vUv = uv;
-          vec3 pos = position;
-
-          float calm = 1.0 - smoothstep(0.0, 0.8, uEyeBlend);
-          float heightMult = uWaveHeight * max(calm, 0.05);
-
-          vec3 tangent = vec3(1.0, 0.0, 0.0);
-          vec3 binormal = vec3(0.0, 0.0, 1.0);
-
-          // 6 Gerstner waves — multiple directions and frequencies
-          vec4 waves[6];
-          waves[0] = vec4(1.0, 0.0, 0.3, 12.0);
-          waves[1] = vec4(0.6, 0.8, 0.25, 8.0);
-          waves[2] = vec4(-0.3, 0.9, 0.2, 16.0);
-          waves[3] = vec4(0.9, -0.4, 0.35, 10.0);
-          waves[4] = vec4(-0.7, 0.5, 0.15, 20.0);
-          waves[5] = vec4(0.2, -0.8, 0.2, 14.0);
-
-          vec3 totalOffset = vec3(0.0);
-          for (int i = 0; i < 6; i++) {
-            totalOffset += gerstnerWave(waves[i], pos, tangent, binormal);
-          }
-
-          pos += totalOffset * heightMult;
-
-          vec3 normal = normalize(cross(binormal, tangent));
-          vNormal = normal;
-          vElevation = pos.y;
-
-          vec4 worldPos = modelMatrix * vec4(pos, 1.0);
-          vWorldPos = worldPos.xyz;
-
-          // Foam factor — white on crests
-          float crest = max(0.0, 1.0 - abs(vElevation) * 3.0);
-          vFoam = smoothstep(0.7, 1.0, crest) * 0.5;
-
+          vec4 worldPos = modelMatrix * vec4(position, 1.0);
+          vWorldPos = worldPos.xz;
           gl_Position = projectionMatrix * viewMatrix * worldPos;
         }
       `,
       fragmentShader: `
-        uniform vec3 uColorShallow;
-        uniform vec3 uColorDeep;
+        uniform float uTime;
+        uniform float uWaveHeight;
+        uniform float uWindSpeed;
         uniform float uEyeBlend;
-        uniform vec3 uSunDir;
-        uniform vec3 uCameraPos;
+        uniform vec3 uColorDeep;
+        uniform vec3 uColorMid;
+        uniform vec3 uColorEye;
+        uniform vec3 uColorFoam;
+        uniform vec3 uColorWhitecap;
+        uniform sampler2D uWaterTex;
+        uniform vec2 uTexOffset;
+        uniform vec2 uWindDir;
 
-        varying vec2 vUv;
-        varying float vElevation;
-        varying vec3 vNormal;
-        varying vec3 vWorldPos;
-        varying float vFoam;
+        varying vec2 vWorldPos;
+
+        // Simple pseudo-random noise
+        float hash(vec2 p) {
+          return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+        }
 
         void main() {
-          vec3 N = normalize(vNormal);
-          vec3 V = normalize(uCameraPos - vWorldPos);
-          vec3 L = normalize(uSunDir);
+          float dist = length(vWorldPos);
 
-          // Depth-based color
-          float depthFactor = smoothstep(-1.0, 1.0, vUv.x * 2.0 - 1.0);
-          vec3 shallowColor = vec3(0.12, 0.55, 0.85);
-          vec3 deepColor = vec3(0.02, 0.12, 0.35);
-          vec3 waterColor = mix(deepColor, shallowColor, depthFactor);
+          // Wind-driven texture scroll
+          vec2 windNorm = normalize(uWindDir);
+          float windStrength = 0.03 + uWindSpeed * 0.0015;
+          vec2 texUv = vWorldPos * 0.015 + uTexOffset + windNorm * uTime * windStrength;
+          vec4 texDetail = texture2D(uWaterTex, texUv);
 
-          // Eye water — turquoise
-          vec3 eyeColor = vec3(0.15, 0.65, 0.75);
-          waterColor = mix(waterColor, eyeColor, uEyeBlend * 0.6);
+          // Base colour mix
+          vec3 water = mix(uColorDeep, uColorMid, 0.35 + 0.15 * sin(dist * 0.02));
+          water = mix(water, uColorEye, uEyeBlend * 0.55);
 
-          // Diffuse lighting
-          float diff = max(0.0, dot(N, L));
-          vec3 diffuse = waterColor * (0.3 + 0.7 * diff);
+          // Add texture detail — keep the water image visible
+          water = mix(water, texDetail.rgb, 0.45);
 
-          // Specular highlights (sun reflection on water)
-          vec3 H = normalize(L + V);
-          float spec = pow(max(0.0, dot(N, H)), 64.0);
-          vec3 specular = vec3(1.0, 0.95, 0.8) * spec * 0.6;
+          // Subtle directional swell lines (wind-driven)
+          vec2 swellUv = vWorldPos * 0.04;
+          float swell = sin(dot(swellUv, windNorm) * 6.0 - uTime * (0.6 + uWindSpeed * 0.015));
+          float swellMask = smoothstep(0.3, 0.7, swell) * smoothstep(0.0, 120.0, uWindSpeed);
+          water += uColorFoam * swellMask * 0.06 * uWaveHeight;
 
-          // Fresnel (more reflection at grazing angles)
-          float fresnel = pow(1.0 - max(0.0, dot(N, V)), 3.0);
-          vec3 reflected = mix(vec3(0.05, 0.1, 0.2), vec3(0.8, 0.85, 0.9), fresnel);
-          reflected *= (1.0 - uEyeBlend * 0.5);
+          // Cross chop / secondary waves
+          vec2 chopDir = vec2(-windNorm.y, windNorm.x);
+          float chop = sin(dot(vWorldPos * 0.06, chopDir) * 5.0 - uTime * 1.0);
+          float chopMask = smoothstep(0.4, 0.8, chop) * 0.03 * uWaveHeight;
+          water += uColorMid * chopMask;
 
-          // Combine
-          vec3 col = diffuse + specular * (1.0 - uEyeBlend * 0.5);
-          col = mix(col, reflected, fresnel * 0.3);
+          // Stylised moving wave rings (storm spiral feel)
+          float ring = sin(dist * 0.08 - uTime * 0.6);
+          float ring2 = sin(dist * 0.15 - uTime * 0.9);
+          float ringMix = smoothstep(0.2, 0.8, ring) * 0.08;
+          float ringMix2 = smoothstep(0.2, 0.8, ring2) * 0.04 * uWaveHeight;
 
-          // Foam on crests
-          vec3 foamColor = vec3(1.0, 1.0, 1.0);
-          col = mix(col, foamColor, vFoam);
+          water += uColorMid * ringMix;
+          water += uColorFoam * ringMix2;
 
-          // Distance fog
-          float dist = length(vWorldPos - uCameraPos);
-          float fog = 1.0 - exp(-dist * 0.002);
-          vec3 fogColor = mix(vec3(0.05, 0.08, 0.12), vec3(0.2, 0.4, 0.5), uEyeBlend);
-          col = mix(col, fogColor, fog * 0.4);
+          // Whitecaps / foam streaks when storm is strong
+          float foamNoise = hash(vWorldPos * 0.07 + floor(uTime * 1.5));
+          float foamThresh = 0.97 - uWaveHeight * 0.2;
+          float whitecap = smoothstep(foamThresh, 1.0, foamNoise) * smoothstep(40.0, 80.0, uWindSpeed) * uWaveHeight;
+          water = mix(water, uColorWhitecap, whitecap * 0.4);
 
-          gl_FragColor = vec4(col, 0.92);
+          // Subtle darkening toward the storm edge
+          float edge = smoothstep(350.0, 420.0, dist);
+          water = mix(water, uColorDeep * 0.6, edge * 0.5);
+
+          gl_FragColor = vec4(water, 0.98);
         }
       `,
       side: THREE.DoubleSide,
@@ -182,22 +140,24 @@ export default function Ocean({ storm, isInEye }: OceanProps) {
   useFrame((_, delta) => {
     if (!meshRef.current) return;
     timeRef.current += delta;
-
     uniforms.uTime.value = timeRef.current;
-    uniforms.uWaveHeight.value = isInEye ? 0.1 : 0.3 + storm.waveHeight * 1.2;
+    uniforms.uWaveHeight.value = isInEye ? 0.1 : 0.4 + storm.waveHeight * 0.8;
+    uniforms.uWindSpeed.value = isInEye ? 5 : storm.windSpeed;
     uniforms.uEyeBlend.value = THREE.MathUtils.lerp(
       uniforms.uEyeBlend.value,
       isInEye ? 1 : 0,
       0.02,
     );
 
-    // Update camera pos from the view matrix
-    const camPos = meshRef.current.parent?.parent?.parent?.parent?.children
-      ?.find(c => c.type === 'PerspectiveCamera')?.position;
-    if (camPos) {
-      uniforms.uCameraPos.value.copy(camPos as THREE.Vector3);
-    }
+    // Slowly rotating storm wind direction
+    const angle = timeRef.current * 0.025 + Math.PI / 4;
+    const windDir = new THREE.Vector2(Math.sin(angle), Math.cos(angle));
+    windDir.normalize();
+
+    uniforms.uWindDir.value.lerp(windDir, 0.02);
+    uniforms.uTexOffset.value.x += delta * 0.012;
+    uniforms.uTexOffset.value.y += delta * 0.008;
   });
 
-  return <mesh ref={meshRef} geometry={geo} material={mat} />;
+  return <mesh ref={meshRef} geometry={geo} material={mat} position={[0, -0.5, 0]} />;
 }
