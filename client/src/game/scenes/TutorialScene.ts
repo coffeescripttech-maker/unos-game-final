@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { telemetry } from '../../services/telemetry';
 import { SCENES } from '@shared/constants';
 import { GAME_EVENTS } from '@shared/events';
 import type { HUDLevelInfoPayload } from '@shared/events';
@@ -87,6 +88,7 @@ export class TutorialScene extends Phaser.Scene {
   // ════════════════════════════════════════════
 
   create() {
+    telemetry.log('level_start', { level: 'tutorial' });
     this.cameras.main.fadeIn(500);
     // Dark neutral base so the bg image shows instead of a strong blue
     this.cameras.main.setBackgroundColor(0x060a1a);

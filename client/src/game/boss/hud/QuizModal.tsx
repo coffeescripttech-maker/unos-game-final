@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { telemetry } from '../../../services/telemetry';
 import type { QuizQuestion } from './QuizData';
 
 interface QuizModalProps {
@@ -36,10 +37,11 @@ export default function QuizModal({ topicLabel, questions, onClose, onAnswer, on
   const handleAnswer = useCallback((idx: number) => {
     if (selected !== null) return; // one answer per question
     const right = idx === current.answer;
+    telemetry.log('quiz_answer', { level: 'boss', mode: 'boss', topic: topicLabel, question: current.q, correct: right });
     setSelected(idx);
     if (right) setCorrect(c => c + 1);
     onAnswer?.(right);
-  }, [selected, current.answer, onAnswer]);
+  }, [selected, current, topicLabel, onAnswer]);
 
   const handleNext = useCallback(() => {
     if (isLast) {

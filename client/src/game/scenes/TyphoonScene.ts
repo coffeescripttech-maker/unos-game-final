@@ -1,4 +1,5 @@
 ﻿import Phaser from 'phaser';
+import { telemetry } from '../../services/telemetry';
 import { SCENES } from '@shared/constants';
 import { GAME_EVENTS } from '@shared/events';
 import type {
@@ -83,6 +84,7 @@ export class TyphoonScene extends Phaser.Scene {
   }
 
   create() {
+    telemetry.log('level_start', { level: 'typhoon' });
     this.cameras.main.fadeIn(500);
     this.cameras.main.setBackgroundColor(0x0d0d1a);
     this.isComplete = false;
@@ -251,7 +253,7 @@ export class TyphoonScene extends Phaser.Scene {
         { icon: '🌀', text: `CORIOLIS SPIN: Earth's rotation gives storms their spin — stronger spin = faster winds!` },
         { icon: '🔓', text: 'UNLOCK CHALLENGE: Hold each element in the GREEN zone → answer its science question → the next element unlocks!' },
         { icon: '🎯', text: 'Keep all 4 sliders in the GREEN zone — too high or too low weakens the storm!' },
-        { icon: '⛈️', text: 'Watch it grow: Tropical Depression → Storm → Cat 1-5 — a big LEVEL-UP pop-up announces every stage!' },
+        { icon: '⛈️', text: 'Watch it grow: Tropical Depression → Storm → Cat 1-5 with PAGASA TCWS Signal equivalents — a big LEVEL-UP pop-up announces every stage!' },
         { icon: '⚡', text: 'Higher intensity triggers lightning, rain & screen shake!' },
         { icon: '⏱️', text: 'You have 90 seconds (timer PAUSES during questions). Reach Category 1+ with all 4 in the zone to win!' },
         { icon: '🏝️', text: 'SCIENTIFIC FACT: Typhoons weaken over land and strengthen over warm ocean water!' }
@@ -422,17 +424,17 @@ export class TyphoonScene extends Phaser.Scene {
     let catColor = '#FFFFFF';
     let stageName = '';
     let stageSub = '';
-    if (intensity < 0.25) { category = 'Tropical Depression'; catColor = '#6DB3E6'; stageName = '🌀 TROPICAL DEPRESSION FORMED!'; stageSub = 'Winds < 39 mph · < 63 km/h'; }
-    else if (intensity < 0.4) { category = 'Tropical Storm'; catColor = '#FFD166'; stageName = '⛈️ TROPICAL STORM FORMED!'; stageSub = 'Winds 39-73 mph · 63-118 km/h'; }
-    else if (intensity < 0.55) { category = 'Cat 1: 74-95 mph'; catColor = '#FF8C00'; stageName = '🌀 CATEGORY 1 TYPHOON!'; stageSub = 'Winds 74-95 mph · 119-153 km/h'; }
-    else if (intensity < 0.7) { category = 'Cat 2: 96-110 mph'; catColor = '#FF6B35'; stageName = '🌀 CATEGORY 2 TYPHOON!'; stageSub = 'Winds 96-110 mph · 154-177 km/h'; }
-    else if (intensity < 0.85) { category = 'Cat 3: 111-129 mph'; catColor = '#D62828'; stageName = '🌪️ CATEGORY 3 — MAJOR TYPHOON!'; stageSub = 'Winds 111-129 mph · 178-208 km/h'; }
+    if (intensity < 0.25) { category = 'Tropical Depression'; catColor = '#6DB3E6'; stageName = '🌀 TROPICAL DEPRESSION FORMED!'; stageSub = 'Winds < 39 mph · < 63 km/h · PAGASA ≈ TCWS No. 1'; }
+    else if (intensity < 0.4) { category = 'Tropical Storm'; catColor = '#FFD166'; stageName = '⛈️ TROPICAL STORM FORMED!'; stageSub = 'Winds 39-73 mph · 63-118 km/h · PAGASA ≈ TCWS No. 2-3'; }
+    else if (intensity < 0.55) { category = 'Cat 1: 74-95 mph'; catColor = '#FF8C00'; stageName = '🌀 CATEGORY 1 TYPHOON!'; stageSub = 'Winds 74-95 mph · 119-153 km/h · PAGASA ≈ TCWS No. 4'; }
+    else if (intensity < 0.7) { category = 'Cat 2: 96-110 mph'; catColor = '#FF6B35'; stageName = '🌀 CATEGORY 2 TYPHOON!'; stageSub = 'Winds 96-110 mph · 154-177 km/h · PAGASA ≈ TCWS No. 4'; }
+    else if (intensity < 0.85) { category = 'Cat 3: 111-129 mph'; catColor = '#D62828'; stageName = '🌪️ CATEGORY 3 — MAJOR TYPHOON!'; stageSub = 'Winds 111-129 mph · 178-208 km/h · PAGASA ≈ TCWS No. 4-5'; }
     else {
       const cat5 = intensity >= 1;
       category = cat5 ? 'Cat 5: 157+ mph!' : 'Cat 4: 130-156 mph';
       catColor = '#8B0000';
       stageName = cat5 ? '🌪️ CATEGORY 5 — SUPER TYPHOON!' : '🌪️ CATEGORY 4 — CATASTROPHIC!';
-      stageSub = cat5 ? 'Winds 157+ mph · 252+ km/h' : 'Winds 130-156 mph · 209-251 km/h';
+      stageSub = cat5 ? 'Winds 157+ mph · 252+ km/h · PAGASA ≈ TCWS No. 5' : 'Winds 130-156 mph · 209-251 km/h · PAGASA ≈ TCWS No. 5';
     }
 
     this.categoryText.setText(category).setColor(catColor);
@@ -442,6 +444,7 @@ export class TyphoonScene extends Phaser.Scene {
     const stageThreshold = intensity < 0.25 ? 1 : intensity < 0.4 ? 2 : intensity < 0.55 ? 3 : intensity < 0.7 ? 4 : intensity < 0.85 ? 5 : 6;
     if (stageThreshold > this.lastStage) {
       this.lastStage = stageThreshold;
+      telemetry.log('stage_reached', { level: 'typhoon', stage: String(stageThreshold), detail: category });
       this.showStagePopup(stageName, catColor, stageSub, stageThreshold);
     }
     this.game.events.emit(GAME_EVENTS.HUD_SCORE, {

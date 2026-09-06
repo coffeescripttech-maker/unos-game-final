@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { telemetry } from '../../services/telemetry';
 import { SCENES } from '@shared/constants';
 import { GAME_EVENTS } from '@shared/events';
 import type {
@@ -61,6 +62,7 @@ export class EvaporationScene extends Phaser.Scene {
   }
 
   create() {
+    telemetry.log('level_start', { level: 'evaporation' });
     this.cameras.main.fadeIn(500);
     // Dark neutral base so the level bg image shows instead of a strong blue
     this.cameras.main.setBackgroundColor(0x060a1a);

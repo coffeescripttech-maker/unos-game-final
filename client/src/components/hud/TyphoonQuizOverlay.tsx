@@ -4,6 +4,7 @@ import { useGameContext } from '../../contexts/GameContext';
 import { GAME_EVENTS } from '@shared/events';
 import { TYPHOON_QUIZ_QUESTIONS } from '../../game/TyphoonQuizData';
 import type { TyphoonQuizQuestion } from '../../game/TyphoonQuizData';
+import { telemetry } from '../../services/telemetry';
 
 const TITLE_SHADOW = 'drop-shadow-[2px_2px_0_rgba(0,0,0,0.7)]';
 const LABEL_SHADOW = 'drop-shadow-[1px_1px_0_rgba(0,0,0,0.6)]';
@@ -51,9 +52,13 @@ export default function TyphoonQuizOverlay() {
   const handleAnswer = useCallback((displayIdx: number) => {
     if (selected !== null || !current) return;
     const orig = order[displayIdx] ?? displayIdx;
+    telemetry.log('quiz_answer', {
+      level: 'typhoon', mode: isGate ? 'gate' : 'final',
+      topic: payload?.topic, question: current.q, correct: orig === current.answer,
+    });
     setSelected(orig);
     if (orig === current.answer) setCorrect(c => c + 1);
-  }, [selected, current, order]);
+  }, [selected, current, order, isGate, payload]);
 
   const handleComplete = useCallback(() => {
     if (!game || !payload) return;

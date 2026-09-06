@@ -23,6 +23,10 @@ import Collectible from './components/Collectible';
 import WeatherBuoy from './components/WeatherBuoy';
 import BossHUD from './hud/BossHUD';
 import QuizModal from './hud/QuizModal';
+import { telemetry } from '../../services/telemetry';
+
+// Boss level_start logs once per page load (React StrictMode double-fires effects)
+let bossStartLogged = false;
 import { getQuizQuestions } from './hud/QuizData';
 import type { QuizQuestion } from './hud/QuizData';
 import { AudioManager } from './AudioManager';
@@ -507,6 +511,13 @@ export default function BossLevel({ onComplete, onExit }: { onComplete?: () => v
         interactionPrompt: `Collect ${coll.label} Data`,
       };
     });
+  }, []);
+
+  // Research telemetry — boss level start (once per page load)
+  useEffect(() => {
+    if (bossStartLogged) return;
+    bossStartLogged = true;
+    telemetry.log('level_start', { level: 'boss' });
   }, []);
 
   // Main game loop

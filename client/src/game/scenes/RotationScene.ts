@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { telemetry } from '../../services/telemetry';
 import { SCENES } from '@shared/constants';
 import { GAME_EVENTS } from '@shared/events';
 import type {
@@ -147,6 +148,7 @@ export class RotationScene extends Phaser.Scene {
   }
 
   create() {
+    telemetry.log('level_start', { level: 'rotation' });
     this.cameras.main.fadeIn(500);
     this.cameras.main.setBackgroundColor(0x0a0a1a);
     this.isComplete = false;

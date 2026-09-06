@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { telemetry } from '../../services/telemetry';
 import { SCENES } from '@shared/constants';
 import { GAME_EVENTS } from '@shared/events';
 import type {
@@ -64,6 +65,7 @@ export class PressureScene extends Phaser.Scene {
   }
 
   create() {
+    telemetry.log('level_start', { level: 'pressure' });
     this.cameras.main.fadeIn(500);
     this.cameras.main.setBackgroundColor(0x0d1b2a);
     this.isComplete = false;

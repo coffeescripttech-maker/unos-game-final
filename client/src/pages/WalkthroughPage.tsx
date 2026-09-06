@@ -48,7 +48,7 @@ const LEVEL_DETAILS: Record<LevelId, {
   typhoon: {
     emoji: '⚡',
     icon: '🌪️',
-    science: 'Typhoons form when five conditions align: (1) Warm ocean water ≥26.5°C, (2) Moist mid-troposphere, (3) Low wind shear, (4) Pre-existing disturbance, (5) Sufficient Coriolis force. Combining all four previous elements triggers formation.',
+    science: 'Typhoons form when five conditions align: (1) Warm ocean water ≥26.5°C, (2) Moist mid-troposphere, (3) Low wind shear, (4) Pre-existing disturbance, (5) Sufficient Coriolis force. Combining all four previous elements triggers formation. Stage pop-ups also show the PAGASA Tropical Cyclone Wind Signal (TCWS No. 1-5) equivalent of each intensity — the same warning system Filipino learners see in real PAGASA severe weather bulletins.',
     mechanics: 'Unlock elements one at a time: hold Ocean Heat in its target zone to trigger a science question — answer correctly to unlock Water Vapor, then Low Pressure, then Coriolis Spin (wrong answers reshuffle and let you retry; the timer pauses while reading). Balance all four elements in the green zone. When all thresholds are met simultaneously, the typhoon forms and intensifies through 5 stages.',
     researchGap: 'Integrates all previous level concepts into a cohesive typhoon formation model, directly addressing how individual scientific factors combine to create a real-world phenomenon.',
   },
