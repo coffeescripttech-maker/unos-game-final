@@ -1,5 +1,6 @@
 import LoadingOverlay from './hud/LoadingOverlay';
 import HUDTopBar from './hud/HUDTopBar';
+import LevelLegend from './hud/LevelLegend';
 import HUDObjectiveBar from './hud/HUDObjectiveBar';
 import HUDHealth from './hud/HUDHealth';
 import LevelSelectCards from './hud/LevelSelectCards';
@@ -11,12 +12,16 @@ import TutorialStepOverlay from './hud/TutorialStepOverlay';
 import PatternReviewOverlay from './hud/PatternReviewOverlay';
 import PressureControls from './hud/PressureControls';
 import TyphoonControls from './hud/TyphoonControls';
+import TyphoonQuizOverlay from './hud/TyphoonQuizOverlay';
 
 export default function GameHUD() {
   return (
     <>
-      {/* ── Loading overlay (full-screen, hides when assets loaded) ── */}
+            {/* ── Loading overlay (full-screen, hides when assets loaded) ── */}
       <LoadingOverlay />
+
+      {/* ── Science icon legend (top-left, hides on World Map) ── */}
+      <LevelLegend />
 
       {/* ── World map header: Back button + title ── */}
       <WorldMapHeader />
@@ -53,6 +58,9 @@ export default function GameHUD() {
 
       {/* ── Typhoon Controls (React sliders with Lucide icons, Stage 5) ── */}
       <TyphoonControls />
+
+      {/* ── Typhoon Quiz (science questions after successful formation) ── */}
+      <TyphoonQuizOverlay />
     </>
   );
 }

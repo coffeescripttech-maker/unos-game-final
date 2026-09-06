@@ -195,6 +195,17 @@ export const QUIZ_QUESTIONS: Partial<Record<ObjectiveId, QuizQuestion[]>> = {
       ],
       answer: 0,
       fact: 'The eyewall is a towering ring of thunderstorms where wind speeds peak and rainfall concentrates — the most violent part of the typhoon.'
+    },
+    {
+      q: 'Why do typhoons weaken rapidly when they move over land?',
+      options: [
+        'Warm ocean fuel is cut off and surface friction disrupts the circulation',
+        'The eye suddenly collapses and disappears',
+        'Lands absorb all the rain instantly',
+        'The Coriolis effect reverses direction over land'
+      ],
+      answer: 0,
+      fact: 'Over warm ocean water (≥26.5 °C), evaporation fuels the storm with heat and moisture. Over land, this fuel is cut off — the air is cooler and drier, and increased surface friction disrupts the storm\'s organized circulation, causing rapid weakening within hours.'
     }
   ]
 };

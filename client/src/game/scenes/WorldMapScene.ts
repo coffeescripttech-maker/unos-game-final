@@ -41,6 +41,14 @@ export class WorldMapScene extends Phaser.Scene {
   }
 
   private navigateToLevel = (levelId: LevelId) => {
+    // The boss level is a React/R3F experience rendered at /boss.
+    // All other levels launch Phaser scenes.
+    if (levelId === 'boss') {
+      this.game.events.off(GAME_EVENTS.NAVIGATE_LEVEL, this.navigateToLevel);
+      window.location.href = '/boss';
+      return;
+    }
+
     const sceneKey = this.getSceneKeyForLevel(levelId);
     if (!sceneKey) return;
 
@@ -61,7 +69,6 @@ export class WorldMapScene extends Phaser.Scene {
       pressure: SCENES.PRESSURE,
       rotation: SCENES.ROTATION,
       typhoon: SCENES.TYPHOON,
-      boss: SCENES.BOSS,
     };
     return map[levelId] ?? null;
   }

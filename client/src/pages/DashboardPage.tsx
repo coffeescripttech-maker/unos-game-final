@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Gamepad2, BarChart3, Star, BookOpen, Trophy } from 'lucide-react';
+import { ArrowLeft, Gamepad2, BarChart3, Star, BookOpen, Trophy, HelpCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { LevelProgress } from '@shared/types';
 
@@ -72,6 +72,10 @@ export default function DashboardPage() {
               <Link to="/encyclopedia" className="retro-btn bg-ocean-mid text-white text-xs sm:text-sm flex items-center gap-1.5">
                 <BookOpen size={14} />
                 Encyclopedia
+              </Link>
+              <Link to="/walkthrough" className="retro-btn bg-ocean-mid text-white text-xs sm:text-sm flex items-center gap-1.5">
+                <HelpCircle size={14} />
+                Game Walkthrough
               </Link>
             </div>
           </div>

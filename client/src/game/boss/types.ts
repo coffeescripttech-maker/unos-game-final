@@ -34,6 +34,7 @@ export interface MissionState {
   objectives: MissionObjective[];
   distanceToEye: number;
   isInEye: boolean;
+  landProximity: number;                // 0 = deep ocean, 1 = on/near land
   nearCollectible: ObjectiveId | null;  // which collectible is nearby
   interactionPrompt: string | null;     // what to show as "Press E to..."
   lastNotification: NotificationData | null;
@@ -114,6 +115,7 @@ export interface StormParams {
   lightningRate: number;
   cloudCover: number;
   waveHeight: number;
+  landProximity: number;  // 0 = ocean, 1 = near land — weakens storm parameters
 }
 
 /** Procedural audio state */

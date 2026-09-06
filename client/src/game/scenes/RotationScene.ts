@@ -45,7 +45,17 @@ export class RotationScene extends Phaser.Scene {
   private isDragging = false;
   private targetRotation = 7200;
   private hemisphere = 'northern';
-  private hemisphereText!: Phaser.GameObjects.Text;
+  private hemiMapGfx!: Phaser.GameObjects.Graphics;
+  private hemiArrowGfx!: Phaser.GameObjects.Graphics;
+  private hemiNameText!: Phaser.GameObjects.Text;
+  private hemiDirText!: Phaser.GameObjects.Text;
+  private hemiStormText!: Phaser.GameObjects.Text;
+  private hemiArrowAngle = 0;
+  // Hemisphere map widget geometry (bottom-left corner)
+  private readonly HEMI_CX = 115;
+  private readonly HEMI_CY = 605;
+  private readonly HEMI_R = 52;
+  private readonly HEMI_RING = 68;
   private vortexParticles: Phaser.GameObjects.Arc[] = [];
   private gameStarted = false;
 
@@ -213,20 +223,6 @@ export class RotationScene extends Phaser.Scene {
     this.lightningGfx.fillStyle(0xffffff, 0);
     this.lightningGfx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-    // ── Instruction text ──
-    const instrBg = this.add.graphics().setDepth(4);
-    instrBg.fillStyle(0x444444, 0.6);
-    instrBg.fillRoundedRect(GAME_WIDTH / 2 - 160, GAME_HEIGHT - 70, 320, 40, 8);
-    this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 50, '🌀 Spin anywhere around the eye', {
-        fontFamily: FONTS.BODY,
-        fontSize: '13px',
-        color: '#FFFFFF',
-        align: 'center'
-      })
-      .setOrigin(0.5)
-      .setDepth(5);
-
     // ── Headwind warning text ──
     this.headwindText = this.add
       .text(GAME_WIDTH / 2, 280, '', {
@@ -254,23 +250,45 @@ export class RotationScene extends Phaser.Scene {
     this.bottomInfoPanel.lineStyle(2, 0x4a6fa5, 0.45);
     this.bottomInfoPanel.strokeRoundedRect(panelX, panelY, panelW, panelH, 14);
 
-    // ── Hemisphere indicator (moved to bottom) ──
-    this.hemisphereText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 95, '', {
-        fontFamily: FONTS.BODY,
-        fontSize: '15px',
-        color: '#6DB3E6',
-        stroke: '#000000',
-        strokeThickness: 3
+    // ── Hemisphere MAP widget (bottom-left) — replaces the old text-only indicator ──
+    this.hemiArrowGfx = this.add.graphics().setDepth(5);
+    this.hemiMapGfx = this.add.graphics().setDepth(6);
+    this.add
+      .text(this.HEMI_CX, this.HEMI_CY - this.HEMI_R + 14, 'N', {
+        fontFamily: FONTS.DISPLAY, fontSize: '11px', color: '#ffffff',
+        stroke: '#000000', strokeThickness: 3
       })
+      .setOrigin(0.5).setDepth(7);
+    this.add
+      .text(this.HEMI_CX, this.HEMI_CY + this.HEMI_R - 14, 'S', {
+        fontFamily: FONTS.DISPLAY, fontSize: '11px', color: '#ffffff',
+        stroke: '#000000', strokeThickness: 3
+      })
+      .setOrigin(0.5).setDepth(7);
+    this.hemiStormText = this.add
+      .text(this.HEMI_CX, this.HEMI_CY - 26, '🌀', { fontSize: '18px' })
       .setOrigin(0.5)
+      .setDepth(7);
+    this.hemiNameText = this.add
+      .text(205, this.HEMI_CY - 26, '', {
+        fontFamily: FONTS.DISPLAY, fontSize: '16px', color: '#ffffff',
+        stroke: '#000000', strokeThickness: 3
+      })
+      .setOrigin(0, 0.5)
+      .setDepth(6);
+    this.hemiDirText = this.add
+      .text(205, this.HEMI_CY + 14, '', {
+        fontFamily: FONTS.DISPLAY, fontSize: '32px', color: '#7fd4ff',
+        stroke: '#000000', strokeThickness: 5
+      })
+      .setOrigin(0, 0.5)
       .setDepth(6);
     this.updateHemisphereText();
 
     // ── SPIN POWER meter (moved to bottom center) ──
     this.powerMeterGfx = this.add.graphics().setDepth(6);
     this.powerLabel = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 150, 'SPIN POWER ×1', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 150, 'SPIN ×1', {
         fontFamily: FONTS.DISPLAY,
         fontSize: '13px',
         color: '#9fb8d8',
@@ -292,10 +310,10 @@ export class RotationScene extends Phaser.Scene {
     this.roundBanner = this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 210, '', {
         fontFamily: FONTS.DISPLAY,
-        fontSize: '26px',
+        fontSize: '32px',
         color: '#FFD166',
         stroke: '#000000',
-        strokeThickness: 4,
+        strokeThickness: 5,
         align: 'center'
       })
       .setOrigin(0.5)
@@ -306,14 +324,6 @@ export class RotationScene extends Phaser.Scene {
     // ── Guidance circles (dynamic — will light up with progress) ──
     this.ringGfx = this.add.graphics().setDepth(1);
     this.drawRings(0);
-
-    this.add
-      .text(this.centerX, this.centerY + 115, 'spin anywhere', {
-        fontFamily: FONTS.BODY,
-        fontSize: '12px',
-        color: '#4a6fa5'
-      })
-      .setOrigin(0.5);
 
     // ── Vortex graphics ──
     this.vortexGfx = this.add.graphics().setDepth(DEPTH.GAME_OBJECTS);
@@ -349,7 +359,7 @@ export class RotationScene extends Phaser.Scene {
       subtitle: 'Spin to create the Coriolis Force!',
       mechanics: [
         { icon: '🔄', text: 'Spin ANYWHERE around the eye — CCW (Northern) or CW (Southern)' },
-        { icon: '🌎', text: 'HEMISPHERE CHALLENGE: rounds flip N → S → N — watch the banner!' },
+        { icon: '🗺️', text: 'HEMISPHERE MAP (bottom-left): blue North = CCW ↺ · amber South = CW ↻' },
         { icon: '🌪️', text: 'Storm grows: Depression → Tropical Storm → Strong Storm → Cyclone' },
         { icon: '⚡', text: 'SPIN POWER: spin fast & steady for up to 2× progress!' },
         { icon: '🔥', text: 'Combo ratings: GOOD → GREAT → PERFECT → SUPER SPIN!' },
@@ -1315,7 +1325,7 @@ export class RotationScene extends Phaser.Scene {
 
     if (this.powerLabel) {
       const mult = (1 + this.spinPower).toFixed(1);
-      this.powerLabel.setText(`SPIN POWER ×${mult}`);
+      this.powerLabel.setText(`SPIN ×${mult} · ROUND ${this.currentRound}/3`);
       this.powerLabel.setColor(
         this.spinPower > 0.66
           ? '#FFD166'
@@ -1390,16 +1400,107 @@ export class RotationScene extends Phaser.Scene {
     });
   }
 
-  // ── Hemisphere indicator (flips with each round) ──
+  // ── Hemisphere MAP widget (flips with each round) ──
   private updateHemisphereText() {
-    if (!this.hemisphereText) return;
+    if (!this.hemiDirText || !this.hemiMapGfx) return;
     const northern = this.hemisphere === 'northern';
-    this.hemisphereText.setText(
-      northern
-        ? '🌎 Northern Hemisphere — spin CCW ↺'
-        : '🌍 Southern Hemisphere — spin CW ↻'
-    );
-    this.hemisphereText.setColor(northern ? '#7fd4ff' : '#ffd166');
+    const color = northern ? '#7fd4ff' : '#ffd166';
+
+    this.hemiNameText.setText(northern ? 'NORTHERN HEMISPHERE' : 'SOUTHERN HEMISPHERE');
+    this.hemiNameText.setColor(color);
+    this.hemiDirText.setText(northern ? 'SPIN CCW ↺' : 'SPIN CW ↻');
+    this.hemiDirText.setColor(color);
+    this.hemiStormText.setPosition(this.HEMI_CX, this.HEMI_CY + (northern ? -26 : 26));
+
+    this.drawHemisphereMap();
+    this.drawHemiArrows();
+
+    // Pop so the flip is impossible to miss
+    this.tweens.add({
+      targets: [this.hemiDirText, this.hemiNameText],
+      scale: { from: 1, to: 1.22 },
+      yoyo: true,
+      duration: 150,
+      ease: 'Quad.easeOut'
+    });
+  }
+
+  /** Draw the mini world map: active hemisphere highlighted, the other dimmed. */
+  private drawHemisphereMap() {
+    const g = this.hemiMapGfx;
+    if (!g) return;
+    const northern = this.hemisphere === 'northern';
+    const cx = this.HEMI_CX, cy = this.HEMI_CY, r = this.HEMI_R;
+    g.clear();
+
+    // Ocean base + abstract landmasses
+    g.fillStyle(0x0d2b4e, 0.92);
+    g.fillCircle(cx, cy, r);
+    g.fillStyle(0x3f7a4a, 0.9);
+    g.fillEllipse(cx - 16, cy - 25, 34, 20);
+    g.fillEllipse(cx + 17, cy - 14, 20, 13);
+    g.fillEllipse(cx + 12, cy + 23, 28, 17);
+    g.fillEllipse(cx - 17, cy + 27, 15, 11);
+
+    // Top half is π→2π (y-down screen coords); bottom half is 0→π
+    const active = northern ? [Math.PI, Math.PI * 2] : [0, Math.PI];
+    const inactive = northern ? [0, Math.PI] : [Math.PI, Math.PI * 2];
+
+    g.fillStyle(northern ? 0x7fd4ff : 0xffd166, 0.32);
+    g.slice(cx, cy, r, active[0], active[1], false);
+    g.fillPath();
+    g.fillStyle(0x000000, 0.38);
+    g.slice(cx, cy, r, inactive[0], inactive[1], false);
+    g.fillPath();
+
+    // Equator + colored rim
+    g.lineStyle(2, 0xffffff, 0.75);
+    g.lineBetween(cx - r, cy, cx + r, cy);
+    g.lineStyle(3, northern ? 0x7fd4ff : 0xffd166, 0.95);
+    g.strokeCircle(cx, cy, r);
+  }
+
+  /** Arrow ring around the map — spins in the required direction (CCW or CW). */
+  private drawHemiArrows() {
+    const g = this.hemiArrowGfx;
+    if (!g) return;
+    const northern = this.hemisphere === 'northern';
+    const cx = this.HEMI_CX, cy = this.HEMI_CY, R = this.HEMI_RING;
+    const color = northern ? 0x7fd4ff : 0xffd166;
+    const dirSign = northern ? -1 : 1; // -1 = angle decreases = CCW on screen
+    g.clear();
+
+    for (let i = 0; i < 3; i++) {
+      const base = this.hemiArrowAngle + i * 120;
+      const end = base + 46 * dirSign;
+      g.lineStyle(4, color, 0.9);
+      g.beginPath();
+      g.arc(cx, cy, R, Phaser.Math.DegToRad(Math.min(base, end)), Phaser.Math.DegToRad(Math.max(base, end)), false);
+      g.strokePath();
+
+      // Arrowhead at the leading end, pointing along the spin direction
+      const tipA = Phaser.Math.DegToRad(end);
+      const tipX = cx + Math.cos(tipA) * R;
+      const tipY = cy + Math.sin(tipA) * R;
+      const tx = -Math.sin(tipA) * dirSign;
+      const ty = Math.cos(tipA) * dirSign;
+      const bx = tipX - tx * 5, by = tipY - ty * 5;
+      const px = -ty, py = tx;
+      g.fillStyle(color, 0.95);
+      g.fillTriangle(
+        tipX + tx * 11, tipY + ty * 11,
+        bx + px * 7, by + py * 7,
+        bx - px * 7, by - py * 7
+      );
+    }
+  }
+
+  /** Animate the arrow ring so the spin direction is always moving on screen. */
+  update(_time: number, delta: number) {
+    if (!this.hemiArrowGfx) return;
+    const dirSign = this.hemisphere === 'northern' ? -1 : 1;
+    this.hemiArrowAngle = (this.hemiArrowAngle + dirSign * delta * 0.09) % 360;
+    this.drawHemiArrows();
   }
 
   // ── Storm stage label (Depression → Cyclone) tracks progress ──
@@ -1688,13 +1789,13 @@ export class RotationScene extends Phaser.Scene {
     const askNorthern = Math.random() > 0.5;
     this.quizGesture = askNorthern ? 'cw' : 'ccw';
 
-    this.quizText = this.add
+      this.quizText = this.add
       .text(GAME_WIDTH / 2, this.centerY - 160, '', {
         fontFamily: FONTS.DISPLAY,
-        fontSize: '20px',
+        fontSize: '22px',
         color: '#FFD166',
         stroke: '#000000',
-        strokeThickness: 4,
+        strokeThickness: 5,
         align: 'center'
       })
       .setOrigin(0.5)
@@ -1703,7 +1804,7 @@ export class RotationScene extends Phaser.Scene {
     this.quizSubText = this.add
       .text(GAME_WIDTH / 2, this.centerY - 130, '', {
         fontFamily: FONTS.BODY,
-        fontSize: '14px',
+        fontSize: '16px',
         color: '#6DB3E6',
         stroke: '#000000',
         strokeThickness: 3,
@@ -1826,9 +1927,9 @@ export class RotationScene extends Phaser.Scene {
     ];
     const colors = ['#6DB3E6', '#FFD166', '#FF6B6B'];
     const hemi =
-      round === 2 ? '🌍 SOUTHERN — spin CW ↻' : '🌎 NORTHERN — spin CCW ↺';
+      round === 2 ? '🌍 SOUTHERN — SPIN CLOCKWISE ↻' : '🌎 NORTHERN — SPIN COUNTER-CLOCKWISE ↺';
     this.roundBanner.setText(
-      `ROUND ${round}/3 — ${titles[round - 1]}\n${hemi}`
+      `${titles[round - 1]}\n${hemi}`
     );
     this.roundBanner.setColor(colors[round - 1]);
     this.roundBanner.setAlpha(0);
@@ -1836,15 +1937,15 @@ export class RotationScene extends Phaser.Scene {
     this.tweens.add({
       targets: this.roundBanner,
       alpha: { from: 0, to: 1 },
-      scale: { from: 0.6, to: 1 },
-      duration: 350,
+      scale: { from: 0.6, to: 1.05 },
+      duration: 450,
       ease: 'Back.easeOut'
     });
     this.tweens.add({
       targets: this.roundBanner,
       alpha: 0,
-      delay: 1800,
-      duration: 600,
+      delay: 2200,
+      duration: 700,
       onComplete: () => this.roundBanner.setAlpha(0)
     });
 
@@ -2044,9 +2145,11 @@ export class RotationScene extends Phaser.Scene {
   //  GAME LOOP
   // ═══════════════════════════════════════════════
 
+    private didWin = false;
+
   private onContinue = () => {
     this.game.events.off(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
-    this.scene.start(SCENES.WORLD_MAP);
+    GameManager.handleContinue(this, 'rotation', this.didWin);
   };
 
   private emitObjective() {
@@ -2341,6 +2444,7 @@ export class RotationScene extends Phaser.Scene {
       this.combo * 25;
     const stars = GameManager.getStars(score, 3600);
 
+        this.didWin = true;
     GameManager.getInstance().completeLevel(
       'rotation',
       score,

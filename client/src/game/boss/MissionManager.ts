@@ -27,6 +27,7 @@ export function createDefaultMissionState(): MissionState {
     ],
     distanceToEye: 200,
     isInEye: false,
+    landProximity: 0,
     quizBonus: 0,
   };
 }
@@ -40,8 +41,12 @@ export function getPhase(collected: ObjectiveId[], isInEye: boolean): GamePhase 
   return 1;
 }
 
-/** Compute storm intensity based on distance to eye + phase */
-export function computeStormParams(distanceToEye: number, phase: GamePhase): StormParams {
+/** Compute storm intensity based on distance to eye + phase + land proximity */
+export function computeStormParams(
+  distanceToEye: number,
+  phase: GamePhase,
+  landProximity: number = 0,
+): StormParams {
   const maxDist = 250;
   const distT = Math.max(0, Math.min(1, 1 - distanceToEye / maxDist));
 
@@ -57,13 +62,19 @@ export function computeStormParams(distanceToEye: number, phase: GamePhase): Sto
   }
 
   const t = distT * phaseMultiplier;
+
+  // Land-weakening factor — storms weaken over land as warm ocean fuel is cut off.
+  // At landProximity=1 (on land), intensity drops by up to 40%.
+  const landFactor = 1 - landProximity * 0.40;
+
   return {
-    intensity: t,
-    windSpeed: t * 80,
-    rainIntensity: Math.max(0, (t - 0.1) * 1.2),
-    lightningRate: phase === 4 ? Math.max(0, (t - 0.3) * 0.8) : 0,
+    intensity: t * landFactor,
+    windSpeed: t * 80 * landFactor,
+    rainIntensity: Math.max(0, (t - 0.1) * 1.2) * landFactor,
+    lightningRate: phase === 4 ? Math.max(0, (t - 0.3) * 0.8) * landFactor : 0,
     cloudCover: 0.2 + t * 0.8,
-    waveHeight: 0.3 + t * 3.5,
+    waveHeight: 0.3 + t * 3.5 * (1 - landProximity * 0.30),
+    landProximity,
   };
 }
 

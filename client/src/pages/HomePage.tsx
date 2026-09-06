@@ -6,7 +6,8 @@ import {
   Trophy,
   Medal,
   Settings,
-  ScrollText
+  ScrollText,
+  HelpCircle
 } from 'lucide-react';
 import FullscreenButton from '../components/FullscreenButton';
 
@@ -92,6 +93,12 @@ export default function HomePage() {
             className="retro-btn bg-storm-dark text-white text-[11px] sm:text-xs !px-2.5 sm:!px-3 !py-1.5 sm:!py-2 flex items-center gap-1.5">
             <ScrollText size={16} className="sm:w-[18px] sm:h-[18px]" />
             Credits
+          </Link>
+          <Link
+            to="/walkthrough"
+            className="retro-btn bg-storm-dark text-white text-[11px] sm:text-xs !px-2.5 sm:!px-3 !py-1.5 sm:!py-2 flex items-center gap-1.5">
+            <HelpCircle size={16} className="sm:w-[18px] sm:h-[18px]" />
+            Walkthrough
           </Link>
         </div>
 

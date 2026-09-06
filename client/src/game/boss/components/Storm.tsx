@@ -69,7 +69,9 @@ export default function Storm({ storm, isInEye }: StormProps) {
     rotationRef.current += delta * (0.08 + storm.intensity * 0.12);
     cloudRef.current.rotation.y = rotationRef.current;
 
-    const scale = 0.8 + storm.intensity * 0.4;
+    // Storm clouds dissipate over land — the anvil collapses without warm moist air
+    const landShrink = 1 - storm.landProximity * 0.25;
+    const scale = (0.8 + storm.intensity * 0.4) * landShrink;
     groupRef.current.scale.setScalar(scale);
     groupRef.current.position.set(0, 0.5, -150);
   });
@@ -93,7 +95,7 @@ export default function Storm({ storm, isInEye }: StormProps) {
               map={cloudTexture}
               color={band.color}
               transparent
-              opacity={band.opacity * storm.intensity}
+              opacity={band.opacity * storm.intensity * (1 - storm.landProximity * 0.2)}
               depthWrite={false}
               side={THREE.DoubleSide}
               alphaTest={0.05}

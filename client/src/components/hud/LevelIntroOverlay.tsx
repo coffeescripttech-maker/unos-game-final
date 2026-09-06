@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { usePhaserEvent } from '../../hooks/usePhaserEvent';
 import { useGameContext } from '../../contexts/GameContext';
 import { GAME_EVENTS } from '@shared/events';
@@ -23,16 +23,77 @@ const MECH_BARS: Record<string, string> = {
 export default function LevelIntroOverlay() {
   const { game } = useGameContext();
   const [intro, setIntro] = useState<HUDLevelIntroPayload | null>(null);
+  // Keeps the current level's mechanics so the 📖 button can re-open them
+  const lastIntro = useRef<HUDLevelIntroPayload | null>(null);
+  const introOpen = useRef(false);
+  // Tracks which scenes WE paused, so dismiss resumes exactly those
+  const pausedKeys = useRef<Set<string>>(new Set());
 
+  // Mid-game pause (📖 re-open only): freeze running scenes while reading.
+  const pauseScenes = useCallback(() => {
+    if (!game) return;
+    game.scene.getScenes().forEach(s => {
+      try {
+        if (game.scene.isActive(s.scene.key)) {
+          game.scene.pause(s.scene.key);
+          pausedKeys.current.add(s.scene.key);
+        }
+      } catch {
+        /* scene mid-transition — skip */
+      }
+    });
+  }, [game]);
+
+  const resumeScenes = useCallback(() => {
+    if (!game) return;
+    // Resume every scene we paused…
+    pausedKeys.current.forEach(key => {
+      try {
+        game.scene.resume(key);
+      } catch {
+        /* ignore */
+      }
+    });
+    pausedKeys.current.clear();
+    // …plus a safety net: unfreeze any scene left paused for any reason.
+    game.scene.getScenes().forEach(s => {
+      try {
+        if (game.scene.isPaused(s.scene.key)) game.scene.resume(s.scene.key);
+      } catch {
+        /* ignore */
+      }
+    });
+  }, [game]);
+
+  // First intro: scenes gate their own gameplay on HUD_INTRO_DISMISS
+  // (startGame hasn't run yet), so NO pause here — pausing mid-create()
+  // interrupts Phaser's scene start sequence and freezes the level.
   usePhaserEvent(GAME_EVENTS.HUD_LEVEL_INTRO, (payload: HUDLevelIntroPayload) => {
+    lastIntro.current = payload;
+    introOpen.current = true;
     setIntro(payload);
+  });
+
+  // 📖 Instructions button (HUD top bar) → re-open this level's mechanics.
+  // Pause is deferred one tick so we never pause during a scene transition.
+  usePhaserEvent(GAME_EVENTS.HUD_REQUEST_INTRO, () => {
+    if (!lastIntro.current) return;
+    introOpen.current = true;
+    setIntro(lastIntro.current);
+    setTimeout(() => {
+      if (introOpen.current) pauseScenes();
+    }, 0);
   });
 
   const handleDismiss = useCallback(() => {
     if (!game) return;
+    introOpen.current = false;
+    // Scene-level listeners (e.g. startGame) fire on this event…
     game.events.emit(GAME_EVENTS.HUD_INTRO_DISMISS);
     setIntro(null);
-  }, [game]);
+    // …then unfreeze the scene so gameplay resumes cleanly.
+    resumeScenes();
+  }, [game, resumeScenes]);
 
   if (!intro) return null;
 
@@ -92,7 +153,7 @@ export default function LevelIntroOverlay() {
           onClick={handleDismiss}
           className="retro-btn retro-btn-primary w-full mt-6 text-sm animate-pulse-subtle"
         >
-          ▶  Click to start
+          ▶  Click to continue
         </button>
       </div>
     </div>

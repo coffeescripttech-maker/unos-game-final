@@ -25,6 +25,7 @@ export const GAME_EVENTS = {
   HUD_CONTINUE: 'HUD:CONTINUE',
   HUD_LEVEL_INTRO: 'HUD:LEVEL_INTRO',
   HUD_INTRO_DISMISS: 'HUD:INTRO_DISMISS',
+  HUD_REQUEST_INTRO: 'HUD:REQUEST_INTRO',
   HUD_TUTORIAL_STEP: 'HUD:TUTORIAL_STEP',
   HUD_TUTORIAL_BRIEFING: 'HUD:TUTORIAL_BRIEFING',
   HUD_TUTORIAL_HIDE: 'HUD:TUTORIAL_HIDE',
@@ -46,6 +47,11 @@ export const GAME_EVENTS = {
   // Typhoon Controls — React sliders for typhoon formation (Stage 5)
   HUD_TYPHOON_SLIDER: 'HUD:TYPHOON_SLIDER',
   HUD_TYPHOON_SLIDER_UPDATE: 'HUD:TYPHOON_SLIDER_UPDATE',
+  HUD_TYPHOON_SLIDER_UNLOCK: 'HUD:TYPHOON_SLIDER_UNLOCK',
+
+  // Typhoon Quiz — React shows science quiz after successful formation
+  HUD_TYPHOON_QUIZ: 'HUD:TYPHOON_QUIZ',
+  HUD_TYPHOON_QUIZ_COMPLETE: 'HUD:TYPHOON_QUIZ_COMPLETE',
 
   // Loading screen — React overlay for asset loading progress
   HUD_LOADING: 'HUD:LOADING',
@@ -204,11 +210,36 @@ export interface TyphoonSliderConfig {
   color: string;
   targetMin: number;
   targetMax: number;
+  /** Sequential-unlock mode: slider is disabled until its gate quiz is passed */
+  locked?: boolean;
 }
 
 export interface TyphoonSliderUpdatePayload {
   index: number;
   value: number;
+}
+
+export interface TyphoonSliderUnlockPayload {
+  index: number;
+}
+
+export interface TyphoonQuizQuestion {
+  q: string;
+  options: string[];
+  answer: number;
+  fact: string;
+}
+
+export interface TyphoonQuizPayload {
+  topic: string;
+  questions: TyphoonQuizQuestion[];
+  /** 'gate' = mid-level unlock challenge; 'final' (default) = post-completion bonus quiz */
+  mode?: 'gate' | 'final';
+}
+
+export interface TyphoonQuizCompletePayload {
+  correct: number;
+  total: number;
 }
 
 // ────────────────────────── Loading Payloads ──────────────────────────
@@ -236,6 +267,7 @@ export type GameEventPayloads = {
   [GAME_EVENTS.HUD_LEVEL_INFO]: HUDLevelInfoPayload;
   [GAME_EVENTS.HUD_LEVEL_INTRO]: HUDLevelIntroPayload;
   [GAME_EVENTS.HUD_INTRO_DISMISS]: undefined;
+  [GAME_EVENTS.HUD_REQUEST_INTRO]: undefined;
   [GAME_EVENTS.HUD_TUTORIAL_STEP]: HUDTutorialStepPayload;
   [GAME_EVENTS.HUD_TUTORIAL_BRIEFING]: undefined;
   [GAME_EVENTS.HUD_TUTORIAL_HIDE]: undefined;
@@ -251,6 +283,9 @@ export type GameEventPayloads = {
   [GAME_EVENTS.HUD_PRESSURE_SLOTS]: HUDPressureSlotsPayload;
   [GAME_EVENTS.HUD_TYPHOON_SLIDER]: TyphoonSliderConfig[];
   [GAME_EVENTS.HUD_TYPHOON_SLIDER_UPDATE]: TyphoonSliderUpdatePayload;
+  [GAME_EVENTS.HUD_TYPHOON_SLIDER_UNLOCK]: TyphoonSliderUnlockPayload;
+  [GAME_EVENTS.HUD_TYPHOON_QUIZ]: TyphoonQuizPayload;
+  [GAME_EVENTS.HUD_TYPHOON_QUIZ_COMPLETE]: TyphoonQuizCompletePayload;
   [GAME_EVENTS.HUD_LOADING]: HUDLoadingPayload;
 };
 

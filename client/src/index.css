@@ -1078,3 +1078,21 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #ffdf8e;
 }
+
+/* Walkthrough page — light mode scrollbar */
+.walkthrough-page .custom-scrollbar {
+  scrollbar-color: #1E5AA0 rgba(0, 0, 0, 0.08);
+}
+
+.walkthrough-page .custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.walkthrough-page .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #1E5AA0;
+  border: 2px solid black;
+}
+
+.walkthrough-page .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #3A87C4;
+}

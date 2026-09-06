@@ -684,11 +684,11 @@ export class CondensationScene extends Phaser.Scene {
     const roll = Math.random();
     const vaporType: VaporType = roll < 0.3 ? 'heavy' : roll < 0.6 ? 'light' : 'normal';
 
-    const emoji = vaporType === 'heavy' ? '💧' : vaporType === 'light' ? '❄️' : '✨';
+      const emoji = vaporType === 'heavy' ? '💧' : vaporType === 'light' ? '❄️' : '✨';
     const sprite = this.add
       .text(x, startY, emoji, {
         fontFamily: FONTS.BODY,
-        fontSize: '17px'
+        fontSize: '20px'
       })
       .setOrigin(0.5)
       .setDepth(2)
@@ -839,7 +839,21 @@ export class CondensationScene extends Phaser.Scene {
       onComplete: () => ring.destroy()
     });
 
-    // ── Score ──
+      // ── Droplet connection: a rising wisp from vapor to cloud ──
+    const wisp = this.add
+      .rectangle(vx, vy, 3, 18, 0xffffff, 0.35)
+      .setDepth(4);
+    this.tweens.add({
+      targets: wisp,
+      y: vy - 60,
+      height: 0,
+      alpha: 0,
+      duration: 500,
+      ease: 'Sine.easeOut',
+      onComplete: () => wisp.destroy()
+    });
+
+    // Score
     const baseGain = Phaser.Math.Between(4, 6);
     const gain = inSweetSpot ? Math.round(baseGain * BOUNDARY_BONUS) : baseGain;
     const isBonus = gain > baseGain;
@@ -993,6 +1007,7 @@ export class CondensationScene extends Phaser.Scene {
     const score = 2000 + timeBonus;
     const stars = GameManager.getStars(score, 2500);
 
+        this.didWin = true;
     GameManager.getInstance().completeLevel('condensation', score, stars, this.TOTAL_TIME - this.timeRemaining);
     const saved = localStorage.getItem('unos_progress');
     const progress = saved ? JSON.parse(saved) : {};
@@ -1079,9 +1094,11 @@ export class CondensationScene extends Phaser.Scene {
     });
   }
 
+    private didWin = false;
+
   private onContinue = () => {
     this.game.events.off(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
-    this.scene.start(SCENES.WORLD_MAP);
+    GameManager.handleContinue(this, 'condensation', this.didWin);
   };
 
   shutdown() {

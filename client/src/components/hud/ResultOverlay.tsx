@@ -3,7 +3,9 @@ import { usePhaserEvent } from '../../hooks/usePhaserEvent';
 import { useGameContext } from '../../contexts/GameContext';
 import { GAME_EVENTS } from '@shared/events';
 import type { HUDResultPayload } from '@shared/events';
+import type { LevelId } from '@shared/types';
 import { EDUCATIONAL_FACTS } from '@shared/constants';
+import { GameManager } from '../../game/managers/GameManager';
 
 export default function ResultOverlay() {
   const { game } = useGameContext();
@@ -25,6 +27,8 @@ export default function ResultOverlay() {
   const starDisplay = '★'.repeat(result.stars) + '☆'.repeat(3 - result.stars);
   const isWin = result.type === 'complete';
 
+    const nextLevel = isWin ? GameManager.getNextLevel(result.levelId as LevelId) : null;
+
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-2">
       <div className="retro-card modal-card max-w-sm w-[95%] max-h-[95vh] overflow-y-auto text-center space-y-3 !bg-ocean-deep">
@@ -37,38 +41,43 @@ export default function ResultOverlay() {
         </div>
 
         {result.subtitle && (
-          <div className="font-body text-sm text-white/70">{result.subtitle}</div>
+          <div className="font-body text-base text-white/75">{result.subtitle}</div>
         )}
 
         {/* Stars */}
-        <div className="font-display text-2xl text-accent-yellow" style={{ textShadow: '1px 1px 0px #000' }}>
+        <div className="font-display text-3xl text-accent-yellow" style={{ textShadow: '1px 1px 0px #000' }}>
           {starDisplay}
         </div>
 
         {/* Score */}
         <div className="retro-card !bg-storm-dark !p-3 !border-white/20">
-          <div className="font-display text-xs text-white/60 uppercase tracking-wider">Score</div>
-          <div className="font-display text-2xl text-accent-yellow">{result.score.toLocaleString()}</div>
+          <div className="font-display text-sm text-white/60 uppercase tracking-wider">Score</div>
+          <div className="font-display text-3xl text-accent-yellow">{result.score.toLocaleString()}</div>
         </div>
 
         {/* Educational Fact */}
         {fact && (
           <div className="retro-card !bg-ocean-mid/50 !p-3 !border-accent-yellow/30">
-            <div className="font-display text-xs text-accent-yellow mb-1">💡 Did you know?</div>
-            <div className="font-body text-xs text-white/90 leading-relaxed">{fact.text}</div>
-            <div className="font-body text-[10px] text-white/40 mt-1">— {fact.source}</div>
+            <div className="font-display text-sm text-accent-yellow mb-1">💡 Science Fact</div>
+            <div className="font-body text-sm text-white/90 leading-relaxed">{fact.text}</div>
+            <div className="font-body text-xs text-white/40 mt-1">— {fact.source}</div>
           </div>
         )}
 
         {/* Continue button */}
         <button
           onClick={handleContinue}
-          className={`retro-btn w-full text-sm ${
+          className={`retro-btn w-full text-base ${
             isWin ? 'retro-btn-success' : 'retro-btn-primary'
           }`}
         >
-          {isWin ? 'Continue →' : 'Try Again'}
+          {nextLevel ? '→ Next Level' : isWin ? '→ Back to Map' : 'Try Again'}
         </button>
+        {nextLevel && (
+          <div className="font-body text-xs text-white/60 pt-1">
+            Up next: {nextLevel.charAt(0).toUpperCase() + nextLevel.slice(1)}
+          </div>
+        )}
       </div>
     </div>
   );

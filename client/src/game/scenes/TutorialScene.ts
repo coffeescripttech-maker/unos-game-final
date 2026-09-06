@@ -899,6 +899,7 @@ export class TutorialScene extends Phaser.Scene {
     this.game.events.emit(GAME_EVENTS.HUD_TUTORIAL_HIDE);
     // Listen for Continue from the result overlay
     this.game.events.once(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
+        this.didWin = true;
     GameManager.getInstance().completeLevel('tutorial', 0, 1, 0);
     const saved = localStorage.getItem('unos_progress');
     const progress = saved ? JSON.parse(saved) : {};
@@ -924,9 +925,11 @@ export class TutorialScene extends Phaser.Scene {
     });
   }
 
+    private didWin = false;
+
   private onContinue = () => {
     this.game.events.off(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
-    this.scene.start(SCENES.WORLD_MAP);
+    GameManager.handleContinue(this, 'tutorial', this.didWin);
   };
 
   private skipTutorial() {

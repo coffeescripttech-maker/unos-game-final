@@ -30,11 +30,29 @@ import { useBossTexture, createEyeMarkerTexture } from './utils/textures';
 import { useBoatController } from './BoatController';
 import { LEVEL_CONFIGS } from '@shared/constants';
 import type { LevelProgress } from '@shared/types';
+import { ISLANDS } from './components/Philippines';
 import {
   computeStormParams, getNextObjective, getPhase,
   checkEyeEntry, distanceToEye,
   createDefaultMissionState, EYE_POSITION, EYE_RADIUS,
 } from './MissionManager';
+
+/**
+ * Compute normalized land proximity (0 = deep ocean, 1 = on/near land)
+ * based on distance to the nearest island.
+ */
+function computeLandProximity(boatPos: THREE.Vector3): number {
+  let minDist = Infinity;
+  for (const island of ISLANDS) {
+    const dist = Math.hypot(
+      boatPos.x - island.position[0],
+      boatPos.z - island.position[2]
+    );
+    minDist = Math.min(minDist, dist);
+  }
+  // Normalized 0→1: 0 = far from any island, 1 = on/near an island
+  return Math.max(0, Math.min(1, 1 - (minDist - 15) / 25));
+}
 import type { MissionState, StormParams, CollectibleData, ObjectiveId, NotificationData } from './types';
 
 // ── Collectible world positions ──
@@ -61,6 +79,11 @@ const EDUCATIONAL_FACTS = [
     icon: '📡',
     title: 'Why do we collect weather data?',
     body: 'Meteorologists deploy weather buoys and research vessels to measure pressure, temperature, humidity, and wind speed. This data helps forecast track and intensity, saving lives.',
+  },
+  {
+    icon: '🏝️',
+    title: 'Why do typhoons weaken over land?',
+    body: 'Typhoons are powered by warm ocean water (at least 26.5°C). When a typhoon moves over land, it loses its fuel source — the warm, moist air is replaced by cooler, drier air and increased surface friction disrupts the circulation. This causes rapid weakening, often within hours.',
   },
 ];
 
@@ -300,6 +323,7 @@ export default function BossLevel({ onComplete, onExit }: { onComplete?: () => v
   const [storm, setStorm] = useState<StormParams>({
     intensity: 0, windSpeed: 0, rainIntensity: 0,
     lightningRate: 0, cloudCover: 0, waveHeight: 0,
+    landProximity: 0,
   });
   const [phase, setPhase] = useState<number>(1);
   const [isInEye, setIsInEye] = useState(false);
@@ -326,6 +350,7 @@ export default function BossLevel({ onComplete, onExit }: { onComplete?: () => v
   const progressSavedRef = useRef(false);
   const prevBoatPosRef = useRef(new THREE.Vector3(0, 0, 120));
   const containerRef = useRef<HTMLDivElement>(null);
+  const landNotifiedRef = useRef(false);
 
   useEffect(() => {
     audioRef.current = new AudioManager();
@@ -506,15 +531,28 @@ export default function BossLevel({ onComplete, onExit }: { onComplete?: () => v
       const currentPhase = getPhase(mission.collectedData, inside);
       setPhase(currentPhase);
 
-      const newStorm = computeStormParams(dist, currentPhase as any);
+      const landProximity = computeLandProximity(pos);
+      const newStorm = computeStormParams(dist, currentPhase as any, landProximity);
       setStorm(newStorm);
       setIsInEye(inside);
+
+      // Land proximity notification — storm weakens over land
+      if (landProximity > 0.4 && !landNotifiedRef.current && !inside && newStorm.intensity > 0.15) {
+        landNotifiedRef.current = true;
+        setMission(prev => ({
+          ...prev,
+          lastNotification: notify('🏝️', 'Storm weakening over land! Warm ocean fuel is cut off.', '#9b59b6'),
+        }));
+      } else if (landProximity < 0.25 && landNotifiedRef.current) {
+        landNotifiedRef.current = false;
+      }
 
       setMission(prev => {
         const updated = {
           ...prev,
           distanceToEye: dist,
           isInEye: inside,
+          landProximity,
         };
 
         if (
@@ -577,7 +615,7 @@ export default function BossLevel({ onComplete, onExit }: { onComplete?: () => v
       bestTime: Math.min(existing?.bestTime ?? Infinity, elapsedTime),
       stars: 1,
       attempts: (existing?.attempts ?? 0) + 1,
-      factsUnlocked: Array.from(new Set([...(existing?.factsUnlocked ?? []), 'fact_boss'])),
+      factsUnlocked: Array.from(new Set([...(existing?.factsUnlocked ?? []), 'fact_boss', 'fact_land'])),
     };
 
     const updated = { ...allProgress, boss: next };
@@ -591,11 +629,15 @@ export default function BossLevel({ onComplete, onExit }: { onComplete?: () => v
     audioRef.current?.playEngineStart();
   }, []);
 
+  const handleShowIntro = useCallback(() => {
+    setShowIntro(true);
+  }, []);
+
   const handlePause = useCallback(() => setIsPaused(p => !p), []);
 
   const handleRestart = useCallback(() => {
     setMission(createDefaultMissionState());
-    setStorm({ intensity: 0, windSpeed: 0, rainIntensity: 0, lightningRate: 0, cloudCover: 0, waveHeight: 0 });
+    setStorm({ intensity: 0, windSpeed: 0, rainIntensity: 0, lightningRate: 0, cloudCover: 0, waveHeight: 0, landProximity: 0 });
     setPhase(1);
     setIsInEye(false);
     setElapsedTime(0);
@@ -606,6 +648,7 @@ export default function BossLevel({ onComplete, onExit }: { onComplete?: () => v
     prevBoatPosRef.current.set(0, 0, 120);
     timeRef.current = 0;
     progressSavedRef.current = false;
+    landNotifiedRef.current = false;
     COLLECTIBLE_DATA.forEach(c => c.collected = false);
 
     if (boatRef.current) {
@@ -664,6 +707,7 @@ export default function BossLevel({ onComplete, onExit }: { onComplete?: () => v
         buoyDeployed={mission.collectedData.includes('deploy_buoy')}
         onPause={handlePause}
         onExit={onExit}
+        onShowIntro={handleShowIntro}
       />
 
       {/* Science quiz — pauses the storm + boat while answering */}
@@ -702,25 +746,39 @@ export default function BossLevel({ onComplete, onExit }: { onComplete?: () => v
       {showIntro && (
         <BossOverlay>
           <BossModal className="max-w-md">
-            <span className="retro-badge bg-warning-red text-white text-xs px-6 py-1">BOSS LEVEL</span>
+            <span className="retro-badge bg-warning-red text-white text-xs px-6 py-1">BOSS LEVEL — Survival</span>
             <div className="text-5xl animate-float">🌀</div>
             <h1 className="font-display text-3xl text-accent-yellow" style={{ textShadow: '3px 3px 0px #000' }}>
-              RIDE THE STORM
+              Ride the Storm
             </h1>
             <div className="font-body text-xs uppercase tracking-widest text-storm-light">
               — The Eye of the Typhoon —
             </div>
             <p className="font-body text-sm text-white/80 leading-relaxed">
-              Pilot the PAGASA research vessel into the heart of the super typhoon.
-              Collect weather data, deploy a scientific buoy, and reach the calm
-              Eye of the Typhoon.
+              Survive the typhoon in your research vessel through the storm.
             </p>
-            <div className="bg-black/25 border-2 border-black/40 rounded-lg p-3 font-body text-xs text-storm-light space-y-1">
-              <div>WASD / Arrows — Steer · Shift — Boost</div>
-              <div>Space — Deploy Buoy · E — Interact</div>
+
+            {/* Mechanics cards — matches Phaser LevelIntroOverlay style */}
+            <div className="w-full flex flex-col gap-2 mt-1">
+              <MechCard icon="🚤" text="Use WASD or Arrow keys to steer your research vessel" />
+              <MechCard icon="🌡️" text="Collect Temperature buoys near the storm edge (warm ocean fuels the storm)" />
+              <MechCard icon="💧" text="Collect Humidity buoys inside the eyewall (moist air powers cloud formation)" />
+              <MechCard icon="🌪️" text="Collect Air Pressure buoys at the storm center (low pressure = stronger winds)" />
+              <MechCard icon="💨" text="Collect Wind buoys deep in the eyewall (strongest winds)" />
+              <MechCard icon="⚡" text="DODGE lightning, debris, and giant waves!" />
+              <MechCard icon="❤️" text="Watch your BOAT INTEGRITY — hit a wave and lose health!" />
+              <MechCard icon="⛵" text="Reach the EYE of the storm to collect the final data point" />
+              <MechCard icon="🏝️" text="STEER clear of islands — the storm weakens over land!" />
             </div>
-            <button onClick={handleStart} className="retro-btn-primary">
-              DEPLOY
+
+            <div className="w-full flex flex-col gap-1 mt-2">
+              <div className="font-body text-[11px] text-storm-light">
+                WASD / Arrows — Steer · Shift — Boost · Space — Deploy Buoy · E — Interact
+              </div>
+            </div>
+
+            <button onClick={handleStart} className="retro-btn-primary w-full">
+              ▶  DEPLOY
             </button>
           </BossModal>
         </BossOverlay>
@@ -808,6 +866,29 @@ export default function BossLevel({ onComplete, onExit }: { onComplete?: () => v
 }
 
 // ── Helpers ──
+
+const MECH_COLORS: Record<string, string> = {
+  '🚤': 'text-white',
+  '🌡️': 'text-accent-yellow',
+  '💧': 'text-ocean-surface',
+  '🌪️': 'text-accent-yellow',
+  '💨': 'text-cyan-300',
+  '⚡': 'text-warning-orange',
+  '❤️': 'text-warning-red',
+  '⛵': 'text-accent-green',
+};
+
+function MechCard({ icon, text }: { icon: string; text: string }) {
+  const textColor = MECH_COLORS[icon] ?? 'text-white';
+  return (
+    <div className="flex items-center gap-3 p-2.5 rounded-sm bg-black/20 border-l-3 border-accent-yellow/50">
+      <span className="text-lg shrink-0 w-6 text-center">{icon}</span>
+      <span className={`font-body text-xs ${textColor}`} style={{ textShadow: '1px 1px 0px rgba(0,0,0,0.9)' }}>
+        {text}
+      </span>
+    </div>
+  );
+}
 
 const OBJECTIVE_LABEL_MAP: Record<string, string> = {
   collect_temperature: 'Temperature',

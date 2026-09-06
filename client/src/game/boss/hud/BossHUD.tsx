@@ -18,6 +18,7 @@ interface BossHUDProps {
   buoyDeployed: boolean;
   onPause?: () => void;
   onExit?: () => void;
+  onShowIntro?: () => void;
 }
 
 const OBJECTIVE_LABELS: Record<ObjectiveId, { label: string; icon: string; color: string }> = {
@@ -49,6 +50,7 @@ export default function BossHUD({
   buoyDeployed,
   onPause,
   onExit,
+  onShowIntro,
 }: BossHUDProps) {
   const minutes = Math.floor(elapsedTime / 60);
   const seconds = Math.floor(elapsedTime % 60);
@@ -109,6 +111,16 @@ export default function BossHUD({
               {minutes}:{seconds.toString().padStart(2, '0')}
             </span>
           </div>
+          {onShowIntro && (
+            <button
+              onClick={onShowIntro}
+              className="flex h-9 w-9 items-center justify-center rounded-md border-2 border-black bg-ocean-surface/90 text-white shadow-retro transition-transform hover:bg-ocean-surface active:scale-95 pointer-events-auto text-sm"
+              title="Show instructions"
+              aria-label="Show instructions"
+            >
+              📖
+            </button>
+          )}
           {onPause && (
             <button
               onClick={onPause}
@@ -123,8 +135,8 @@ export default function BossHUD({
             <button
               onClick={onExit}
               className="hud-back flex h-9 w-9 items-center justify-center rounded-md border-2 border-black bg-warning-red/90 text-white shadow-retro transition-transform hover:bg-warning-red hover:shadow-retro-hover active:scale-95 active:shadow-retro-active pointer-events-auto"
-              title="Exit to map"
-              aria-label="Exit to map"
+              title="Back to World Map"
+              aria-label="Back to World Map"
             >
               ✕
             </button>
@@ -132,10 +144,10 @@ export default function BossHUD({
         </div>
       </div>
 
-      {/* ── Top panels row (below the topbar) ── */}
-      <div className="absolute top-[64px] left-3 right-3 flex justify-between items-start pointer-events-auto gap-3">
+      {/* ── Left stack: Hull Integrity + Mission Objectives ── */}
+      <div className="absolute top-[64px] left-3 flex flex-col gap-3 min-w-[150px] sm:min-w-[180px] pointer-events-auto">
         {/* Hull integrity */}
-        <div className="hud-health retro-card !p-2.5 !bg-storm-dark/90 border-accent-yellow/30 flex flex-col gap-1 min-w-[120px] sm:min-w-[150px] shadow-[0_0_12px_rgba(6,214,160,0.15)]">
+        <div className="hud-health retro-card !p-2.5 !bg-storm-dark/90 border-accent-yellow/30 flex flex-col gap-1 shadow-[0_0_12px_rgba(6,214,160,0.15)]">
           <div className={`font-body text-[10px] uppercase tracking-wider text-accent-yellow ${LABEL_SHADOW}`}>
             Hull Integrity
           </div>
@@ -174,6 +186,50 @@ export default function BossHUD({
           </div>
         </div>
 
+        {/* Mission Objectives */}
+        <div className="retro-card !p-2.5 !bg-storm-dark/90 border-accent-yellow/40 flex flex-col gap-1.5 shadow-[0_0_12px_rgba(255,215,0,0.12)]">
+          <div className={`font-body text-[10px] uppercase tracking-widest text-accent-yellow mb-0.5 ${LABEL_SHADOW}`}>
+            Mission — {completedCount}/{totalCount}
+          </div>
+          {mission.objectives.filter(o => {
+            if (o.id === 'complete') return false;
+            // Hide 'Reach the Eye' until the buoy is deployed
+            if (o.id === 'reach_eye' && !o.completed && mission.currentObjective !== 'reach_eye') return false;
+            return true;
+          }).map(obj => {
+            const info = OBJECTIVE_LABELS[obj.id];
+            const isActive = mission.currentObjective === obj.id;
+            const isCompleted = obj.completed;
+            return (
+              <div
+                key={obj.id}
+                className={[
+                  'flex items-center gap-2 px-2 py-1 rounded font-body text-xs transition-colors',
+                  isActive
+                    ? 'bg-accent-yellow/20 border-l-2 border-accent-yellow shadow-[inset_0_0_6px_rgba(255,215,0,0.2)]'
+                    : 'hover:bg-white/5',
+                  isCompleted
+                    ? 'opacity-60 border-l-2 border-accent-green'
+                    : '',
+                  !isActive && !isCompleted ? 'border-l-2 border-transparent' : '',
+                ].join(' ')}
+              >
+                <span className={LABEL_SHADOW}>{isCompleted ? '✅' : isActive ? '▶ ' : '○ '}{info.icon}</span>
+                <span className={[
+                  isActive ? 'text-accent-yellow font-bold' : 'text-storm-light',
+                  isCompleted ? 'line-through' : '',
+                  LABEL_SHADOW,
+                ].join(' ')}>
+                  {info.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Right stack: Phase + Compass, Mini-map ── */}
+      <div className="absolute top-[64px] right-3 flex flex-col gap-3 pointer-events-auto">
         {/* Phase + compass */}
         <div className="retro-card !p-2 !bg-storm-dark/90 border-accent-yellow/40 flex flex-col items-center gap-1 min-w-[120px] shadow-[0_0_10px_rgba(255,215,0,0.12)]">
           <div className={`font-body text-[10px] uppercase tracking-widest text-accent-yellow text-center ${LABEL_SHADOW}`}>
@@ -211,47 +267,6 @@ export default function BossHUD({
         </div>
       </div>
 
-      {/* Left panel — Objectives */}
-      <div className="absolute top-[100px] left-3 retro-card !p-2.5 !bg-storm-dark/90 border-accent-yellow/40 flex flex-col gap-1.5 pointer-events-auto min-w-[150px] sm:min-w-[180px] shadow-[0_0_12px_rgba(255,215,0,0.12)]">
-        <div className={`font-body text-[10px] uppercase tracking-widest text-accent-yellow mb-0.5 ${LABEL_SHADOW}`}>
-          Mission — {completedCount}/{totalCount}
-        </div>
-        {mission.objectives.filter(o => {
-          if (o.id === 'complete') return false;
-          // Hide 'Reach the Eye' until the buoy is deployed
-          if (o.id === 'reach_eye' && !o.completed && mission.currentObjective !== 'reach_eye') return false;
-          return true;
-        }).map(obj => {
-          const info = OBJECTIVE_LABELS[obj.id];
-          const isActive = mission.currentObjective === obj.id;
-          const isCompleted = obj.completed;
-          return (
-            <div
-              key={obj.id}
-              className={[
-                'flex items-center gap-2 px-2 py-1 rounded font-body text-xs transition-colors',
-                isActive
-                  ? 'bg-accent-yellow/20 border-l-2 border-accent-yellow shadow-[inset_0_0_6px_rgba(255,215,0,0.2)]'
-                  : 'hover:bg-white/5',
-                isCompleted
-                  ? 'opacity-60 border-l-2 border-accent-green'
-                  : '',
-                !isActive && !isCompleted ? 'border-l-2 border-transparent' : '',
-              ].join(' ')}
-            >
-              <span className={LABEL_SHADOW}>{isCompleted ? '✅' : isActive ? '▶ ' : '○ '}{info.icon}</span>
-              <span className={[
-                isActive ? 'text-accent-yellow font-bold' : 'text-storm-light',
-                isCompleted ? 'line-through' : '',
-                LABEL_SHADOW,
-              ].join(' ')}>
-                {info.label}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
       {/* Bottom center — Distance to Eye */}
       <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 retro-card !p-2 flex flex-col items-center gap-0.5 pointer-events-auto border-2 ${
         mission.isInEye
@@ -279,6 +294,9 @@ export default function BossHUD({
         </div>
         <div className={`flex items-center gap-1 ${LABEL_SHADOW}`}>
           <span>🌧️</span> Rain: <span className={`text-white ${LABEL_SHADOW}`}>{mission.isInEye ? 'None' : 'Heavy'}</span>
+        </div>
+        <div className={`flex items-center gap-1 ${LABEL_SHADOW}`}>
+          <span>🏝️</span> Land Influence: <span className={`text-white ${LABEL_SHADOW}`}>{mission.isInEye ? 'N/A' : `${Math.round(mission.landProximity * 100)}%`}</span>
         </div>
       </div>
 

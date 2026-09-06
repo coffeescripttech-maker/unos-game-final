@@ -5,11 +5,13 @@ import type {
   HUDObjectivePayload,
   HUDResultPayload,
   HUDLevelInfoPayload,
+  HUDLevelIntroPayload,
   HUDHealthPayload,
   HUDScorePayload,
   HUDWeatherPayload
 } from '@shared/events';
 import { GAME_WIDTH, GAME_HEIGHT } from '../constants';
+import { GameManager } from '../managers/GameManager';
 
 // ═══════════════════════════════════════════════════════════════════
 //  WORLD
@@ -1577,14 +1579,36 @@ export class BossScene extends Phaser.Scene {
   // ═══════════════════════════════════════════════════════════════════
 
   private emitIntro() {
-    this.game.events.emit(GAME_EVENTS.HUD_LEVEL_INFO, {
-      name: 'Ride the Storm',
-      description:
-        'Navigate your research vessel through the typhoon to collect weather data!'
-    } satisfies HUDLevelInfoPayload);
+    this.game.events.emit(GAME_EVENTS.HUD_LEVEL_INTRO, {
+      levelId: 'boss',
+      badge: '⛈️ FINAL BOSS',
+      title: 'Ride the Storm',
+      subtitle: 'Survive the typhoon in your research vessel through the storm.',
+            mechanics: [
+        { icon: '🚤', text: 'Use WASD or Arrow keys to steer your research vessel' },
+        { icon: '🌡️', text: 'Collect Temperature buoys near the storm edge (warm ocean fuels the storm)' },
+        { icon: '💧', text: 'Collect Humidity buoys inside the eyewall (moist air powers cloud formation)' },
+        { icon: '🌪️', text: 'Collect Air Pressure buoys at the storm center (low pressure = stronger winds)' },
+        { icon: '💨', text: 'Collect Wind buoys deep in the eyewall (strongest winds)' },
+        { icon: '⚡', text: 'DODGE lightning, debris, and giant waves!' },
+        { icon: '❤️', text: 'Watch your BOAT INTEGRITY — hit a wave and lose health!' },
+        { icon: '⛵', text: 'Reach the EYE of the storm to collect the final data point' }
+      ]
+    } satisfies HUDLevelIntroPayload);
+
+    this.game.events.once(GAME_EVENTS.HUD_INTRO_DISMISS, this.startBoss);
+  }
+
+    private startBoss = () => {
+    this.time.delayedCall(1000, () => {
+      this.activateCheckpoint(0);
+      this.game.events.emit(GAME_EVENTS.HUD_LEVEL_INFO, {
+        name: 'Ride the Storm',
+        description: 'Survive the typhoon in your research vessel through the storm. Navigate your research vessel through the typhoon to collect weather data!'
+      } satisfies HUDLevelInfoPayload);
+    });
     this.emitHealth();
     this.emitScore();
-    this.time.delayedCall(1500, () => this.activateCheckpoint(0));
   }
 
   private emitHealth() {
@@ -1715,11 +1739,17 @@ export class BossScene extends Phaser.Scene {
           stars,
           levelId: 'boss',
           timeUsed: this.elapsed,
-          factsUnlocked: BUOY_DEFS.map(d => `boss_${d.type}`)
+                              factsUnlocked: BUOY_DEFS.map(d => `boss_${d.type}`)
         } satisfies HUDResultPayload);
+        this.game.events.once(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
       });
     });
   }
+
+  private onContinue = () => {
+    this.game.events.off(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
+    GameManager.handleContinue(this, 'boss', true);
+  };
 
   // ═══════════════════════════════════════════════════════════════════
   //  UPDATE
@@ -1773,7 +1803,9 @@ export class BossScene extends Phaser.Scene {
     }
   }
 
-  shutdown() {
+    shutdown() {
+    this.game.events.off(GAME_EVENTS.HUD_INTRO_DISMISS, this.startBoss);
+    this.game.events.off(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
     this.wakeEmitter?.destroy();
   }
 }

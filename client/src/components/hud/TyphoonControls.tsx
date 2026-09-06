@@ -5,6 +5,7 @@ import {
   GAME_EVENTS,
   type TyphoonSliderConfig,
   type TyphoonSliderUpdatePayload,
+  type TyphoonSliderUnlockPayload,
   type HUDLevelInfoPayload,
 } from '@shared/events';
 import { Flame, Droplets, Wind, Compass } from 'lucide-react';
@@ -14,17 +15,19 @@ const LUCIDE_ICONS = [Flame, Droplets, Wind, Compass];
 interface TyphoonSlider {
   config: TyphoonSliderConfig;
   value: number;
+  justUnlocked?: boolean;
 }
 
 interface SliderBarProps {
   slider: TyphoonSlider;
   onChange: (value: number) => void;
   disabled: boolean;
+  justUnlocked?: boolean;
 }
 
 const COLORS = ['#ff6b35', '#6db3e6', '#d62828', '#9b59b6'];
 
-function SliderBar({ slider, onChange, disabled }: SliderBarProps) {
+function SliderBar({ slider, onChange, disabled, justUnlocked }: SliderBarProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
   const { config, value } = slider;
@@ -61,10 +64,10 @@ function SliderBar({ slider, onChange, disabled }: SliderBarProps) {
   const IconComp = LUCIDE_ICONS[config.index] ?? Flame;
 
   return (
-    <div className={`flex items-center gap-2 lg:gap-3 py-1 lg:py-1.5 ${disabled ? 'opacity-40' : ''}`}>
+    <div className={`flex items-center gap-2 lg:gap-3 py-1 lg:py-1.5 ${disabled ? 'opacity-40' : ''} ${justUnlocked ? 'animate-pulse' : ''}`}>
       {/* Icon */}
       <div
-        className="flex h-7 w-7 lg:h-8 lg:w-8 shrink-0 items-center justify-center rounded-full"
+        className={`flex h-7 w-7 lg:h-8 lg:w-8 shrink-0 items-center justify-center rounded-full ${justUnlocked ? 'ring-2 ring-accent-green' : ''}`}
         style={{ backgroundColor: color + '22' }}
       >
         <IconComp size={16} className="lg:w-[18px] lg:h-[18px]" color={color} />
@@ -72,7 +75,7 @@ function SliderBar({ slider, onChange, disabled }: SliderBarProps) {
 
       {/* Label (desktop only) */}
       <span className="hidden lg:block w-20 shrink-0 text-xs font-bold text-gray-300 truncate">
-        {config.label}
+        {config.locked ? `🔒 ${config.label}` : config.label}
       </span>
 
       {/* Custom slider track */}
@@ -134,9 +137,9 @@ function SliderBar({ slider, onChange, disabled }: SliderBarProps) {
       {/* Value badge */}
       <div
         className="flex h-5 w-8 lg:h-6 lg:w-10 shrink-0 items-center justify-center rounded-md text-[10px] lg:text-xs font-bold text-white"
-        style={{ backgroundColor: color, opacity: 0.85 }}
+        style={{ backgroundColor: config.locked ? '#3a3a52' : color, opacity: 0.85 }}
       >
-        {value}
+        {config.locked ? '🔒' : value}
       </div>
     </div>
   );
@@ -166,6 +169,23 @@ export default function TyphoonControls() {
       setSliders(configs.map((c) => ({ config: c, value: c.defaultValue })));
       setGameStarted(false);
       setIsComplete(false);
+    },
+  );
+
+  // Gate quiz passed in Phaser → unlock that slider with a brief highlight
+  usePhaserEvent(
+    GAME_EVENTS.HUD_TYPHOON_SLIDER_UNLOCK,
+    (p: TyphoonSliderUnlockPayload) => {
+      setSliders((prev) => prev.map((s) =>
+        s.config.index === p.index
+          ? { ...s, config: { ...s.config, locked: false }, justUnlocked: true }
+          : s,
+      ));
+      window.setTimeout(() => {
+        setSliders((prev) => prev.map((s) =>
+          s.config.index === p.index ? { ...s, justUnlocked: false } : s,
+        ));
+      }, 2600);
     },
   );
 
@@ -225,7 +245,8 @@ export default function TyphoonControls() {
             <SliderBar
               key={s.config.index}
               slider={s}
-              disabled={!gameStarted || isComplete}
+              disabled={!gameStarted || isComplete || !!s.config.locked}
+              justUnlocked={s.justUnlocked}
               onChange={(v) => handleSliderChange(s.config.index, v)}
             />
           ))}

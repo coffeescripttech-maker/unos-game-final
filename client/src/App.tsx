@@ -9,6 +9,7 @@ import SettingsPage from './pages/SettingsPage';
 import EncyclopediaPage from './pages/EncyclopediaPage';
 import CreditsPage from './pages/CreditsPage';
 import BossPage from './pages/BossPage';
+import WalkthroughPage from './pages/WalkthroughPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import { audioService } from './services/audio';
 import { loadSettings, applySettings } from './services/settings';
@@ -73,6 +74,7 @@ export default function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/credits" element={<CreditsPage />} />
           <Route path="/boss" element={<BossPage />} />
+          <Route path="/walkthrough" element={<WalkthroughPage />} />
         </Routes>
       </div>
     </ErrorBoundary>

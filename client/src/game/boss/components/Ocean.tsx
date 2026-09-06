@@ -48,6 +48,7 @@ export default function Ocean({ storm, isInEye }: OceanProps) {
     uWaterTex: { value: waterTexture },
     uTexOffset: { value: new THREE.Vector2(0, 0) },
     uWindDir: { value: new THREE.Vector2(1, 0.3) },
+    uLandProximity: { value: 0 },
   }), [waterTexture]);
 
   const mat = useMemo(() => {
@@ -74,6 +75,7 @@ export default function Ocean({ storm, isInEye }: OceanProps) {
         uniform sampler2D uWaterTex;
         uniform vec2 uTexOffset;
         uniform vec2 uWindDir;
+        uniform float uLandProximity;
 
         varying vec2 vWorldPos;
 
@@ -129,6 +131,10 @@ export default function Ocean({ storm, isInEye }: OceanProps) {
           float edge = smoothstep(350.0, 420.0, dist);
           water = mix(water, uColorDeep * 0.6, edge * 0.5);
 
+          // Land influence: near land, water carries sediment — warmer, shallower tone
+          vec3 landColor = mix(vec3(0.30, 0.25, 0.18), vec3(0.20, 0.45, 0.35), uLandProximity);
+          water = mix(water, landColor, uLandProximity * 0.35);
+
           gl_FragColor = vec4(water, 0.98);
         }
       `,
@@ -141,7 +147,8 @@ export default function Ocean({ storm, isInEye }: OceanProps) {
     if (!meshRef.current) return;
     timeRef.current += delta;
     uniforms.uTime.value = timeRef.current;
-    uniforms.uWaveHeight.value = isInEye ? 0.1 : 0.4 + storm.waveHeight * 0.8;
+    uniforms.uLandProximity.value = storm.landProximity;
+    uniforms.uWaveHeight.value = isInEye ? 0.1 : 0.4 + storm.waveHeight * 0.8 * (1 - storm.landProximity * 0.5);
     uniforms.uWindSpeed.value = isInEye ? 5 : storm.windSpeed;
     uniforms.uEyeBlend.value = THREE.MathUtils.lerp(
       uniforms.uEyeBlend.value,

@@ -89,7 +89,7 @@ const CARD_META: Record<
   boss: {
     stage: 'Final Mission',
     description:
-      'Survive the typhoon in your research vessel through the storm.',
+      'Survive the typhoon in your research vessel through the storm. Ride the Storm — Navigate your research vessel through the typhoon to collect weather data!',
     theme: 'Survival',
     emoji: '🏆',
     bgImage: '/images/Stage 6 — Boss BG.png'

@@ -446,7 +446,7 @@ export class EvaporationScene extends Phaser.Scene {
   //  💧  Vapor bubbles (click to collect)
   // ─────────────────────────────────────────────
 
-  private spawnVaporBubbles() {
+    private spawnVaporBubbles() {
     const baseCount = 1 + Math.floor(this.sunHeat / 25);
     const comboBonus = Math.floor(this.combo / 3);
     const count = Math.min(baseCount + comboBonus, 6);
@@ -454,8 +454,28 @@ export class EvaporationScene extends Phaser.Scene {
     for (let i = 0; i < count; i++) {
       this.time.delayedCall(i * 120, () => {
         this.createVaporBubble();
+        // Steam connection: small wisp animates from ocean surface up to the bubble
+        this.drawRisingSteamTrail();
       });
     }
+  }
+
+  /** Visual wisp that rises from the ocean surface to show evaporation → vapor flow */
+  private drawRisingSteamTrail() {
+    const trailX = Phaser.Math.Between(100, GAME_WIDTH - 100);
+    const trail = this.add
+      .rectangle(trailX, OCEAN_TOP_Y, 3, 30, 0xffffff, 0.25)
+      .setDepth(6);
+
+    this.tweens.add({
+      targets: trail,
+      y: OCEAN_TOP_Y - 120,
+      height: 0,
+      alpha: 0,
+      duration: 900,
+      ease: 'Quad.easeOut',
+      onComplete: () => trail.destroy()
+    });
   }
 
   private createVaporBubble() {
@@ -916,6 +936,7 @@ export class EvaporationScene extends Phaser.Scene {
     const score = Math.max(0, 2000 - this.overheatCount * 200 + Math.round((this.timeRemaining / 60) * 300) + comboBonus);
     const stars = GameManager.getStars(score, 2500);
 
+        this.didWin = true;
     GameManager.getInstance().completeLevel('evaporation', score, stars, this.totalTime - this.timeRemaining);
     const saved = localStorage.getItem('unos_progress');
     const progress = saved ? JSON.parse(saved) : {};
@@ -988,9 +1009,11 @@ export class EvaporationScene extends Phaser.Scene {
     } satisfies HUDObjectivePayload);
   }
 
+    private didWin = false;
+
   private onContinue = () => {
     this.game.events.off(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
-    this.scene.start(SCENES.WORLD_MAP);
+    GameManager.handleContinue(this, 'evaporation', this.didWin);
   };
 
   shutdown() {

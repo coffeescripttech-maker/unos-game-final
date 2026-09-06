@@ -1,6 +1,6 @@
 import { GAME_EVENTS, type LevelCompletePayload, type LevelFailPayload } from '@shared/events';
-import type { LevelId, GameState, WeatherParams, GamePhase } from '@shared/types';
-import { SCENES } from '@shared/constants';
+import type { LevelId, LevelProgress, GameState, WeatherParams, GamePhase } from '@shared/types';
+import { SCENES, LEVEL_ORDER, LEVEL_CONFIGS, LEVEL_TO_SCENE } from '@shared/constants';
 
 /**
  * Central orchestrator singleton for game state.
@@ -113,9 +113,48 @@ export class GameManager {
    */
   static getStars(score: number, maxScore: number): number {
     const ratio = maxScore > 0 ? score / maxScore : 0;
-    if (ratio >= 0.9) return 3;
+        if (ratio >= 0.9) return 3;
     if (ratio >= 0.6) return 2;
     if (ratio > 0) return 1;
     return 0;
+  }
+
+  /**
+   * Next level unlocked after `completed`, based on persisted progress.
+   * Returns null at the end of the campaign or if the prerequisite isn't met.
+   */
+  static getNextLevel(completed: LevelId): LevelId | null {
+    const idx = LEVEL_ORDER.indexOf(completed);
+    if (idx < 0 || idx >= LEVEL_ORDER.length - 1) return null;
+    const next = LEVEL_ORDER[idx + 1];
+    const cfg = LEVEL_CONFIGS[next];
+    if (!cfg || !cfg.unlockRequirement) return next;
+    const saved = localStorage.getItem?.('unos_progress');
+    const progress: Record<string, LevelProgress> = saved ? JSON.parse(saved) : {};
+    const req = progress[cfg.unlockRequirement];
+    return req?.completed === true ? next : null;
+  }
+
+  /**
+   * Run after the Result overlay "Continue" is pressed.
+   * - Win + next level unlocked  → start the next level
+   * - Win + next is Boss         → navigate to /boss (React/R3F experience, not a Phaser scene)
+   * - Win + no next level        → World Map (end of campaign / Boss)
+   * - Fail / retry               → restart the current level
+   */
+  static handleContinue(scene: Phaser.Scene, levelId: LevelId, didWin: boolean): void {
+    if (didWin) {
+      const next = this.getNextLevel(levelId);
+      // The boss level is a React/R3F experience rendered at /boss —
+      // navigate there the same way the World Map does.
+      if (next === 'boss') {
+        window.location.href = '/boss';
+        return;
+      }
+      const target = next ? LEVEL_TO_SCENE[next] : SCENES.WORLD_MAP;
+      scene.scene.start(target);
+    } else {
+      scene.scene.start(LEVEL_TO_SCENE[levelId]);
+    }
   }
 }

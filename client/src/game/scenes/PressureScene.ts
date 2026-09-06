@@ -219,12 +219,12 @@ export class PressureScene extends Phaser.Scene {
 
     // ── Title ──
     this.add
-      .text(GAME_WIDTH / 2, 100, '🌀 Wind flows from HIGH → LOW pressure', {
+            .text(GAME_WIDTH / 2, 100, '🌀 Wind flows from HIGH pressure → LOW pressure', {
         fontFamily: FONTS.DISPLAY,
-        fontSize: '13px',
+        fontSize: '16px',
         color: '#4fc3f7',
         stroke: '#000000',
-        strokeThickness: 2
+        strokeThickness: 3
       })
       .setOrigin(0.5)
       .setDepth(1)
@@ -269,14 +269,14 @@ export class PressureScene extends Phaser.Scene {
         .setOrigin(0.5)
         .setDepth(1.5)
         .setAlpha(0);
-      // Slot number label (matches modal references like "#1", "#2")
+        // Slot number label (matches modal references like "#1", "#2")
       this.add
         .text(p.x, p.y + 35, `#${i + 1}`, {
           fontFamily: FONTS.DISPLAY,
-          fontSize: '9px',
+          fontSize: '12px',
           color: '#3a5a7a',
           stroke: '#000000',
-          strokeThickness: 1
+          strokeThickness: 2
         })
         .setOrigin(0.5)
         .setDepth(1)
@@ -414,11 +414,11 @@ export class PressureScene extends Phaser.Scene {
       });
 
       // Ghost label — starts hidden ('?'), reveal depends on round
-      s.ghostLabel.setText('?');
+            s.ghostLabel.setText('?');
       s.ghostLabel.setColor('#4a6a7a');
-      s.ghostLabel.setAlpha(0.55);
+      s.ghostLabel.setAlpha(0.6);
       s.ghostLabel.setStroke('rgba(0,0,0,0.8)', 3);
-      s.ghostLabel.setFontSize('18px');
+        s.ghostLabel.setFontSize('24px');
     });
 
     // Apply per-round reveal strategy
@@ -453,14 +453,14 @@ export class PressureScene extends Phaser.Scene {
   /** Show or hide the ghost H/L pattern on all slots */
   private setGhostReveal(reveal: boolean) {
     this.slots.forEach(s => {
-      if (reveal) {
-        s.ghostLabel.setText(s.correct === 'high' ? 'H' : 'L');
-        s.ghostLabel.setColor(s.correct === 'high' ? '#d62828' : '#1565c0');
-        s.ghostLabel.setAlpha(0.7);
+            if (reveal) {
+        s.ghostLabel.setText(s.correct === 'high' ? 'HIGH' : 'LOW');
+        s.ghostLabel.setColor(s.correct === 'high' ? '#FF6B6B' : '#4D96FF');
+        s.ghostLabel.setAlpha(0.8);
       } else {
         s.ghostLabel.setText('?');
         s.ghostLabel.setColor('#4a6a7a');
-        s.ghostLabel.setAlpha(0.55);
+        s.ghostLabel.setAlpha(0.6);
       }
     });
   }
@@ -1422,8 +1422,8 @@ export class PressureScene extends Phaser.Scene {
   //  INTRO & FLOW
   // ─────────────────────────────────
 
-  private showIntroOverlay() {
-    this.game.events.emit(GAME_EVENTS.HUD_LEVEL_INTRO, {
+  private getIntroPayload() {
+    return {
       levelId: 'pressure',
       badge: '🌀 LEVEL 3',
       title: 'Air Pressure',
@@ -1438,7 +1438,11 @@ export class PressureScene extends Phaser.Scene {
         { icon: '💨', text: 'All 6 correct → START WIND — wind blows High → Low!' },
         { icon: '🎯', text: '3 correct rounds carry the cloud all the way home!' }
       ]
-    } satisfies HUDLevelIntroPayload);
+    } satisfies HUDLevelIntroPayload;
+  }
+
+  private showIntroOverlay() {
+    this.game.events.emit(GAME_EVENTS.HUD_LEVEL_INTRO, this.getIntroPayload());
     this.game.events.once(GAME_EVENTS.HUD_INTRO_DISMISS, this.startGame);
   }
 
@@ -1498,6 +1502,7 @@ export class PressureScene extends Phaser.Scene {
       this.comboScore +
       this.bestCombo * 100;
     const stars = GameManager.getStars(score, 2500);
+        this.didWin = true;
     GameManager.getInstance().completeLevel(
       'pressure',
       score,
@@ -1597,9 +1602,11 @@ export class PressureScene extends Phaser.Scene {
     } satisfies HUDResultPayload);
   }
 
+    private didWin = false;
+
   private onContinue = () => {
     this.game.events.off(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
-    this.scene.start(SCENES.WORLD_MAP);
+    GameManager.handleContinue(this, 'pressure', this.didWin);
   };
 
   private onPatternDismiss = () => {

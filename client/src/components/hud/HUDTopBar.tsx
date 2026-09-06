@@ -37,6 +37,13 @@ export default function HUDTopBar() {
     }
   }, [game]);
 
+  // 📖 Re-open the current level's instructions (works on every level)
+  const handleShowIntro = useCallback(() => {
+    if (game) {
+      game.events.emit(GAME_EVENTS.HUD_REQUEST_INTRO);
+    }
+  }, [game]);
+
   const timerPct = total > 0 ? remaining / total : 0;
   const isUrgent = remaining <= 10 && remaining > 0;
 
@@ -82,6 +89,15 @@ export default function HUDTopBar() {
             </span>
           </div>
         )}
+
+        <button
+          onClick={handleShowIntro}
+          className="flex h-8 w-8 lg:h-9 lg:w-9 items-center justify-center rounded-md border-2 border-black bg-ocean-surface/90 text-white shadow-retro transition-transform hover:bg-ocean-surface active:scale-95 pointer-events-auto text-sm"
+          title="Show instructions"
+          aria-label="Show instructions"
+        >
+          📖
+        </button>
 
         <button
           onClick={handleExit}

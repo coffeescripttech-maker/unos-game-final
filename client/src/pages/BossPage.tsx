@@ -12,7 +12,7 @@ export default function BossPage() {
   };
 
   const handleExit = () => {
-    navigate('/');
+    navigate('/game');
   };
 
   return (

@@ -116,14 +116,26 @@ export const LEVEL_CONFIGS: Record<string, LevelConfig> = {
   boss: {
     id: 'boss',
     name: 'Ride the Storm',
-    description: 'Survive the typhoon in your research vessel.',
+    description: 'Survive the typhoon in your research vessel through the storm. Navigate your research vessel through the typhoon to collect weather data!',
     timeLimit: 0,
     passThreshold: 2000,
     maxScore: 5000,
     difficultyMultiplier: 2,
     educationalFactId: 'fact_boss',
-    unlockRequirement: 'typhoon',
+        unlockRequirement: 'typhoon',
   },
+};
+
+// ────────────────────────── LevelId → SceneKey map ──────────────────────────
+// Lets the campaign auto-advance from one level straight to the next.
+export const LEVEL_TO_SCENE: Record<LevelId, string> = {
+  tutorial: SCENES.TUTORIAL,
+  evaporation: SCENES.EVAPORATION,
+  condensation: SCENES.CONDENSATION,
+  pressure: SCENES.PRESSURE,
+  rotation: SCENES.ROTATION,
+  typhoon: SCENES.TYPHOON,
+  boss: SCENES.BOSS,
 };
 
 // ────────────────────────── Achievements ──────────────────────────
@@ -200,6 +212,12 @@ export const EDUCATIONAL_FACTS: EducationalFact[] = [
     id: 'fact_boss',
     levelId: 'boss',
     text: 'Typhoons can reach Category 5 with sustained winds over 252 km/h — powerful enough to cause catastrophic damage.',
+    source: 'National Hurricane Center',
+  },
+  {
+    id: 'fact_land',
+    levelId: 'boss',
+    text: 'Typhoons weaken over land because the warm ocean evaporation that fuels them is cut off. Surface friction also disrupts the storm\'s circulation, causing rapid weakening within hours.',
     source: 'National Hurricane Center',
   },
 ];

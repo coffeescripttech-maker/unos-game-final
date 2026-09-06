@@ -166,7 +166,7 @@ export function useBoatController({
     if (!boatRef.current) return new THREE.Vector3(0, 0, 0);
     const pos = boatRef.current.position;
     const dirToEye = new THREE.Vector3().copy(EYE_POSITION).sub(pos).normalize();
-    const strength = storm.windSpeed * 0.25;
+    const strength = storm.windSpeed * 0.25 * (1 - (storm.landProximity ?? 0) * 0.4);
     const angle = Math.atan2(dirToEye.x, dirToEye.z);
     const spiralAngle = angle + Math.PI / 4;
     return new THREE.Vector3(

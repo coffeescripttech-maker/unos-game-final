@@ -125,7 +125,8 @@ export default function Lightning({ storm, isInEye, boatPosition, onThunder }: L
     nextStrikeRef.current -= delta;
     if (nextStrikeRef.current <= 0) {
       triggerStrike();
-      const interval = 2.5 + storm.lightningRate * 6;
+      // Land-weakening: increase lightning interval (less frequent strikes) over land
+      const interval = 2.5 + storm.lightningRate * 6 + storm.landProximity * 4;
       nextStrikeRef.current = interval * (0.5 + Math.random() * 0.5);
     }
   });

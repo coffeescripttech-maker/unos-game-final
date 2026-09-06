@@ -87,7 +87,8 @@ export default function Hazards({ storm, isInEye, boatPosition, onBoatHit }: Haz
 
   useFrame((_, delta) => {
     timeRef.current += delta;
-    const visible = storm.intensity > 0.3 && !isInEye;
+    // Debris only appears when the storm is strong AND over deep ocean (not near land)
+    const visible = storm.intensity > 0.3 && !isInEye && storm.landProximity < 0.5;
 
     if (!instanceRef.current) return;
     instanceRef.current.visible = visible;

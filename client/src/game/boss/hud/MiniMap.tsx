@@ -1,31 +1,12 @@
 import { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import type { ObjectiveId, CollectibleData } from '../types';
+import { ISLANDS } from '../components/Philippines';
 
 const EYE_POS = { x: 0, z: -150 };
 
-// Approximate island cluster positions for the mini map (matches Philippines.tsx)
-const ISLAND_MARKERS = [
-  { x: -90, z: -280 },
-  { x: -62, z: -270 },
-  { x: -115, z: -268 },
-  { x: -55, z: -245 },
-  { x: -78, z: -225 },
-  { x: -42, z: -252 },
-  { x: 18, z: -235 },
-  { x: 8, z: -222 },
-  { x: 44, z: -230 },
-  { x: -6, z: -240 },
-  { x: 22, z: -255 },
-  { x: 40, z: -178 },
-  { x: 62, z: -185 },
-  { x: 28, z: -165 },
-  { x: 80, z: -192 },
-  { x: -125, z: -235 },
-  { x: -88, z: -210 },
-  { x: 100, z: -175 },
-  { x: 60, z: -255 },
-];
+// Island cluster positions for the mini map — synced from Philippines.tsx so we never drift
+const ISLAND_MARKERS = ISLANDS.map(i => ({ x: i.position[0], z: i.position[2] }));
 
 interface MiniMapProps {
   boatPosition: THREE.Vector3;
