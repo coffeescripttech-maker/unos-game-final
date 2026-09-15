@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame } from '@react-three/fiber';
 import DamageFlash from './components/DamageFlash';
+import VirtualJoystick from './components/VirtualJoystick';
 import WindIndicator from './components/WindIndicator';
 import type { DamageFlashHandle } from './components/DamageFlash';
 import Ocean from './components/Ocean';
@@ -27,7 +28,7 @@ import { telemetry } from '../../services/telemetry';
 
 // Boss level_start logs once per page load (React StrictMode double-fires effects)
 let bossStartLogged = false;
-import { getQuizQuestions } from './hud/QuizData';
+import { getQuizQuestions, resetBossQuizHistory } from './hud/QuizData';
 import type { QuizQuestion } from './hud/QuizData';
 import { AudioManager } from './AudioManager';
 import { useBossTexture, createEyeMarkerTexture } from './utils/textures';
@@ -109,6 +110,7 @@ function SceneContent({
   onNearCollectible,
   onLightningStrike,
   showQuiz,
+  joystickAxes,
 }: {
   boatRef: React.MutableRefObject<THREE.Group | null>;
   mission: MissionState;
@@ -123,6 +125,7 @@ function SceneContent({
   onLightningStrike: (pos: THREE.Vector3) => void;
   showQuiz: boolean;
   damageFlashRef: React.MutableRefObject<{ triggerFlash: () => void } | null>;
+  joystickAxes: { x: number; y: number };
 }) {
   const [boatPos, setBoatPos] = useState(new THREE.Vector3(0, 0, 120));
   const [engineRunning, setEngineRunning] = useState(false);
@@ -132,7 +135,7 @@ function SceneContent({
   const [boatSpeedLocal, setBoatSpeedLocal] = useState(0);
   const damageFlashRef = useRef<DamageFlashHandle | null>(null);
 
-  const { yaw } = useBoatController({
+  const { yaw, setJoystickAxes } = useBoatController({
     boatRef,
     storm,
     isInEye,
@@ -157,6 +160,10 @@ function SceneContent({
       if (nearest) onCollect(nearest);
     },
   });
+
+  useEffect(() => {
+    setJoystickAxes(joystickAxes.x, joystickAxes.y);
+  }, [joystickAxes, setJoystickAxes]);
 
   const getNearestCollectible = (pos: THREE.Vector3): ObjectiveId | null => {
     const available = COLLECTIBLE_DATA.filter(d => !d.collected && !mission.collectedData.includes(d.id));
@@ -333,6 +340,10 @@ export default function BossLevel({ onComplete, onExit }: { onComplete?: () => v
   const [isInEye, setIsInEye] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showIntro, setShowIntro] = useState(true);
+
+  useEffect(() => {
+    resetBossQuizHistory();
+  }, []);
   const [showResult, setShowResult] = useState(false);
   const [showFailed, setShowFailed] = useState(false);
   const [showEducation, setShowEducation] = useState(false);
@@ -345,6 +356,7 @@ export default function BossLevel({ onComplete, onExit }: { onComplete?: () => v
   const [boatPos, setBoatPos] = useState(new THREE.Vector3(0, 0, 120));
   const [boatYaw, setBoatYaw] = useState(0);
   const [boatSpeed, setBoatSpeed] = useState(0);
+  const [joystickAxes, setJoystickAxes] = useState({ x: 0, y: 0 });
 
   const boatRef = useRef<THREE.Group>(null);
   const audioRef = useRef<AudioManager | null>(null);
@@ -703,6 +715,7 @@ export default function BossLevel({ onComplete, onExit }: { onComplete?: () => v
           onLightningStrike={handleLightningStrike}
           showQuiz={showQuiz}
           damageFlashRef={damageFlashRef as unknown as React.MutableRefObject<{ triggerFlash: () => void } | null>}
+          joystickAxes={joystickAxes}
         />
       </Canvas>
 
@@ -722,6 +735,11 @@ export default function BossLevel({ onComplete, onExit }: { onComplete?: () => v
       />
 
       {/* Science quiz — pauses the storm + boat while answering */}
+
+      {/* On-screen joystick control */}
+      {!showIntro && !showQuiz && !isPaused && !showResult && !showFailed && (
+        <VirtualJoystick onChange={(x, y) => setJoystickAxes({ x, y })} disabled={showQuiz} />
+      )}
 
       {/* Wind / storm-push direction indicator */}
       <WindIndicator

@@ -78,7 +78,11 @@ export class PreloadScene extends Phaser.Scene {
     // Stage 2 â€” Condensation assets (actual PNG files)
     this.load.image(
       'condensation_sky',
-      'images/Stage 2/backgrounds/condensation_sky.png'
+      'images/Stage 2/backgrounds/background.png'
+    );
+    this.load.image(
+      'pressure_condensation_bg',
+      'images/Stage 2/backgrounds/background.png'
     );
     this.load.image(
       'ocean_strip',

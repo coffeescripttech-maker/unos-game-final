@@ -55,6 +55,8 @@ export class PressureScene extends Phaser.Scene {
   private progressBar!: Phaser.GameObjects.Graphics;
   private windArrows: Phaser.GameObjects.Graphics[] = [];
   private previewArrows: Phaser.GameObjects.GameObject[] = [];
+  private vaporDroplets: Phaser.GameObjects.Image[] = [];
+  private orbitClouds: { sprite: Phaser.GameObjects.Image; angle: number; speed: number; radius: number }[] = [];
   private placedCount = 0;
   private round = 0;
   private targetArrow!: Phaser.GameObjects.Graphics;
@@ -84,9 +86,9 @@ export class PressureScene extends Phaser.Scene {
   }
 
   private buildScene() {
-    // ── Pressure island background (subtle slow zoom animation) ──
+    // ── Shared cumulonimbus background (Condensation scene, reused here) ──
     const bg = this.add
-      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'pressure_island_bg')
+      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'pressure_condensation_bg')
       .setDepth(0);
     const bgScale = Math.max(GAME_WIDTH / bg.width, GAME_HEIGHT / bg.height);
     bg.setScale(bgScale);
@@ -140,18 +142,30 @@ export class PressureScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(1);
 
-    // ── Cloud (starts at left) — cloud_glow_s3 image only ──
+    // ── Cloud cluster (starts at left) with high→low swirl emphasis ──
     this.cloud = this.add
       .image(140, TARGET_Y, 'cloud_glow_s3')
       .setDepth(3)
       .setScale(0.35)
-      .setAlpha(0.85);
+      .setAlpha(0.85)
+      .setTint(0xddeeff);
     this.cloudGlow = this.add
       .image(140, TARGET_Y, 'cloud_glow_s3')
       .setDepth(2)
       .setScale(0.24)
       .setAlpha(0.3)
       .setBlendMode(Phaser.BlendModes.ADD);
+    // Swirling satellite cloudlets that orbit the main cloud
+    this.orbitClouds = [];
+    for (let i = 0; i < 5; i++) {
+      const angle = (i / 5) * Phaser.Math.PI2;
+      const c = this.add
+        .image(140 + Math.cos(angle) * 28, TARGET_Y + Math.sin(angle) * 16, 'cloud_small')
+        .setDepth(2.5)
+        .setScale(0.08 + Math.random() * 0.05)
+        .setAlpha(0.5);
+      this.orbitClouds.push({ sprite: c, angle, speed: 0.004 + Math.random() * 0.004, radius: 28 + Math.random() * 10 });
+    }
 
     // Idle breathing animation for cloud (very subtle)
     this.tweens.add({
@@ -221,7 +235,7 @@ export class PressureScene extends Phaser.Scene {
 
     // ── Title ──
     this.add
-            .text(GAME_WIDTH / 2, 100, '🌀 Wind flows from HIGH pressure → LOW pressure', {
+            .text(GAME_WIDTH / 2, 100, '🌀 Swirling wind: HIGH pressure → LOW pressure', {
         fontFamily: FONTS.DISPLAY,
         fontSize: '16px',
         color: '#4fc3f7',
@@ -954,6 +968,20 @@ export class PressureScene extends Phaser.Scene {
   //  START WIND
   // ─────────────────────────────────
 
+  private spawnVaporDroplet() {
+    const x = Phaser.Math.Between(80, GAME_WIDTH - 80);
+    const y = GAME_HEIGHT + 20;
+    const d = this.add
+      .image(x, y, 'vapor_particle')
+      .setDepth(1.8)
+      .setScale(0.08 + Math.random() * 0.06)
+      .setAlpha(0.55)
+      .setTint(0xbee3f8)
+      .setData('vy', 0.6 + Math.random() * 0.8)
+      .setData('phase', Math.random() * Phaser.Math.PI2);
+    this.vaporDroplets.push(d);
+  }
+
   private spawnWindStream() {
     if (this.isComplete || !this.gameStarted) return;
     const y = Phaser.Math.Between(140, 500);
@@ -1118,7 +1146,12 @@ export class PressureScene extends Phaser.Scene {
       targets: [this.cloud, this.cloudGlow],
       x: targetX,
       duration: 1500,
-      ease: 'Sine.easeInOut'
+      ease: 'Sine.easeInOut',
+      onUpdate: () => {
+        for (const o of this.orbitClouds) {
+          o.sprite.setPosition(this.cloud.x + Math.cos(o.angle) * o.radius, this.cloud.y + Math.sin(o.angle) * o.radius * 0.55);
+        }
+      }
     });
     this.tweens.add({
       targets: this.cloudGlow,
@@ -1469,12 +1502,43 @@ export class PressureScene extends Phaser.Scene {
       loop: true
     });
 
+    // Spawn rising water-vapor droplets (from warm ocean below)
+    this.spawnVaporDroplet();
+    this.time.addEvent({
+      delay: 900,
+      callback: () => {
+        if (!this.isComplete) this.spawnVaporDroplet();
+      },
+      loop: true
+    });
+
     this.time.addEvent({
       delay: 1000,
       callback: () => this.onTick(),
       loop: true
     });
   };
+
+  update() {
+    if (!this.gameStarted || this.isComplete) return;
+    const cx = this.cloud.x;
+    const cy = this.cloud.y;
+    for (const o of this.orbitClouds) {
+      o.angle += o.speed;
+      o.sprite.x = cx + Math.cos(o.angle) * o.radius;
+      o.sprite.y = cy + Math.sin(o.angle) * o.radius * 0.55;
+    }
+    for (let i = this.vaporDroplets.length - 1; i >= 0; i--) {
+      const d = this.vaporDroplets[i];
+      d.y -= d.getData('vy');
+      d.x += Math.sin(d.y * 0.03 + d.getData('phase')) * 0.3;
+      d.alpha -= 0.004;
+      if (d.alpha <= 0 || d.y < cy - 60) {
+        d.destroy();
+        this.vaporDroplets.splice(i, 1);
+      }
+    }
+  }
 
   private onTick() {
     if (this.isComplete || !this.gameStarted) return;

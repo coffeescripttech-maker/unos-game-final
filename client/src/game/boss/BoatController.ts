@@ -53,6 +53,7 @@ export function useBoatController({
   const gustTimerRef = useRef(0);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const touchCurrentRef = useRef<{ x: number; y: number } | null>(null);
+  const joystickRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const frameLogRef = useRef(0);
 
   const { camera } = useThree();
@@ -195,7 +196,7 @@ export function useBoatController({
       console.log('[BoatController] frame', { keys: Array.from(keys), velocity: velocityRef.current.toFixed(2), pos: boat.position.x.toFixed(1) + ',' + boat.position.z.toFixed(1) });
     }
 
-    // ── TOUCH INPUT ──
+    // ── TOUCH / JOYSTICK INPUT ──
     let touchSteer = 0;
     let touchThrottle = 0;
     if (touchStartRef.current && touchCurrentRef.current) {
@@ -204,6 +205,9 @@ export function useBoatController({
       const maxDrag = 80;
       touchSteer = THREE.MathUtils.clamp(dx / maxDrag, -1, 1);
       touchThrottle = THREE.MathUtils.clamp(-dy / maxDrag, -1, 1);
+    } else if (joystickRef.current.x !== 0 || joystickRef.current.y !== 0) {
+      touchSteer = THREE.MathUtils.clamp(joystickRef.current.x, -1, 1);
+      touchThrottle = THREE.MathUtils.clamp(joystickRef.current.y, -1, 1);
     }
 
     // ── THROTTLE ──
@@ -328,10 +332,15 @@ export function useBoatController({
     if (deployCooldownRef.current > 0) deployCooldownRef.current -= dt;
   });
 
+  const setJoystickAxes = useCallback((x: number, y: number) => {
+    joystickRef.current = { x, y };
+  }, []);
+
   return {
     getBoatState,
     velocity: velocityRef,
     yaw: yawRef,
+    setJoystickAxes,
   };
 }
 

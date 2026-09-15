@@ -21,6 +21,7 @@ export default function Storm({ storm, isInEye }: StormProps) {
   const groupRef = useRef<THREE.Group>(null);
   const cloudRef = useRef<THREE.Group>(null);
   const rotationRef = useRef(0);
+  const pulseRef = useRef(0);
   const cloudTexture = useBossTexture('/assets/boss/cloud.png', createCloudTexture);
 
   useEffect(() => {
@@ -37,41 +38,47 @@ export default function Storm({ storm, isInEye }: StormProps) {
       length: number;
       color: string;
       opacity: number;
+      yOffset: number;
     }[] = [];
-    for (let arm = 0; arm < 6; arm++) {
-      const baseAngle = (arm / 6) * Math.PI * 2;
-      for (let ring = 0; ring < 12; ring++) {
-        const t = ring / 12;
-        const angle = baseAngle + t * 4 * Math.PI;
-        const radius = 20 + t * 110;
-        const width = 5 + t * 18;
-        const length = 8 + t * 18;
-        const opacity = 0.35 - t * 0.22;
+    for (let arm = 0; arm < 7; arm++) {
+      const baseAngle = (arm / 7) * Math.PI * 2;
+      for (let ring = 0; ring < 16; ring++) {
+        const t = ring / 16;
+        const angle = baseAngle + t * 5 * Math.PI;
+        const radius = 22 + t * 125;
+        const width = 6 + t * 22;
+        const length = 10 + t * 22;
+        const opacity = 0.45 - t * 0.28;
         bands.push({
           angle,
           radius,
           width,
           length,
-          color: t < 0.3 ? '#b8b8c0' : '#606068',
-          opacity: Math.max(0.06, opacity),
+          color: t < 0.25 ? '#d0d0d8' : t < 0.6 ? '#808088' : '#40404a',
+          opacity: Math.max(0.07, opacity),
+          yOffset: t < 0.35 ? 1.2 : 0.6,
         });
       }
     }
     return bands;
   }, []);
 
-  const eyewallGeo = useMemo(() => new THREE.RingGeometry(13, 19, 32), []);
-  const eyeDiscGeo = useMemo(() => new THREE.CircleGeometry(13, 32), []);
-  const centerMassGeo = useMemo(() => new THREE.CircleGeometry(22, 32), []);
+  const eyewallGeo = useMemo(() => new THREE.RingGeometry(14, 22, 48), []);
+  const eyeDiscGeo = useMemo(() => new THREE.CircleGeometry(14, 48), []);
+  const centerMassGeo = useMemo(() => new THREE.CircleGeometry(26, 48), []);
+  const domeGeo = useMemo(() => new THREE.CylinderGeometry(14, 26, 4, 48, 1, true), []);
 
   useFrame((_, delta) => {
     if (!groupRef.current || !cloudRef.current) return;
-    rotationRef.current += delta * (0.08 + storm.intensity * 0.12);
+    rotationRef.current += delta * (0.12 + storm.intensity * 0.18);
     cloudRef.current.rotation.y = rotationRef.current;
+
+    pulseRef.current += delta * (1.5 + storm.intensity * 2);
+    const pulse = 1 + Math.sin(pulseRef.current) * 0.04;
 
     // Storm clouds dissipate over land — the anvil collapses without warm moist air
     const landShrink = 1 - storm.landProximity * 0.25;
-    const scale = (0.8 + storm.intensity * 0.4) * landShrink;
+    const scale = (0.9 + storm.intensity * 0.55) * pulse * landShrink;
     groupRef.current.scale.setScalar(scale);
     groupRef.current.position.set(0, 0.5, -150);
   });
@@ -103,13 +110,26 @@ export default function Storm({ storm, isInEye }: StormProps) {
           </mesh>
         ))}
 
+        {/* Stacked convective dome above the eyewall */}
+        <mesh position={[0, 1.5, 0]} rotation={[0, 0, 0]} geometry={domeGeo}>
+          <meshBasicMaterial
+            map={cloudTexture}
+            color="#707078"
+            transparent
+            opacity={(0.25 + storm.intensity * 0.35) * (1 - storm.landProximity * 0.3)}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+            alphaTest={0.05}
+          />
+        </mesh>
+
         {/* Central cloud mass */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} geometry={centerMassGeo}>
           <meshBasicMaterial
             map={cloudTexture}
-            color="#606068"
+            color="#787880"
             transparent
-            opacity={0.25 + storm.intensity * 0.35}
+            opacity={0.35 + storm.intensity * 0.45}
             depthWrite={false}
             side={THREE.DoubleSide}
             alphaTest={0.05}
@@ -119,9 +139,9 @@ export default function Storm({ storm, isInEye }: StormProps) {
         {/* Eyewall ring */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} geometry={eyewallGeo}>
           <meshBasicMaterial
-            color="#909098"
+            color="#c0c0c8"
             transparent
-            opacity={0.35 + storm.intensity * 0.45}
+            opacity={0.45 + storm.intensity * 0.5}
             depthWrite={false}
             side={THREE.DoubleSide}
           />
@@ -130,19 +150,21 @@ export default function Storm({ storm, isInEye }: StormProps) {
         {/* Calm eye disc */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} geometry={eyeDiscGeo}>
           <meshBasicMaterial
-            color="#ccddff"
+            color="#e0eeff"
             transparent
-            opacity={0.12}
+            opacity={0.22 + storm.intensity * 0.1}
             depthWrite={false}
             side={THREE.DoubleSide}
           />
         </mesh>
 
         {/* Spiral rainband arcs */}
-        <RainBand radius={40} angle={0} storm={storm} />
-        <RainBand radius={55} angle={Math.PI * 0.7} storm={storm} />
-        <RainBand radius={70} angle={Math.PI * 1.4} storm={storm} />
-        <RainBand radius={85} angle={Math.PI * 2.1} storm={storm} />
+        <RainBand radius={38} angle={0} storm={storm} />
+        <RainBand radius={52} angle={Math.PI * 0.55} storm={storm} />
+        <RainBand radius={66} angle={Math.PI * 1.1} storm={storm} />
+        <RainBand radius={80} angle={Math.PI * 1.65} storm={storm} />
+        <RainBand radius={94} angle={Math.PI * 2.2} storm={storm} />
+        <RainBand radius={108} angle={Math.PI * 2.75} storm={storm} />
       </group>
     </group>
   );
@@ -165,11 +187,11 @@ function RainBand({ radius, angle, storm }: { radius: number; angle: number; sto
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]}>
-      <tubeGeometry args={[curve, 40, 0.3 + storm.intensity * 0.5, 4, false]} />
+      <tubeGeometry args={[curve, 48, 0.4 + storm.intensity * 0.7, 6, false]} />
       <meshBasicMaterial
-        color="#404050"
+        color="#50505f"
         transparent
-        opacity={0.12 * storm.intensity}
+        opacity={0.18 * storm.intensity}
         depthWrite={false}
       />
     </mesh>

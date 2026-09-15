@@ -216,19 +216,46 @@ export const QUIZ_QUESTIONS: Partial<Record<ObjectiveId, QuizQuestion[]>> = {
  * questions to show (= number of items collected). The current topic is always
  * included, and remaining slots are filled from previously-collected topics.
  */
+// Track already-shown questions so a single run never repeats one.
+const shownQuestionKeys = new Set<string>();
+
+function questionKey(q: QuizQuestion): string {
+  return q.q;
+}
+
+/** Call when a boss run starts so retries/collect sequences begin fresh. */
+export function resetBossQuizHistory(): void {
+  shownQuestionKeys.clear();
+}
+
 export function getQuizQuestions(
   collected: ObjectiveId[],
   count: number,
   seed?: number
 ): QuizQuestion[] {
-  const pool: QuizQuestion[] = [];
   const last = collected[collected.length - 1];
-  const add = (id: ObjectiveId) => {
-    const q = QUIZ_QUESTIONS[id];
-    if (q) pool.push(...q);
-  };
+  const pool: QuizQuestion[] = [];
   // Prefer the most-recent topic first, then earlier ones
-  [last, ...collected.slice(0, -1)].forEach(add);
+  const ids: ObjectiveId[] = [last, ...collected.slice(0, -1)];
+  for (const id of ids) {
+    const q = QUIZ_QUESTIONS[id];
+    if (!q) continue;
+    for (const item of q) {
+      if (!shownQuestionKeys.has(questionKey(item))) pool.push(item);
+    }
+  }
+
+  // Fallback: if everything has been shown, open the pool back up so the game
+  // never stalls (this should be rare on a single run).
+  if (pool.length < count) {
+    for (const id of ids) {
+      const q = QUIZ_QUESTIONS[id];
+      if (!q) continue;
+      for (const item of q) {
+        if (!pool.includes(item)) pool.push(item);
+      }
+    }
+  }
 
   // Shuffle deterministically-ish. `seed` lets a retry reshuffle to fresh picks;
   // without it the seed is derived from count (stable per collection milestone).
@@ -238,7 +265,9 @@ export function getQuizQuestions(
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
 
-  return pool.slice(0, Math.min(count, pool.length));
+  const selected = pool.slice(0, Math.min(count, pool.length));
+  for (const q of selected) shownQuestionKeys.add(questionKey(q));
+  return selected;
 }
 
 function mulberry(a: number): () => number {

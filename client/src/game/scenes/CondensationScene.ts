@@ -66,6 +66,7 @@ export class CondensationScene extends Phaser.Scene {
 
   private mistLayer!: Phaser.GameObjects.Image;
   private cloudGlow!: Phaser.GameObjects.Image;
+  private darkCloud!: Phaser.GameObjects.Image;
   private cloudMeter!: Phaser.GameObjects.Graphics;
   private meterLabel!: Phaser.GameObjects.Text;
   private urgencyOverlay!: Phaser.GameObjects.Rectangle;
@@ -256,12 +257,18 @@ export class CondensationScene extends Phaser.Scene {
       .setAlpha(0)
       .setDisplaySize(GAME_WIDTH, 260);
 
-    // Cloud
+    // Cloud — layered white base + dark cumulonimbus underside
     this.cloudGlow = this.add
       .image(CLOUD_X, CLOUD_Y, 'cloud_glow')
       .setDepth(4)
       .setAlpha(0)
       .setScale(0.1);
+    this.darkCloud = this.add
+      .image(CLOUD_X, CLOUD_Y + 18, 'cloud_glow')
+      .setDepth(4.1)
+      .setAlpha(0)
+      .setScale(0.1)
+      .setTint(0x2a2a35);
 
     // Meter
     this.cloudMeter = this.add.graphics().setDepth(5);
@@ -918,14 +925,32 @@ export class CondensationScene extends Phaser.Scene {
         duration: 500,
         ease: 'Sine.easeOut'
       });
+      this.tweens.add({
+        targets: this.darkCloud,
+        alpha: 1,
+        duration: 500,
+        ease: 'Sine.easeOut'
+      });
     }
-    const targetScale = 0.1 + (this.cloudProgress / 100) * 0.9;
+    const t = this.cloudProgress / 100;
+    const targetScale = 0.1 + t * 0.9;
     this.tweens.add({
       targets: this.cloudGlow,
       scale: targetScale,
       duration: 300,
       ease: 'Sine.easeOut'
     });
+    this.tweens.add({
+      targets: this.darkCloud,
+      scale: targetScale * (0.92 + t * 0.1),
+      alpha: 0.25 + t * 0.75,
+      y: CLOUD_Y + 18 + t * 12,
+      duration: 300,
+      ease: 'Sine.easeOut'
+    });
+    // Darken the base cloud tint toward cumulonimbus gray as it grows
+    const gray = Math.round(255 - t * 90);
+    this.cloudGlow.setTint(Phaser.Display.Color.GetColor(gray, gray, Math.round(255 - t * 40)));
   }
 
   // ═══════════════════════════════════════════════
