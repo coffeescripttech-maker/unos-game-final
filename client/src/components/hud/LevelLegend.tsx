@@ -28,17 +28,16 @@ export default function LevelLegend() {
   return (
     <>
       {/* Mobile: icons only, compact single row */}
-      {/* <div className="absolute top-[120px] left-2 z-30 flex gap-1 pointer-events-none md:hidden">
-        {LEGEND.map(item => (
+      <div className="absolute top-[120px] left-2 z-30 flex gap-1 pointer-events-none md:hidden">
+        {/* {LEGEND.map(item => (
           <div
             key={item.label}
             className="retro-card !bg-storm-dark/85 !border-white/25 !p-1 !px-1.5 rounded-md"
-            title={item.label}
-          >
+            title={item.label}>
             <span className="text-base">{item.icon}</span>
           </div>
-        ))}
-      </div> */}
+        ))} */}
+      </div>
       {/* Desktop: icons + text labels */}
       <div className="hidden md:flex absolute top-[120px] left-2 z-30 flex-wrap gap-1.5 pointer-events-none max-w-[300px]">
         {LEGEND.map(item => (
