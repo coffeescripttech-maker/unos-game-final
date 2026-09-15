@@ -26,16 +26,31 @@ export default function LevelLegend() {
   if (!levelName || levelName === 'World Map') return null;
 
   return (
-    <div className="absolute top-[120px] left-2 z-30 flex flex-wrap gap-1.5 pointer-events-none max-w-[300px]">
-      {LEGEND.map(item => (
-        <div
-          key={item.label}
-          className="retro-card !bg-storm-dark/85 !border-white/25 !p-1 !px-2 flex items-center gap-1.5 rounded-md"
-        >
-          <span className="text-sm md:text-base">{item.icon}</span>
-          <span className="font-body text-xs md:text-sm text-white/85">{item.label}</span>
-        </div>
-      ))}
-    </div>
+    <>
+      {/* Mobile: icons only, compact single row */}
+      <div className="absolute top-[120px] left-2 z-30 flex gap-1 pointer-events-none md:hidden">
+        {LEGEND.map(item => (
+          <div
+            key={item.label}
+            className="retro-card !bg-storm-dark/85 !border-white/25 !p-1 !px-1.5 rounded-md"
+            title={item.label}
+          >
+            <span className="text-base">{item.icon}</span>
+          </div>
+        ))}
+      </div>
+      {/* Desktop: icons + text labels */}
+      <div className="hidden md:flex absolute top-[120px] left-2 z-30 flex-wrap gap-1.5 pointer-events-none max-w-[300px]">
+        {LEGEND.map(item => (
+          <div
+            key={item.label}
+            className="retro-card !bg-storm-dark/85 !border-white/25 !p-1 !px-2 flex items-center gap-1.5 rounded-md"
+          >
+            <span className="text-base">{item.icon}</span>
+            <span className="font-body text-sm text-white/85">{item.label}</span>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
