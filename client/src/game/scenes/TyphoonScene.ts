@@ -13,12 +13,15 @@ import type {
   TyphoonSliderConfig,
   TyphoonSliderUpdatePayload,
   TyphoonSliderUnlockPayload,
-  TyphoonQuizPayload,
+  TyphoonQuizPayload
 } from '@shared/events';
 import { COLORS, FONTS, GAME_WIDTH, GAME_HEIGHT, DEPTH } from '../constants';
 import { GameManager } from '../managers/GameManager';
 import { playChime, playBuzz, playWhoosh } from '../utils/audio';
-import { TYPHOON_QUIZ_QUESTIONS, TYPHOON_GATE_TOPICS } from '../TyphoonQuizData';
+import {
+  TYPHOON_QUIZ_QUESTIONS,
+  TYPHOON_GATE_TOPICS
+} from '../TyphoonQuizData';
 
 // Used to emit configs to React. Matches shared TyphoonSliderConfig but with
 // Phaser-specific color as number (converted to hex string for React).
@@ -61,7 +64,7 @@ export class TyphoonScene extends Phaser.Scene {
   private stormOverlay!: Phaser.GameObjects.Graphics;
   private lightningGfx!: Phaser.GameObjects.Graphics;
   private lightningBoltPool: Phaser.GameObjects.Graphics[] = [];
-      private lastMilestone = 0;
+  private lastMilestone = 0;
   private lastStage = 0; // current typhoon formation stage (1–6) for pop-up tracking
   private cloudGlowGfx!: Phaser.GameObjects.Graphics;
   private stagePopupText!: Phaser.GameObjects.Text;
@@ -78,6 +81,7 @@ export class TyphoonScene extends Phaser.Scene {
   private vaporSpawnTimer = 0;
   private heatWaveTime = 0;
   private spoutAngle = 0;
+  private isMobile = false;
 
   constructor() {
     super({ key: SCENES.TYPHOON });
@@ -95,7 +99,7 @@ export class TyphoonScene extends Phaser.Scene {
     this.rainParticles = [];
     this.matches = 0;
     this.prevMatches = 0;
-        this.lastMilestone = 0;
+    this.lastMilestone = 0;
     this.lastStage = 0;
     this.lightningBoltPool = [];
     this.lastQuizBonus = 0;
@@ -105,9 +109,12 @@ export class TyphoonScene extends Phaser.Scene {
     this.timeRemaining = this.totalTime;
     this.glowPulseValue = 0;
     this.glowPulseDirection = 1;
+    this.isMobile = !this.sys.game.device.os.desktop;
 
     // Background (with slow zoom + drift animation)
-    const bg = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'typhoon_bg').setDepth(DEPTH.BG);
+    const bg = this.add
+      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'typhoon_bg')
+      .setDepth(DEPTH.BG);
     const bgScale = Math.max(GAME_WIDTH / bg.width, GAME_HEIGHT / bg.height);
     bg.setScale(bgScale);
     this.tweens.add({
@@ -148,44 +155,86 @@ export class TyphoonScene extends Phaser.Scene {
     instrBg.fillStyle(0x444444, 0.6);
     instrBg.fillRoundedRect(GAME_WIDTH / 2 - 260, GAME_HEIGHT - 70, 520, 40, 8);
     this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 50, 'Start with OCEAN HEAT — answer questions to unlock the next elements!', {
-        fontFamily: FONTS.BODY,
-        fontSize: '13px',
-        color: '#FFFFFF',
-        align: 'center'
-      })
+      .text(
+        GAME_WIDTH / 2,
+        GAME_HEIGHT - 50,
+        'Start with OCEAN HEAT — answer questions to unlock the next elements!',
+        {
+          fontFamily: FONTS.BODY,
+          fontSize: '13px',
+          color: '#FFFFFF',
+          align: 'center'
+        }
+      )
       .setOrigin(0.5)
       .setDepth(5);
 
     // Storm visualisation area label
-    this.add.text(this.centerX, 64, 'Storm Visualizer', {
-      fontFamily: FONTS.BODY, fontSize: '12px', color: '#6DB3E6',
-    }).setOrigin(0.5);
+    this.add
+      .text(this.centerX, 64, 'Storm Visualizer', {
+        fontFamily: FONTS.BODY,
+        fontSize: '12px',
+        color: '#6DB3E6'
+      })
+      .setOrigin(0.5);
 
     // Category / strength text
-        this.categoryText = this.add.text(this.centerX, this.centerY - 60, '', {
-      fontFamily: FONTS.DISPLAY, fontSize: '18px', color: '#FFFFFF',
-      stroke: '#000000', strokeThickness: 3
-    }).setOrigin(0.5).setDepth(DEPTH.OVERLAY);
+    this.categoryText = this.add
+      .text(this.centerX, this.centerY - 60, '', {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '18px',
+        color: '#FFFFFF',
+        stroke: '#000000',
+        strokeThickness: 3
+      })
+      .setOrigin(0.5)
+      .setDepth(DEPTH.OVERLAY);
 
-    this.strengthText = this.add.text(this.centerX, this.centerY + 65, 'Waiting for conditions...', {
-      fontFamily: FONTS.BODY, fontSize: '14px', color: '#4a6fa5',
-      stroke: '#000000', strokeThickness: 2
-    }).setOrigin(0.5).setDepth(DEPTH.OVERLAY);
+    this.strengthText = this.add
+      .text(this.centerX, this.centerY + 65, 'Waiting for conditions...', {
+        fontFamily: FONTS.BODY,
+        fontSize: '14px',
+        color: '#4a6fa5',
+        stroke: '#000000',
+        strokeThickness: 2
+      })
+      .setOrigin(0.5)
+      .setDepth(DEPTH.OVERLAY);
 
     // Stage formation pop-up (appears when a new typhoon stage is reached)
-    this.stagePopupPanel = this.add.graphics().setDepth(DEPTH.OVERLAY - 1).setAlpha(0);
-    this.stagePopupText = this.add.text(this.centerX, this.centerY + 100, '', {
-      fontFamily: FONTS.DISPLAY, fontSize: '36px', color: '#FFD166',
-      stroke: '#000000', strokeThickness: 6, align: 'center'
-    }).setOrigin(0.5).setDepth(DEPTH.OVERLAY).setAlpha(0);
-    this.stagePopupSub = this.add.text(this.centerX, this.centerY + 142, '', {
-      fontFamily: FONTS.BODY, fontSize: '15px', color: '#FFFFFF',
-      stroke: '#000000', strokeThickness: 3, align: 'center'
-    }).setOrigin(0.5).setDepth(DEPTH.OVERLAY).setAlpha(0);
+    this.stagePopupPanel = this.add
+      .graphics()
+      .setDepth(DEPTH.OVERLAY - 1)
+      .setAlpha(0);
+    this.stagePopupText = this.add
+      .text(this.centerX, this.centerY + 100, '', {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '36px',
+        color: '#FFD166',
+        stroke: '#000000',
+        strokeThickness: 6,
+        align: 'center'
+      })
+      .setOrigin(0.5)
+      .setDepth(DEPTH.OVERLAY)
+      .setAlpha(0);
+    this.stagePopupSub = this.add
+      .text(this.centerX, this.centerY + 142, '', {
+        fontFamily: FONTS.BODY,
+        fontSize: '15px',
+        color: '#FFFFFF',
+        stroke: '#000000',
+        strokeThickness: 3,
+        align: 'center'
+      })
+      .setOrigin(0.5)
+      .setDepth(DEPTH.OVERLAY)
+      .setAlpha(0);
 
     // Storm visualisation (eye + graphics)
-    this.eyeSprite = this.add.circle(this.centerX, this.centerY, 8, 0xffffff, 0.2).setDepth(DEPTH.GAME_OBJECTS);
+    this.eyeSprite = this.add
+      .circle(this.centerX, this.centerY, 8, 0xffffff, 0.2)
+      .setDepth(DEPTH.GAME_OBJECTS);
     this.stormGfx = this.add.graphics().setDepth(DEPTH.GAME_OBJECTS - 1);
 
     // Cloud glow (pulsing ring around the storm)
@@ -201,36 +250,82 @@ export class TyphoonScene extends Phaser.Scene {
 
     // Define slider configs and emit to React overlay
     this.sliderConfigs = [
-      { label: 'Ocean Heat', icon: '🌊', min: 0, max: 100, defaultValue: 0, color: 0xff6b35, targetMin: 60, targetMax: 90 },
-      { label: 'Water Vapor', icon: '💧', min: 0, max: 100, defaultValue: 0, color: 0x6db3e6, targetMin: 55, targetMax: 85 },
-      { label: 'Low Pressure', icon: '🌪️', min: 0, max: 100, defaultValue: 0, color: 0x8b0000, targetMin: 60, targetMax: 95 },
-      { label: 'Coriolis Spin', icon: '🌀', min: 0, max: 100, defaultValue: 0, color: 0x9b59b6, targetMin: 50, targetMax: 80 },
+      {
+        label: 'Ocean Heat',
+        icon: '🌊',
+        min: 0,
+        max: 100,
+        defaultValue: 0,
+        color: 0xff6b35,
+        targetMin: 60,
+        targetMax: 90
+      },
+      {
+        label: 'Water Vapor',
+        icon: '💧',
+        min: 0,
+        max: 100,
+        defaultValue: 0,
+        color: 0x6db3e6,
+        targetMin: 55,
+        targetMax: 85
+      },
+      {
+        label: 'Low Pressure',
+        icon: '🌪️',
+        min: 0,
+        max: 100,
+        defaultValue: 0,
+        color: 0x8b0000,
+        targetMin: 60,
+        targetMax: 95
+      },
+      {
+        label: 'Coriolis Spin',
+        icon: '🌀',
+        min: 0,
+        max: 100,
+        defaultValue: 0,
+        color: 0x9b59b6,
+        targetMin: 50,
+        targetMax: 80
+      }
     ];
     this.sliderValues = this.sliderConfigs.map(() => 0);
 
     // Emit configs to React overlay
-    this.game.events.emit(GAME_EVENTS.HUD_TYPHOON_SLIDER,
-      this.sliderConfigs.map((c, i) => ({
-        index: i,
-        label: c.label,
-        icon: c.icon,
-        min: c.min,
-        max: c.max,
-        defaultValue: c.defaultValue,
-        color: '#' + c.color.toString(16).padStart(6, '0'),
-        targetMin: c.targetMin,
-        targetMax: c.targetMax,
-        locked: i > this.gatesPassed,
-      } satisfies TyphoonSliderConfig))
+    this.game.events.emit(
+      GAME_EVENTS.HUD_TYPHOON_SLIDER,
+      this.sliderConfigs.map(
+        (c, i) =>
+          ({
+            index: i,
+            label: c.label,
+            icon: c.icon,
+            min: c.min,
+            max: c.max,
+            defaultValue: c.defaultValue,
+            color: '#' + c.color.toString(16).padStart(6, '0'),
+            targetMin: c.targetMin,
+            targetMax: c.targetMax,
+            locked: i > this.gatesPassed
+          }) satisfies TyphoonSliderConfig
+      )
     );
 
     // Listen for slider updates from React
-    this.game.events.on(GAME_EVENTS.HUD_TYPHOON_SLIDER_UPDATE, this.onSliderUpdate);
+    this.game.events.on(
+      GAME_EVENTS.HUD_TYPHOON_SLIDER_UPDATE,
+      this.onSliderUpdate
+    );
 
     this.game.events.on(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
 
     // Listen for quiz completion → unlock gate OR final bonus
-    this.game.events.on(GAME_EVENTS.HUD_TYPHOON_QUIZ_COMPLETE, this.onQuizComplete);
+    this.game.events.on(
+      GAME_EVENTS.HUD_TYPHOON_QUIZ_COMPLETE,
+      this.onQuizComplete
+    );
 
     // Show intro overlay
     this.showIntroOverlay();
@@ -240,23 +335,53 @@ export class TyphoonScene extends Phaser.Scene {
   //  INTRO OVERLAY
   // ═══════════════════════════════════════════════
 
-    private showIntroOverlay() {
+  private showIntroOverlay() {
     this.game.events.emit(GAME_EVENTS.HUD_LEVEL_INTRO, {
       levelId: 'typhoon',
       badge: '🌀 LEVEL 5',
       title: 'Typhoon Formation',
       subtitle: 'Balance the elements to create a typhoon!',
       mechanics: [
-        { icon: '🌡️', text: 'OCEAN HEAT: Warm water (26°C+) fuels the storm — the hotter, the stronger!' },
-        { icon: '💧', text: 'WATER VAPOR: Moist air rises, cools, and releases heat — this powers cloud growth!' },
-        { icon: '🌪️', text: 'LOW PRESSURE: Air rushes in, spirals up, and creates the spinning storm!' },
-        { icon: '🌀', text: `CORIOLIS SPIN: Earth's rotation gives storms their spin — stronger spin = faster winds!` },
-        { icon: '🔓', text: 'UNLOCK CHALLENGE: Hold each element in the GREEN zone → answer its science question → the next element unlocks!' },
-        { icon: '🎯', text: 'Keep all 4 sliders in the GREEN zone — too high or too low weakens the storm!' },
-        { icon: '⛈️', text: 'Watch it grow: Tropical Depression → Storm → Cat 1-5 with PAGASA TCWS Signal equivalents — a big LEVEL-UP pop-up announces every stage!' },
-        { icon: '⚡', text: 'Higher intensity triggers lightning, rain & screen shake!' },
-        { icon: '⏱️', text: 'You have 90 seconds (timer PAUSES during questions). Reach Category 1+ with all 4 in the zone to win!' },
-        { icon: '🏝️', text: 'SCIENTIFIC FACT: Typhoons weaken over land and strengthen over warm ocean water!' }
+        {
+          icon: '🌡️',
+          text: 'OCEAN HEAT: Warm water (26°C+) fuels the storm — the hotter, the stronger!'
+        },
+        {
+          icon: '💧',
+          text: 'WATER VAPOR: Moist air rises, cools, and releases heat — this powers cloud growth!'
+        },
+        {
+          icon: '🌪️',
+          text: 'LOW PRESSURE: Air rushes in, spirals up, and creates the spinning storm!'
+        },
+        {
+          icon: '🌀',
+          text: `CORIOLIS SPIN: Earth's rotation gives storms their spin — stronger spin = faster winds!`
+        },
+        {
+          icon: '🔓',
+          text: 'UNLOCK CHALLENGE: Hold each element in the GREEN zone → answer its science question → the next element unlocks!'
+        },
+        {
+          icon: '🎯',
+          text: 'Keep all 4 sliders in the GREEN zone — too high or too low weakens the storm!'
+        },
+        {
+          icon: '⛈️',
+          text: 'Watch it grow: Tropical Depression → Storm → Cat 1-5 with PAGASA TCWS Signal equivalents — a big LEVEL-UP pop-up announces every stage!'
+        },
+        {
+          icon: '⚡',
+          text: 'Higher intensity triggers lightning, rain & screen shake!'
+        },
+        {
+          icon: '⏱️',
+          text: 'You have 90 seconds (timer PAUSES during questions). Reach Category 1+ with all 4 in the zone to win!'
+        },
+        {
+          icon: '🏝️',
+          text: 'SCIENTIFIC FACT: Typhoons weaken over land and strengthen over warm ocean water!'
+        }
       ]
     } satisfies HUDLevelIntroPayload);
 
@@ -281,7 +406,8 @@ export class TyphoonScene extends Phaser.Scene {
         if (this.isComplete || this.gateQuizActive) return;
         this.timeRemaining--;
         this.game.events.emit(GAME_EVENTS.HUD_TIMER, {
-          remaining: this.timeRemaining, total: this.totalTime,
+          remaining: this.timeRemaining,
+          total: this.totalTime
         } satisfies HUDTimerPayload);
 
         // Emit weather data from sliders
@@ -293,19 +419,32 @@ export class TyphoonScene extends Phaser.Scene {
           temperature: Math.round(20 + heatVal * 0.8),
           humidity: Math.round(vaporVal),
           windSpeed: Math.round(10 + pressureVal * 0.6 + spinVal * 0.3),
-          stormLevel: heatVal >= 60 && vaporVal >= 55 ? (pressureVal >= 60 && spinVal >= 50 ? 3 : 2) : 1,
+          stormLevel:
+            heatVal >= 60 && vaporVal >= 55
+              ? pressureVal >= 60 && spinVal >= 50
+                ? 3
+                : 2
+              : 1
         } satisfies HUDWeatherPayload);
 
         if (this.timeRemaining <= 0) this.failLevel();
       },
-      loop: true,
+      loop: true
     });
 
-    // Storm update loop
-    this.time.addEvent({ delay: 200, callback: () => this.updateStorm(), loop: true });
+    // Storm update loop (slower on mobile to reduce Graphics redraw cost)
+    this.time.addEvent({
+      delay: this.isMobile ? 350 : 200,
+      callback: () => this.updateStorm(),
+      loop: true
+    });
 
-    // Rain
-    this.time.addEvent({ delay: 80, callback: () => this.spawnRain(), loop: true });
+    // Rain (slower spawn rate on mobile)
+    this.time.addEvent({
+      delay: this.isMobile ? 150 : 80,
+      callback: () => this.spawnRain(),
+      loop: true
+    });
 
     // Ocean splash (random intervals)
     const scheduleSplash = () => {
@@ -319,7 +458,7 @@ export class TyphoonScene extends Phaser.Scene {
     scheduleSplash();
   };
 
-    private didWin = false;
+  private didWin = false;
 
   private onContinue = () => {
     this.game.events.off(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
@@ -339,20 +478,39 @@ export class TyphoonScene extends Phaser.Scene {
     }
     // Final quiz (after formation) → science bonus, then results
     this.lastQuizBonus = result.correct * 150;
-    const bonusText = this.add.text(this.centerX, this.centerY + 38,
-      this.lastQuizBonus > 0 ? `Science Bonus: +${this.lastQuizBonus}` : 'No bonus this time', {
-      fontFamily: FONTS.DISPLAY, fontSize: '15px', color: this.lastQuizBonus > 0 ? '#06D6A0' : '#aaaaaa',
-      stroke: '#000000', strokeThickness: 2,
-    }).setOrigin(0.5).setDepth(DEPTH.OVERLAY + 2).setAlpha(0);
+    const bonusText = this.add
+      .text(
+        this.centerX,
+        this.centerY + 38,
+        this.lastQuizBonus > 0
+          ? `Science Bonus: +${this.lastQuizBonus}`
+          : 'No bonus this time',
+        {
+          fontFamily: FONTS.DISPLAY,
+          fontSize: '15px',
+          color: this.lastQuizBonus > 0 ? '#06D6A0' : '#aaaaaa',
+          stroke: '#000000',
+          strokeThickness: 2
+        }
+      )
+      .setOrigin(0.5)
+      .setDepth(DEPTH.OVERLAY + 2)
+      .setAlpha(0);
 
     this.tweens.add({
-      targets: bonusText, alpha: 1, y: bonusText.y - 15,
-      duration: 600, ease: 'Back.easeOut',
+      targets: bonusText,
+      alpha: 1,
+      y: bonusText.y - 15,
+      duration: 600,
+      ease: 'Back.easeOut'
     });
     this.tweens.add({
-      targets: bonusText, alpha: 0, y: bonusText.y - 30,
-      duration: 400, delay: 2500,
-      onComplete: () => bonusText.destroy(),
+      targets: bonusText,
+      alpha: 0,
+      y: bonusText.y - 30,
+      duration: 400,
+      delay: 2500,
+      onComplete: () => bonusText.destroy()
     });
 
     this.finalizeCompletion();
@@ -362,10 +520,9 @@ export class TyphoonScene extends Phaser.Scene {
     this.game.events.emit(GAME_EVENTS.HUD_OBJECTIVE, {
       text: 'Parameters in target zone',
       progress: this.matches,
-      target: 4,
+      target: 4
     } satisfies HUDObjectivePayload);
   }
-
 
   private updateStorm() {
     if (!this.gameStarted) return;
@@ -390,7 +547,11 @@ export class TyphoonScene extends Phaser.Scene {
     for (let i = 0; i < this.sliderValues.length; i++) {
       const cfg = this.sliderConfigs[i];
       if (!cfg) continue;
-      if (this.sliderValues[i] >= cfg.targetMin && this.sliderValues[i] <= cfg.targetMax) this.matches++;
+      if (
+        this.sliderValues[i] >= cfg.targetMin &&
+        this.sliderValues[i] <= cfg.targetMax
+      )
+        this.matches++;
     }
     this.emitObjective();
 
@@ -399,7 +560,8 @@ export class TyphoonScene extends Phaser.Scene {
     }
     this.prevMatches = this.matches;
 
-    const avgValue = this.sliderValues.reduce((a, v) => a + v, 0) / this.sliderValues.length;
+    const avgValue =
+      this.sliderValues.reduce((a, v) => a + v, 0) / this.sliderValues.length;
     const intensity = avgValue / 100;
 
     // Clean up old lightning bolts
@@ -420,36 +582,75 @@ export class TyphoonScene extends Phaser.Scene {
       return;
     }
 
-        let category = '';
+    let category = '';
     let catColor = '#FFFFFF';
     let stageName = '';
     let stageSub = '';
-    if (intensity < 0.25) { category = 'Tropical Depression'; catColor = '#6DB3E6'; stageName = '🌀 TROPICAL DEPRESSION FORMED!'; stageSub = 'Winds < 39 mph · < 63 km/h · PAGASA ≈ TCWS No. 1'; }
-    else if (intensity < 0.4) { category = 'Tropical Storm'; catColor = '#FFD166'; stageName = '⛈️ TROPICAL STORM FORMED!'; stageSub = 'Winds 39-73 mph · 63-118 km/h · PAGASA ≈ TCWS No. 2-3'; }
-    else if (intensity < 0.55) { category = 'Cat 1: 74-95 mph'; catColor = '#FF8C00'; stageName = '🌀 CATEGORY 1 TYPHOON!'; stageSub = 'Winds 74-95 mph · 119-153 km/h · PAGASA ≈ TCWS No. 4'; }
-    else if (intensity < 0.7) { category = 'Cat 2: 96-110 mph'; catColor = '#FF6B35'; stageName = '🌀 CATEGORY 2 TYPHOON!'; stageSub = 'Winds 96-110 mph · 154-177 km/h · PAGASA ≈ TCWS No. 4'; }
-    else if (intensity < 0.85) { category = 'Cat 3: 111-129 mph'; catColor = '#D62828'; stageName = '🌪️ CATEGORY 3 — MAJOR TYPHOON!'; stageSub = 'Winds 111-129 mph · 178-208 km/h · PAGASA ≈ TCWS No. 4-5'; }
-    else {
+    if (intensity < 0.25) {
+      category = 'Tropical Depression';
+      catColor = '#6DB3E6';
+      stageName = '🌀 TROPICAL DEPRESSION FORMED!';
+      stageSub = 'Winds < 39 mph · < 63 km/h · PAGASA ≈ TCWS No. 1';
+    } else if (intensity < 0.4) {
+      category = 'Tropical Storm';
+      catColor = '#FFD166';
+      stageName = '⛈️ TROPICAL STORM FORMED!';
+      stageSub = 'Winds 39-73 mph · 63-118 km/h · PAGASA ≈ TCWS No. 2-3';
+    } else if (intensity < 0.55) {
+      category = 'Cat 1: 74-95 mph';
+      catColor = '#FF8C00';
+      stageName = '🌀 CATEGORY 1 TYPHOON!';
+      stageSub = 'Winds 74-95 mph · 119-153 km/h · PAGASA ≈ TCWS No. 4';
+    } else if (intensity < 0.7) {
+      category = 'Cat 2: 96-110 mph';
+      catColor = '#FF6B35';
+      stageName = '🌀 CATEGORY 2 TYPHOON!';
+      stageSub = 'Winds 96-110 mph · 154-177 km/h · PAGASA ≈ TCWS No. 4';
+    } else if (intensity < 0.85) {
+      category = 'Cat 3: 111-129 mph';
+      catColor = '#D62828';
+      stageName = '🌪️ CATEGORY 3 — MAJOR TYPHOON!';
+      stageSub = 'Winds 111-129 mph · 178-208 km/h · PAGASA ≈ TCWS No. 4-5';
+    } else {
       const cat5 = intensity >= 1;
       category = cat5 ? 'Cat 5: 157+ mph!' : 'Cat 4: 130-156 mph';
       catColor = '#8B0000';
-      stageName = cat5 ? '🌪️ CATEGORY 5 — SUPER TYPHOON!' : '🌪️ CATEGORY 4 — CATASTROPHIC!';
-      stageSub = cat5 ? 'Winds 157+ mph · 252+ km/h · PAGASA ≈ TCWS No. 5' : 'Winds 130-156 mph · 209-251 km/h · PAGASA ≈ TCWS No. 5';
+      stageName = cat5
+        ? '🌪️ CATEGORY 5 — SUPER TYPHOON!'
+        : '🌪️ CATEGORY 4 — CATASTROPHIC!';
+      stageSub = cat5
+        ? 'Winds 157+ mph · 252+ km/h · PAGASA ≈ TCWS No. 5'
+        : 'Winds 130-156 mph · 209-251 km/h · PAGASA ≈ TCWS No. 5';
     }
 
     this.categoryText.setText(category).setColor(catColor);
     this.strengthText.setText(`Intensity: ${Math.round(intensity * 100)}%`);
 
-        // Stage formation pop-up: trigger when crossing into a *new* stage tier
-    const stageThreshold = intensity < 0.25 ? 1 : intensity < 0.4 ? 2 : intensity < 0.55 ? 3 : intensity < 0.7 ? 4 : intensity < 0.85 ? 5 : 6;
+    // Stage formation pop-up: trigger when crossing into a *new* stage tier
+    const stageThreshold =
+      intensity < 0.25
+        ? 1
+        : intensity < 0.4
+          ? 2
+          : intensity < 0.55
+            ? 3
+            : intensity < 0.7
+              ? 4
+              : intensity < 0.85
+                ? 5
+                : 6;
     if (stageThreshold > this.lastStage) {
       this.lastStage = stageThreshold;
-      telemetry.log('stage_reached', { level: 'typhoon', stage: String(stageThreshold), detail: category });
+      telemetry.log('stage_reached', {
+        level: 'typhoon',
+        stage: String(stageThreshold),
+        detail: category
+      });
       this.showStagePopup(stageName, catColor, stageSub, stageThreshold);
     }
     this.game.events.emit(GAME_EVENTS.HUD_SCORE, {
       score: Math.round(intensity * 3000),
-      label: 'Intensity',
+      label: 'Intensity'
     } satisfies HUDScorePayload);
 
     // Advance storm rotation for animation
@@ -472,7 +673,13 @@ export class TyphoonScene extends Phaser.Scene {
     // Storm milestone effects (lightning & shake)
     this.checkStormMilestones(intensity);
 
-    if (this.matches >= 4 && intensity >= 0.55 && this.gatesPassed >= this.sliderConfigs.length && !this.gateQuizActive) this.completeLevel(intensity);
+    if (
+      this.matches >= 4 &&
+      intensity >= 0.55 &&
+      this.gatesPassed >= this.sliderConfigs.length &&
+      !this.gateQuizActive
+    )
+      this.completeLevel(intensity);
   }
 
   // ═══════════════════════════════════════════════
@@ -500,18 +707,13 @@ export class TyphoonScene extends Phaser.Scene {
 
         const pct = currentMilestone * 10;
         const msg = this.add
-          .text(
-            GAME_WIDTH / 2,
-            this.centerY - 100,
-            `⚡ ${pct}% Intensity!`,
-            {
-              fontFamily: FONTS.DISPLAY,
-              fontSize: '18px',
-              color: '#FFD166',
-              stroke: '#000000',
-              strokeThickness: 3
-            }
-          )
+          .text(GAME_WIDTH / 2, this.centerY - 100, `⚡ ${pct}% Intensity!`, {
+            fontFamily: FONTS.DISPLAY,
+            fontSize: '18px',
+            color: '#FFD166',
+            stroke: '#000000',
+            strokeThickness: 3
+          })
           .setOrigin(0.5)
           .setDepth(7)
           .setAlpha(0);
@@ -544,9 +746,18 @@ export class TyphoonScene extends Phaser.Scene {
   }
 
   /** Stage formation pop-up: big announcement card when the storm levels up */
-  private showStagePopup(title: string, color: string, sub: string, stage: number) {
+  private showStagePopup(
+    title: string,
+    color: string,
+    sub: string,
+    stage: number
+  ) {
     // Kill any in-flight pop-up tweens so a rapid level-up doesn't stack animations
-    this.tweens.killTweensOf([this.stagePopupText, this.stagePopupSub, this.stagePopupPanel]);
+    this.tweens.killTweensOf([
+      this.stagePopupText,
+      this.stagePopupSub,
+      this.stagePopupPanel
+    ]);
 
     this.stagePopupText.setText(title).setColor(color);
     this.stagePopupSub.setText(sub);
@@ -600,7 +811,8 @@ export class TyphoonScene extends Phaser.Scene {
   }
 
   private flashLightning() {
-    const avgValue = this.sliderValues.reduce((a, v) => a + v, 0) / this.sliderValues.length;
+    const avgValue =
+      this.sliderValues.reduce((a, v) => a + v, 0) / this.sliderValues.length;
     const intensity = avgValue / 100;
     playWhoosh(this, 0.4 + intensity * 0.5);
 
@@ -619,9 +831,13 @@ export class TyphoonScene extends Phaser.Scene {
     this.lightningBoltPool.push(boltGfx);
     const boltX = this.centerX + Phaser.Math.Between(-200, 200);
     this.drawLightningBolt(
-      boltX, 0,
-      this.centerX + Phaser.Math.Between(-40, 40), this.centerY,
-      boltGfx, 0xffffff, 2
+      boltX,
+      0,
+      this.centerX + Phaser.Math.Between(-40, 40),
+      this.centerY,
+      boltGfx,
+      0xffffff,
+      2
     );
 
     // Branches
@@ -632,9 +848,13 @@ export class TyphoonScene extends Phaser.Scene {
       const branchGfx = this.add.graphics().setDepth(7);
       this.lightningBoltPool.push(branchGfx);
       this.drawLightningBolt(
-        bx, by,
-        bx + Phaser.Math.Between(-60, 60), by + Phaser.Math.Between(80, 150),
-        branchGfx, 0xaaaaaa, 1
+        bx,
+        by,
+        bx + Phaser.Math.Between(-60, 60),
+        by + Phaser.Math.Between(80, 150),
+        branchGfx,
+        0xaaaaaa,
+        1
       );
     }
 
@@ -649,10 +869,13 @@ export class TyphoonScene extends Phaser.Scene {
   }
 
   private drawLightningBolt(
-    x1: number, y1: number,
-    x2: number, y2: number,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
     gfx: Phaser.GameObjects.Graphics,
-    color: number, lineWidth: number
+    color: number,
+    lineWidth: number
   ) {
     const segments = Phaser.Math.Between(5, 9);
     const points: { x: number; y: number }[] = [];
@@ -677,7 +900,10 @@ export class TyphoonScene extends Phaser.Scene {
     this.drawBoltPath(gfx, points);
   }
 
-  private drawBoltPath(gfx: Phaser.GameObjects.Graphics, points: { x: number; y: number }[]) {
+  private drawBoltPath(
+    gfx: Phaser.GameObjects.Graphics,
+    points: { x: number; y: number }[]
+  ) {
     gfx.beginPath();
     gfx.moveTo(points[0].x, points[0].y);
     for (let i = 1; i < points.length; i++) {
@@ -694,22 +920,27 @@ export class TyphoonScene extends Phaser.Scene {
     if (!this.gameStarted || this.matches < 1) return;
 
     // More particles allowed as storm intensifies
-    const avgValue = this.sliderValues.reduce((a, v) => a + v, 0) / this.sliderValues.length;
+    const avgValue =
+      this.sliderValues.reduce((a, v) => a + v, 0) / this.sliderValues.length;
     const intensity = avgValue / 100;
-    const maxRain = 30 + Math.floor(intensity * 40);
+    const maxRain = this.isMobile
+      ? 15 + Math.floor(intensity * 20)
+      : 30 + Math.floor(intensity * 40);
 
     while (this.rainParticles.length > maxRain) {
       const old = this.rainParticles.shift();
       if (old) old.destroy();
     }
 
-    // Spawn 1-3 per call depending on intensity
-    const count = 1 + Math.floor(intensity * 3);
+    // Spawn 1-3 per call depending on intensity (fewer on mobile)
+    const count = 1 + Math.floor(intensity * (this.isMobile ? 2 : 3));
     for (let i = 0; i < count; i++) {
       const x = Phaser.Math.Between(this.centerX - 120, this.centerX + 120);
       const alpha = 0.15 + intensity * 0.5;
       const size = intensity > 0.5 ? Phaser.Math.Between(1, 3) : 1;
-      const rain = this.add.circle(x, this.centerY - 80, size, 0x6db3e6, alpha).setDepth(DEPTH.PARTICLES);
+      const rain = this.add
+        .circle(x, this.centerY - 80, size, 0x6db3e6, alpha)
+        .setDepth(DEPTH.PARTICLES);
 
       const swayX = x + Phaser.Math.Between(-8, 8);
       this.tweens.add({
@@ -722,7 +953,9 @@ export class TyphoonScene extends Phaser.Scene {
           rain.destroy();
           // Small splash at landing point
           if (intensity > 0.4 && Math.random() < 0.3) {
-            const splash = this.add.circle(rain.x, this.centerY + 100, 1, 0xffffff, 0.3).setDepth(DEPTH.PARTICLES);
+            const splash = this.add
+              .circle(rain.x, this.centerY + 100, 1, 0xffffff, 0.3)
+              .setDepth(DEPTH.PARTICLES);
             this.tweens.add({
               targets: splash,
               alpha: 0,
@@ -731,7 +964,7 @@ export class TyphoonScene extends Phaser.Scene {
               onComplete: () => splash.destroy()
             });
           }
-        },
+        }
       });
       this.rainParticles.push(rain);
     }
@@ -744,7 +977,8 @@ export class TyphoonScene extends Phaser.Scene {
   private spawnOceanSplash() {
     if (!this.gameStarted || this.isComplete) return;
 
-    const avgValue = this.sliderValues.reduce((a, v) => a + v, 0) / this.sliderValues.length;
+    const avgValue =
+      this.sliderValues.reduce((a, v) => a + v, 0) / this.sliderValues.length;
     const intensity = avgValue / 100;
     if (intensity < 0.15) return; // only when storm is brewing
 
@@ -758,13 +992,15 @@ export class TyphoonScene extends Phaser.Scene {
       const angle = Phaser.Math.FloatBetween(-1.2, -0.4); // upward spread
       const speed = Phaser.Math.Between(20, 50) * (0.5 + intensity * 0.5);
       const size = Phaser.Math.Between(1, 3);
-      const droplet = this.add.circle(
-        originX + Phaser.Math.Between(-5, 5),
-        originY,
-        size,
-        Phaser.Math.Between(0, 1) > 0 ? 0xffffff : 0x6db3e6,
-        0.3 + intensity * 0.4
-      ).setDepth(DEPTH.PARTICLES);
+      const droplet = this.add
+        .circle(
+          originX + Phaser.Math.Between(-5, 5),
+          originY,
+          size,
+          Phaser.Math.Between(0, 1) > 0 ? 0xffffff : 0x6db3e6,
+          0.3 + intensity * 0.4
+        )
+        .setDepth(DEPTH.PARTICLES);
       this.oceanSplashes.push(droplet);
 
       this.tweens.add({
@@ -794,8 +1030,13 @@ export class TyphoonScene extends Phaser.Scene {
 
     // Pulse
     this.glowPulseValue += 0.02 * this.glowPulseDirection;
-    if (this.glowPulseValue > 1) { this.glowPulseValue = 1; this.glowPulseDirection = -1; }
-    else if (this.glowPulseValue < 0) { this.glowPulseValue = 0; this.glowPulseDirection = 1; }
+    if (this.glowPulseValue > 1) {
+      this.glowPulseValue = 1;
+      this.glowPulseDirection = -1;
+    } else if (this.glowPulseValue < 0) {
+      this.glowPulseValue = 0;
+      this.glowPulseDirection = 1;
+    }
 
     const pulse = 0.7 + this.glowPulseValue * 0.3;
     const alpha = 0.08 + intensity * 0.25;
@@ -812,7 +1053,11 @@ export class TyphoonScene extends Phaser.Scene {
     // At high intensity — electric glow
     if (intensity > 0.5) {
       this.cloudGlowGfx.fillStyle(0xd62828, alpha * 0.1 * pulse);
-      this.cloudGlowGfx.fillCircle(this.centerX, this.centerY, baseRadius * 1.4);
+      this.cloudGlowGfx.fillCircle(
+        this.centerX,
+        this.centerY,
+        baseRadius * 1.4
+      );
     }
   }
 
@@ -841,17 +1086,24 @@ export class TyphoonScene extends Phaser.Scene {
       const rCol = gray;
       const gCol = Math.floor(gray * (1 - t * 0.2 * intensity));
       const bCol = Math.floor(gray * (1 - t * 0.3 * intensity));
-      gfx.fillStyle(Phaser.Display.Color.GetColor(rCol, gCol, bCol), Math.max(0, alpha));
+      gfx.fillStyle(
+        Phaser.Display.Color.GetColor(rCol, gCol, bCol),
+        Math.max(0, alpha)
+      );
       gfx.fillCircle(cx, cy, r);
     }
 
     // ── 3. Outer spiral bands (slower rotation, more diffuse) ──
-    const outerArms = 2 + Math.floor(intensity * 2);
+    const outerArms = Math.max(
+      1,
+      2 + Math.floor(intensity * (this.isMobile ? 1 : 2))
+    );
+    const outerSteps = this.isMobile ? 15 : 30;
     const outerTurns = 2.5 + intensity * 1.5;
     for (let arm = 0; arm < outerArms; arm++) {
       const armAngle = (arm / outerArms) * Math.PI * 2 + rot * 0.35;
-      for (let step = 0; step < 30; step++) {
-        const t = step / 30;
+      for (let step = 0; step < outerSteps; step++) {
+        const t = step / outerSteps;
         // Organic wave — spiral sways naturally
         const wave = Math.sin(t * 6 + arm * 2.1) * 0.25;
         const angle = armAngle + t * outerTurns * Math.PI * 2 + wave;
@@ -871,12 +1123,16 @@ export class TyphoonScene extends Phaser.Scene {
     }
 
     // ── 4. Inner spiral rainbands (faster rotation, bright white) ──
-    const innerArms = 3 + Math.floor(intensity * 2);
+    const innerArms = Math.max(
+      2,
+      3 + Math.floor(intensity * (this.isMobile ? 1 : 2))
+    );
+    const innerSteps = this.isMobile ? 14 : 28;
     const innerTurns = 4 + intensity * 2.5;
     for (let arm = 0; arm < innerArms; arm++) {
       const armAngle = (arm / innerArms) * Math.PI * 2 + rot;
-      for (let step = 0; step < 28; step++) {
-        const t = step / 28;
+      for (let step = 0; step < innerSteps; step++) {
+        const t = step / innerSteps;
         // Tighter wave for inner bands
         const wave = Math.sin(t * 9 + arm * 3.7) * 0.15;
         const angle = armAngle + t * innerTurns * Math.PI * 2 + wave;
@@ -889,7 +1145,9 @@ export class TyphoonScene extends Phaser.Scene {
         const alpha = (0.2 + intensity * 0.5) * (1 - t * 0.55);
 
         // Color: bright white → warm orange/red at high intensity
-        let rCol = 255, gCol = 255, bCol = 255;
+        let rCol = 255,
+          gCol = 255,
+          bCol = 255;
         if (intensity > 0.25 && t > 0.15) {
           rCol = 255;
           gCol = Math.floor(255 - (intensity - 0.1) * 300 * t);
@@ -897,7 +1155,9 @@ export class TyphoonScene extends Phaser.Scene {
         }
         gfx.fillStyle(
           Phaser.Display.Color.GetColor(
-            Math.max(180, rCol), Math.max(130, gCol), Math.max(90, bCol)
+            Math.max(180, rCol),
+            Math.max(130, gCol),
+            Math.max(90, bCol)
           ),
           Math.max(0, alpha)
         );
@@ -910,7 +1170,7 @@ export class TyphoonScene extends Phaser.Scene {
     // Outer eyewall layers (darker → brighter inward)
     for (let i = 6; i >= 0; i--) {
       const r = eyewallR + i * 5;
-      const alpha = (0.08 + intensity * 0.35) - i * 0.035;
+      const alpha = 0.08 + intensity * 0.35 - i * 0.035;
       const bright = 180 - i * 20 + Math.floor(intensity * 50);
       const rCol = Math.min(255, bright + 60);
       const gCol = Math.min(255, bright + 20);
@@ -962,14 +1222,18 @@ export class TyphoonScene extends Phaser.Scene {
 
     // ── 8. Scattered cloud wisps (natangay na ulap) ──
     if (intensity > 0.25) {
-      const wispCount = 4 + Math.floor(intensity * 8);
+      const wispCount = 4 + Math.floor(intensity * (this.isMobile ? 4 : 8));
       for (let w = 0; w < wispCount; w++) {
         const wAngle = w * 2.3 + rot * 0.7;
         const wR = eyewallR * 0.6 + ((w + 1) / wispCount) * maxR * 0.85;
         const wx = cx + Math.cos(wAngle) * wR + Math.sin(w * 3.1 + rot) * 5;
         const wy = cy + Math.sin(wAngle) * wR + Math.cos(w * 2.7 + rot) * 4;
-        const wSize = 1.5 + (Math.sin(w * 5.3 + intensity * 10) * 0.5 + 0.5) * (3 + intensity * 4);
-        const wAlpha = 0.04 + (Math.sin(w * 4.1) * 0.5 + 0.5) * (0.08 + intensity * 0.12);
+        const wSize =
+          1.5 +
+          (Math.sin(w * 5.3 + intensity * 10) * 0.5 + 0.5) *
+            (3 + intensity * 4);
+        const wAlpha =
+          0.04 + (Math.sin(w * 4.1) * 0.5 + 0.5) * (0.08 + intensity * 0.12);
         gfx.fillStyle(0xffffff, wAlpha);
         gfx.fillCircle(wx, wy, wSize);
       }
@@ -977,17 +1241,14 @@ export class TyphoonScene extends Phaser.Scene {
 
     // ── 9. Spiral rainband streaks (mahabang pahid ng ulap) ──
     if (intensity > 0.3) {
-      const streakCount = 2 + Math.floor(intensity * 3);
+      const streakCount = 2 + Math.floor(intensity * (this.isMobile ? 2 : 3));
       for (let st = 0; st < streakCount; st++) {
         const stAngle = st * 2.9 + rot * 1.2;
-        gfx.lineStyle(
-          1.5 + intensity * 2,
-          0xffffff,
-          0.04 + intensity * 0.08
-        );
+        gfx.lineStyle(1.5 + intensity * 2, 0xffffff, 0.04 + intensity * 0.08);
         gfx.beginPath();
         const startR = eyewallR * 1.2;
-        const endR = eyewallR * 1.5 + (Math.sin(st * 13.7) * 0.5 + 0.5) * (maxR * 0.7);
+        const endR =
+          eyewallR * 1.5 + (Math.sin(st * 13.7) * 0.5 + 0.5) * (maxR * 0.7);
         for (let p = 0; p < 15; p++) {
           const t = p / 15;
           const pAngle = stAngle + t * 3.5 * Math.PI * 2;
@@ -1051,7 +1312,9 @@ export class TyphoonScene extends Phaser.Scene {
 
   private updateVaporParticles(vaporVal: number, intensity: number) {
     // Clean up excess particles
-    const maxVapor = 10 + Math.floor((vaporVal / 100) * 30);
+    const maxVapor = this.isMobile
+      ? 5 + Math.floor((vaporVal / 100) * 15)
+      : 10 + Math.floor((vaporVal / 100) * 30);
     while (this.vaporParticles.length > maxVapor) {
       const old = this.vaporParticles.shift();
       if (old) old.destroy();
@@ -1069,7 +1332,8 @@ export class TyphoonScene extends Phaser.Scene {
           const vy = this.centerY + 70 + Phaser.Math.Between(0, 20);
           const size = Phaser.Math.Between(2, 5);
           const alpha = 0.15 + (vaporVal / 100) * 0.3;
-          const vapor = this.add.circle(vx, vy, size, 0xffffff, alpha)
+          const vapor = this.add
+            .circle(vx, vy, size, 0xffffff, alpha)
             .setDepth(DEPTH.PARTICLES);
 
           const riseY = this.centerY - 40 + Phaser.Math.Between(-20, 10);
@@ -1107,7 +1371,9 @@ export class TyphoonScene extends Phaser.Scene {
     const spoutAlpha = 0.1 + pct * 0.25;
 
     for (let s = 0; s < spoutCount; s++) {
-      const sOffX = (s - (spoutCount - 1) / 2) * 40 + Math.sin(this.spoutAngle + s * 2) * 10;
+      const sOffX =
+        (s - (spoutCount - 1) / 2) * 40 +
+        Math.sin(this.spoutAngle + s * 2) * 10;
       const sX = this.centerX + sOffX;
       const topY = this.centerY - 10;
       const botY = this.centerY + 75;
@@ -1157,7 +1423,7 @@ export class TyphoonScene extends Phaser.Scene {
     this.game.events.emit(GAME_EVENTS.HUD_TYPHOON_QUIZ, {
       topic: this.sliderConfigs[gateIdx]?.label ?? 'Science Gate',
       questions: [question],
-      mode: 'gate',
+      mode: 'gate'
     } satisfies TyphoonQuizPayload);
   }
 
@@ -1168,19 +1434,27 @@ export class TyphoonScene extends Phaser.Scene {
     const nextIdx = this.gatesPassed;
     if (nextIdx < this.sliderConfigs.length) {
       this.game.events.emit(GAME_EVENTS.HUD_TYPHOON_SLIDER_UNLOCK, {
-        index: nextIdx,
+        index: nextIdx
       } satisfies TyphoonSliderUnlockPayload);
       playChime(this, 'medium');
       const cfg = this.sliderConfigs[nextIdx];
       if (cfg) {
-        this.showStagePopup(`🔓 ${cfg.label.toUpperCase()} UNLOCKED!`, '#06D6A0',
-          'New slider available — set it in the GREEN zone!', 1);
+        this.showStagePopup(
+          `🔓 ${cfg.label.toUpperCase()} UNLOCKED!`,
+          '#06D6A0',
+          'New slider available — set it in the GREEN zone!',
+          1
+        );
       }
     } else {
       // All gates passed — formation can now complete once every element is balanced
       playChime(this, 'medium');
-      this.showStagePopup('🔓 ALL GATES PASSED!', '#06D6A0',
-        'Keep ALL 4 sliders in the GREEN zone to complete the typhoon!', 1);
+      this.showStagePopup(
+        '🔓 ALL GATES PASSED!',
+        '#06D6A0',
+        'Keep ALL 4 sliders in the GREEN zone to complete the typhoon!',
+        1
+      );
     }
   }
 
@@ -1195,12 +1469,22 @@ export class TyphoonScene extends Phaser.Scene {
 
     // Flash particles
     for (let i = 0; i < 20; i++) {
-      const flash = this.add.circle(Phaser.Math.Between(0, GAME_WIDTH), Phaser.Math.Between(0, GAME_HEIGHT),
-        Phaser.Math.Between(5, 20), 0xffffff, 0.3,
-      ).setDepth(DEPTH.OVERLAY);
+      const flash = this.add
+        .circle(
+          Phaser.Math.Between(0, GAME_WIDTH),
+          Phaser.Math.Between(0, GAME_HEIGHT),
+          Phaser.Math.Between(5, 20),
+          0xffffff,
+          0.3
+        )
+        .setDepth(DEPTH.OVERLAY);
       this.tweens.add({
-        targets: flash, alpha: 0, scale: 2, duration: 1000, delay: i * 50,
-        onComplete: () => flash.destroy(),
+        targets: flash,
+        alpha: 0,
+        scale: 2,
+        duration: 1000,
+        delay: i * 50,
+        onComplete: () => flash.destroy()
       });
     }
 
@@ -1213,58 +1497,107 @@ export class TyphoonScene extends Phaser.Scene {
       ease: 'Quad.easeOut'
     });
 
-    // Emit quiz to React — result is shown AFTER the quiz.
-    // Prefer questions NOT used as unlock gates (land weakening, ocean basin)
-    // plus a random gate question, so the final quiz stays fresh.
-    const gateSet = TYPHOON_GATE_TOPICS as readonly string[];
-    const nonGate = TYPHOON_QUIZ_QUESTIONS.filter(q => !gateSet.includes(q.topic));
-    const gatePool = TYPHOON_QUIZ_QUESTIONS
-      .filter(q => gateSet.includes(q.topic))
-      .sort(() => Math.random() - 0.5);
-    const pick = [...nonGate, ...gatePool].slice(0, 3);
+    // Announce the final typhoon category so the player sees it before the quiz covers the screen.
+    // The categoryText already shows the current category; make it extra visible with a stage popup.
+    const finalCategoryText = this.categoryText?.text ?? 'Typhoon';
+    const finalColor = String(this.categoryText?.style?.color ?? '#FFD166');
+    this.showStagePopup(
+      `✅ TYPHOON FORMED!`,
+      finalColor,
+      `Category: ${finalCategoryText} — Quiz in a few seconds…`,
+      6
+    );
 
-    this.game.events.emit(GAME_EVENTS.HUD_TYPHOON_QUIZ, {
-      topic: 'Typhoon Science',
-      questions: pick,
+    // Delay the final quiz 4 seconds so the player can see the typhoon category before quiz questions appear.
+    const gateSet = TYPHOON_GATE_TOPICS as readonly string[];
+    const quizPick = () => {
+      const nonGate = TYPHOON_QUIZ_QUESTIONS.filter(
+        q => !gateSet.includes(q.topic)
+      );
+      const gatePool = TYPHOON_QUIZ_QUESTIONS.filter(q =>
+        gateSet.includes(q.topic)
+      ).sort(() => Math.random() - 0.5);
+      return [...nonGate, ...gatePool].slice(0, 3);
+    };
+
+    // Pause timer during the wait (gateQuizActive blocks timer decrements)
+    this.gateQuizActive = true;
+    this.time.delayedCall(4000, () => {
+      this.gateQuizActive = false;
+      if (this.isComplete) {
+        const pick = quizPick();
+        // Emit quiz to React — result is shown AFTER the quiz.
+        // Prefer questions NOT used as unlock gates (land weakening, ocean basin)
+        // plus a random gate question, so the final quiz stays fresh.
+        this.game.events.emit(GAME_EVENTS.HUD_TYPHOON_QUIZ, {
+          topic: 'Typhoon Science',
+          questions: pick
+        });
+      }
     });
   }
 
   private finalizeCompletion() {
-    const avgValue = this.sliderValues.reduce((a, v) => a + v, 0) / this.sliderValues.length;
+    const avgValue =
+      this.sliderValues.reduce((a, v) => a + v, 0) / this.sliderValues.length;
     const intensity = avgValue / 100;
     const intensityBonus = Math.round(intensity * 500);
     const matchBonus = this.matches * 250;
-    const timeBonus = Math.round(this.timeRemaining / this.totalTime * 300);
+    const timeBonus = Math.round((this.timeRemaining / this.totalTime) * 300);
     const baseScore = 1500 + intensityBonus + matchBonus + timeBonus;
     const finalScore = baseScore + this.lastQuizBonus;
     const stars = GameManager.getStars(finalScore, 3500);
 
-        this.didWin = true;
-    GameManager.getInstance().completeLevel('typhoon', finalScore, stars, this.totalTime - this.timeRemaining);
+    this.didWin = true;
+    GameManager.getInstance().completeLevel(
+      'typhoon',
+      finalScore,
+      stars,
+      this.totalTime - this.timeRemaining
+    );
     const saved = localStorage.getItem('unos_progress');
     const progress = saved ? JSON.parse(saved) : {};
     const existing = progress['typhoon'] || {};
     progress['typhoon'] = {
-      completed: true, bestScore: Math.max(existing.bestScore ?? 0, finalScore),
-      bestTime: Math.min(existing.bestTime ?? 999, this.totalTime - this.timeRemaining),
+      completed: true,
+      bestScore: Math.max(existing.bestScore ?? 0, finalScore),
+      bestTime: Math.min(
+        existing.bestTime ?? 999,
+        this.totalTime - this.timeRemaining
+      ),
       stars: Math.max(existing.stars ?? 0, stars),
       attempts: (existing.attempts ?? 0) + 1,
-      factsUnlocked: ['fact_typhoon'],
+      factsUnlocked: ['fact_typhoon']
     };
     localStorage.setItem('unos_progress', JSON.stringify(progress));
 
     // Score breakdown
-    this.add.text(this.centerX, this.centerY + 18,
-      `Intensity: +${intensityBonus}  |  Balance: +${matchBonus}  |  Time: +${timeBonus}${this.lastQuizBonus > 0 ? `  |  Science: +${this.lastQuizBonus}` : ''}`, {
-      fontFamily: FONTS.BODY, fontSize: '9px', color: '#FFD166',
-      stroke: '#000000', strokeThickness: 2,
-    }).setOrigin(0.5).setDepth(DEPTH.OVERLAY).setAlpha(1);
+    this.add
+      .text(
+        this.centerX,
+        this.centerY + 18,
+        `Intensity: +${intensityBonus}  |  Balance: +${matchBonus}  |  Time: +${timeBonus}${this.lastQuizBonus > 0 ? `  |  Science: +${this.lastQuizBonus}` : ''}`,
+        {
+          fontFamily: FONTS.BODY,
+          fontSize: '9px',
+          color: '#FFD166',
+          stroke: '#000000',
+          strokeThickness: 2
+        }
+      )
+      .setOrigin(0.5)
+      .setDepth(DEPTH.OVERLAY)
+      .setAlpha(1);
 
     this.game.events.emit(GAME_EVENTS.HUD_RESULT, {
-      type: 'complete', title: 'Typhoon Created!', subtitle: 'All conditions met',
-      score: finalScore, stars, levelId: 'typhoon',
+      type: 'complete',
+      title: 'Typhoon Created!',
+      subtitle: 'All conditions met',
+      score: finalScore,
+      stars,
+      levelId: 'typhoon',
       timeUsed: this.totalTime - this.timeRemaining,
-      factsUnlocked: ['fact_typhoon'],
+      factsUnlocked: ['fact_typhoon']
     });
   }
 
@@ -1273,15 +1606,26 @@ export class TyphoonScene extends Phaser.Scene {
     this.isComplete = true;
     playBuzz(this);
 
-    const failText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Time\'s Up!', {
-      fontFamily: FONTS.DISPLAY, fontSize: '36px', color: '#D62828',
-      stroke: '#000000', strokeThickness: 4,
-    }).setOrigin(0.5).setDepth(DEPTH.OVERLAY);
+    const failText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2, "Time's Up!", {
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '36px',
+        color: '#D62828',
+        stroke: '#000000',
+        strokeThickness: 4
+      })
+      .setOrigin(0.5)
+      .setDepth(DEPTH.OVERLAY);
 
     this.game.events.emit(GAME_EVENTS.HUD_RESULT, {
-      type: 'fail', title: 'Time\'s Up!', subtitle: 'Conditions not balanced',
-      score: 0, stars: 0, levelId: 'typhoon',
-      timeUsed: this.totalTime, factsUnlocked: [],
+      type: 'fail',
+      title: "Time's Up!",
+      subtitle: 'Conditions not balanced',
+      score: 0,
+      stars: 0,
+      levelId: 'typhoon',
+      timeUsed: this.totalTime,
+      factsUnlocked: []
     });
   }
 
@@ -1296,8 +1640,14 @@ export class TyphoonScene extends Phaser.Scene {
   shutdown() {
     this.game.events.off(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
     this.game.events.off(GAME_EVENTS.HUD_INTRO_DISMISS, this.startGame);
-    this.game.events.off(GAME_EVENTS.HUD_TYPHOON_SLIDER_UPDATE, this.onSliderUpdate);
-    this.game.events.off(GAME_EVENTS.HUD_TYPHOON_QUIZ_COMPLETE, this.onQuizComplete);
+    this.game.events.off(
+      GAME_EVENTS.HUD_TYPHOON_SLIDER_UPDATE,
+      this.onSliderUpdate
+    );
+    this.game.events.off(
+      GAME_EVENTS.HUD_TYPHOON_QUIZ_COMPLETE,
+      this.onQuizComplete
+    );
 
     // Clean up active effects
     this.oceanSplashes.forEach(s => s.destroy());

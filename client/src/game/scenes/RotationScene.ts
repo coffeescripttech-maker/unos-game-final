@@ -190,7 +190,9 @@ export class RotationScene extends Phaser.Scene {
     this.hemisphere = 'northern';
 
     // ── Background (with slow zoom + drift animation) ──
-    const bg = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'rotation_bg').setDepth(0);
+    const bg = this.add
+      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'rotation_bg')
+      .setDepth(0);
     const bgScale = Math.max(GAME_WIDTH / bg.width, GAME_HEIGHT / bg.height);
     bg.setScale(bgScale);
     this.tweens.add({
@@ -257,31 +259,45 @@ export class RotationScene extends Phaser.Scene {
     this.hemiMapGfx = this.add.graphics().setDepth(6);
     this.add
       .text(this.HEMI_CX, this.HEMI_CY - this.HEMI_R + 14, 'N', {
-        fontFamily: FONTS.DISPLAY, fontSize: '11px', color: '#ffffff',
-        stroke: '#000000', strokeThickness: 3
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '11px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 3
       })
-      .setOrigin(0.5).setDepth(7);
+      .setOrigin(0.5)
+      .setDepth(7);
     this.add
       .text(this.HEMI_CX, this.HEMI_CY + this.HEMI_R - 14, 'S', {
-        fontFamily: FONTS.DISPLAY, fontSize: '11px', color: '#ffffff',
-        stroke: '#000000', strokeThickness: 3
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '11px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 3
       })
-      .setOrigin(0.5).setDepth(7);
+      .setOrigin(0.5)
+      .setDepth(7);
     this.hemiStormText = this.add
       .text(this.HEMI_CX, this.HEMI_CY - 26, '🌀', { fontSize: '18px' })
       .setOrigin(0.5)
       .setDepth(7);
     this.hemiNameText = this.add
       .text(205, this.HEMI_CY - 26, '', {
-        fontFamily: FONTS.DISPLAY, fontSize: '16px', color: '#ffffff',
-        stroke: '#000000', strokeThickness: 3
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '16px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 3
       })
       .setOrigin(0, 0.5)
       .setDepth(6);
     this.hemiDirText = this.add
       .text(205, this.HEMI_CY + 14, '', {
-        fontFamily: FONTS.DISPLAY, fontSize: '32px', color: '#7fd4ff',
-        stroke: '#000000', strokeThickness: 5
+        fontFamily: FONTS.DISPLAY,
+        fontSize: '22px',
+        color: '#7fd4ff',
+        stroke: '#000000',
+        strokeThickness: 4
       })
       .setOrigin(0, 0.5)
       .setDepth(6);
@@ -360,14 +376,38 @@ export class RotationScene extends Phaser.Scene {
       title: 'Coriolis Effect',
       subtitle: 'Spin to create the Coriolis Force!',
       mechanics: [
-        { icon: '🔄', text: 'Spin ANYWHERE around the eye — CCW (Northern) or CW (Southern)' },
-        { icon: '🗺️', text: 'HEMISPHERE MAP (bottom-left): blue North = CCW ↺ · amber South = CW ↻' },
-        { icon: '🌪️', text: 'Storm grows: Depression → Tropical Storm → Strong Storm → Cyclone' },
-        { icon: '⚡', text: 'SPIN POWER: spin fast & steady for up to 2× progress!' },
-        { icon: '🔥', text: 'Combo ratings: GOOD → GREAT → PERFECT → SUPER SPIN!' },
-        { icon: '🟤', text: 'AIR MASS events — spin to charge & deflect them away!' },
-        { icon: '💨', text: 'Wind disturbances — correct the airflow to keep building!' },
-        { icon: '⏱️', text: '30 seconds. Reach 20 rotations (7200°) to form the cyclone!' }
+        {
+          icon: '🔄',
+          text: 'NORTHERN = spin COUNTER-CLOCKWISE ↺ (drag LEFT) · SOUTHERN = spin CLOCKWISE ↻ (drag RIGHT)'
+        },
+        {
+          icon: '🗺️',
+          text: 'HEMISPHERE MAP (bottom-left): blue North = ↺ CCW · amber South = ↻ CW'
+        },
+        {
+          icon: '🌪️',
+          text: 'Storm grows: Depression → Tropical Storm → Strong Storm → Cyclone'
+        },
+        {
+          icon: '⚡',
+          text: 'SPIN POWER: spin fast & steady for up to 2× progress!'
+        },
+        {
+          icon: '🔥',
+          text: 'Combo ratings: GOOD → GREAT → PERFECT → SUPER SPIN!'
+        },
+        {
+          icon: '🟤',
+          text: 'AIR MASS events — spin to charge & deflect them away!'
+        },
+        {
+          icon: '💨',
+          text: 'Wind disturbances — correct the airflow to keep building!'
+        },
+        {
+          icon: '⏱️',
+          text: '30 seconds. Reach 20 rotations (7200°) to form the cyclone!'
+        }
       ]
     } satisfies HUDLevelIntroPayload);
 
@@ -380,7 +420,8 @@ export class RotationScene extends Phaser.Scene {
     // Emit level info
     this.game.events.emit(GAME_EVENTS.HUD_LEVEL_INFO, {
       name: 'Rotation',
-      description: 'Spin the correct direction (CCW North / CW South). Chase the right airflow, deflect air masses, ride out wind disturbances, and build a full-blown cyclone in 30 seconds!'
+      description:
+        'Spin the correct direction (CCW North / CW South). Chase the right airflow, deflect air masses, ride out wind disturbances, and build a full-blown cyclone in 30 seconds!'
     } satisfies HUDLevelInfoPayload);
     this.emitObjective();
 
@@ -532,14 +573,19 @@ export class RotationScene extends Phaser.Scene {
     this.windGustGfx.strokePath();
     this.windGustGfx.fillStyle(0xff6b6b, 0.9);
     this.windGustGfx.fillTriangle(
-      endX, gustY,
-      endX - (fromLeft ? -20 : 20), gustY - 8,
-      endX - (fromLeft ? -20 : 20), gustY + 8
+      endX,
+      gustY,
+      endX - (fromLeft ? -20 : 20),
+      gustY - 8,
+      endX - (fromLeft ? -20 : 20),
+      gustY + 8
     );
 
     // Show warning text — random disturbance variety
     const gustLabels = ['💨 HEADWIND!', '🌬️ WIND SHEAR!', '💨 GUST!'];
-    this.headwindText.setText(gustLabels[Math.floor(Math.random() * gustLabels.length)]);
+    this.headwindText.setText(
+      gustLabels[Math.floor(Math.random() * gustLabels.length)]
+    );
     this.tweens.add({
       targets: this.headwindText,
       alpha: { from: 0, to: 1 },
@@ -654,9 +700,13 @@ export class RotationScene extends Phaser.Scene {
     const boltGfx = this.add.graphics().setDepth(7);
     const boltX = this.centerX + Phaser.Math.Between(-200, 200);
     this.drawLightningBolt(
-      boltX, 0,
-      this.centerX + Phaser.Math.Between(-40, 40), this.centerY,
-      boltGfx, 0xffffff, 3
+      boltX,
+      0,
+      this.centerX + Phaser.Math.Between(-40, 40),
+      this.centerY,
+      boltGfx,
+      0xffffff,
+      3
     );
 
     // ── Branch bolts ──
@@ -665,10 +715,28 @@ export class RotationScene extends Phaser.Scene {
       const branchGfx = this.add.graphics().setDepth(7);
       const splitY = Phaser.Math.Between(100, 250);
       const bx = boltX + Phaser.Math.Between(-30, 30);
-      const bx2 = bx + (Math.random() > 0.5 ? Phaser.Math.Between(30, 100) : Phaser.Math.Between(-100, -30));
-      this.drawLightningBolt(bx, splitY, bx2, splitY + Phaser.Math.Between(80, 180), branchGfx, 0xccccff, 1.5);
+      const bx2 =
+        bx +
+        (Math.random() > 0.5
+          ? Phaser.Math.Between(30, 100)
+          : Phaser.Math.Between(-100, -30));
+      this.drawLightningBolt(
+        bx,
+        splitY,
+        bx2,
+        splitY + Phaser.Math.Between(80, 180),
+        branchGfx,
+        0xccccff,
+        1.5
+      );
       // Fade branch
-      this.tweens.add({ targets: branchGfx, alpha: 0, delay: 0.1, duration: 300, onComplete: () => branchGfx.destroy() });
+      this.tweens.add({
+        targets: branchGfx,
+        alpha: 0,
+        delay: 0.1,
+        duration: 300,
+        onComplete: () => branchGfx.destroy()
+      });
     }
 
     // ── Screen white flash ──
@@ -707,8 +775,10 @@ export class RotationScene extends Phaser.Scene {
 
   /** Draw a jagged zigzag lightning bolt between two points with glow */
   private drawLightningBolt(
-    x1: number, y1: number,
-    x2: number, y2: number,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
     gfx: Phaser.GameObjects.Graphics,
     color: number,
     lineWidth: number
@@ -732,19 +802,25 @@ export class RotationScene extends Phaser.Scene {
     // Outer glow
     gfx.lineStyle(lineWidth * 3, color, 0.2);
     gfx.beginPath();
-    points.forEach((p, i) => i === 0 ? gfx.moveTo(p.x, p.y) : gfx.lineTo(p.x, p.y));
+    points.forEach((p, i) =>
+      i === 0 ? gfx.moveTo(p.x, p.y) : gfx.lineTo(p.x, p.y)
+    );
     gfx.strokePath();
 
     // Mid glow
     gfx.lineStyle(lineWidth * 1.8, 0xeeeeff, 0.5);
     gfx.beginPath();
-    points.forEach((p, i) => i === 0 ? gfx.moveTo(p.x, p.y) : gfx.lineTo(p.x, p.y));
+    points.forEach((p, i) =>
+      i === 0 ? gfx.moveTo(p.x, p.y) : gfx.lineTo(p.x, p.y)
+    );
     gfx.strokePath();
 
     // Core bolt (brightest)
     gfx.lineStyle(lineWidth, color, 1);
     gfx.beginPath();
-    points.forEach((p, i) => i === 0 ? gfx.moveTo(p.x, p.y) : gfx.lineTo(p.x, p.y));
+    points.forEach((p, i) =>
+      i === 0 ? gfx.moveTo(p.x, p.y) : gfx.lineTo(p.x, p.y)
+    );
     gfx.strokePath();
   }
 
@@ -767,7 +843,8 @@ export class RotationScene extends Phaser.Scene {
 
     // ── Random lightning at 50%+ (more likely the faster you spin) ──
     if (this.rotationProgress >= 0.5 && intensity > 0.2) {
-      const lightningChance = intensity * (this.rotationProgress >= 0.8 ? 0.04 : 0.015);
+      const lightningChance =
+        intensity * (this.rotationProgress >= 0.8 ? 0.04 : 0.015);
       if (Math.random() < lightningChance) {
         this.flashLightning();
       }
@@ -782,7 +859,11 @@ export class RotationScene extends Phaser.Scene {
     }
 
     // ── Bright vortex flash streaks at 60%+ during fast spin ──
-    if (this.rotationProgress >= 0.6 && intensity > 0.4 && Math.random() < 0.03) {
+    if (
+      this.rotationProgress >= 0.6 &&
+      intensity > 0.4 &&
+      Math.random() < 0.03
+    ) {
       const a = Phaser.Math.FloatBetween(0, Math.PI * 2);
       const r = Phaser.Math.Between(40, 90);
       const streak = this.add
@@ -818,7 +899,8 @@ export class RotationScene extends Phaser.Scene {
     const sy = this.centerY + Math.sin(spawnAngle) * spawnRadius;
 
     const deflectionDir = this.hemisphere === 'northern' ? 1 : -1;
-    const targetAngle = spawnAngle + deflectionDir * Phaser.Math.FloatBetween(0.3, 0.8);
+    const targetAngle =
+      spawnAngle + deflectionDir * Phaser.Math.FloatBetween(0.3, 0.8);
     const targetDist = Phaser.Math.Between(120, 200);
     const tx = this.centerX + Math.cos(targetAngle) * targetDist;
     const ty = this.centerY + Math.sin(targetAngle) * targetDist;
@@ -985,7 +1067,12 @@ export class RotationScene extends Phaser.Scene {
   // ═══════════════════════════════════════════════
 
   private spawnCollectibleOrb() {
-    if (this.isComplete || !this.gameStarted || this.collectibleOrbs.length >= 5) return;
+    if (
+      this.isComplete ||
+      !this.gameStarted ||
+      this.collectibleOrbs.length >= 5
+    )
+      return;
 
     const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
     const radius = Phaser.Math.Between(50, 110);
@@ -993,9 +1080,7 @@ export class RotationScene extends Phaser.Scene {
     const y = this.centerY + Math.sin(angle) * radius;
     const value = Phaser.Math.Between(50, 120);
 
-    const glow = this.add
-      .circle(x, y, 16, 0xffd166, 0.15)
-      .setDepth(3);
+    const glow = this.add.circle(x, y, 16, 0xffd166, 0.15).setDepth(3);
 
     const sprite = this.add
       .circle(x, y, 8, 0xffd166, 0.9)
@@ -1057,8 +1142,10 @@ export class RotationScene extends Phaser.Scene {
     this.collectibleOrbs.forEach(orb => {
       if (orb.collected) return;
       const dist = Phaser.Math.Distance.Between(
-        px, py,
-        orb.sprite.x, orb.sprite.y
+        px,
+        py,
+        orb.sprite.x,
+        orb.sprite.y
       );
       if (dist < 40) {
         orb.collected = true;
@@ -1127,7 +1214,8 @@ export class RotationScene extends Phaser.Scene {
     const alpha = Phaser.Math.FloatBetween(0.08, 0.2) * intensity;
     const speed = Phaser.Math.Between(300, 700);
 
-    const streak = this.add.rectangle(x, -len, 1.5, len, 0x88bbee, alpha)
+    const streak = this.add
+      .rectangle(x, -len, 1.5, len, 0x88bbee, alpha)
       .setDepth(1);
     this.rainStreakPool.push(streak);
 
@@ -1177,11 +1265,7 @@ export class RotationScene extends Phaser.Scene {
       duration,
       onUpdate: () => {
         if (!p.active) return;
-        const t = Phaser.Math.Clamp(
-          (this.time.now - start) / duration,
-          0,
-          1
-        );
+        const t = Phaser.Math.Clamp((this.time.now - start) / duration, 0, 1);
         const radius = startRadius * Math.pow(1 - t, 0.75);
         const angle = startAngle + t * curlTurns * Math.PI * 2 * dirSign;
         p.x = this.centerX + Math.cos(angle) * radius;
@@ -1217,9 +1301,7 @@ export class RotationScene extends Phaser.Scene {
       .setBlendMode(Phaser.BlendModes.ADD);
 
     // Sparkle core
-    const core = this.add
-      .circle(x, y, size * 0.4, 0xffffff, 0.8)
-      .setDepth(3);
+    const core = this.add.circle(x, y, size * 0.4, 0xffffff, 0.8).setDepth(3);
 
     this.tweens.add({
       targets: trail,
@@ -1245,7 +1327,7 @@ export class RotationScene extends Phaser.Scene {
     this.ringGfx.clear();
     const rings = [
       { radius: 70, unlockAt: 0.25 },
-      { radius: 100, unlockAt: 0.50 },
+      { radius: 100, unlockAt: 0.5 },
       { radius: 130, unlockAt: 0.75 }
     ];
     rings.forEach(r => {
@@ -1273,9 +1355,7 @@ export class RotationScene extends Phaser.Scene {
       const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
       const dist = Phaser.Math.Between(15, 35);
       const size = Phaser.Math.Between(2, 4);
-      const spark = this.add
-        .circle(x, y, size, 0xff4444, 0.8)
-        .setDepth(5);
+      const spark = this.add.circle(x, y, size, 0xff4444, 0.8).setDepth(5);
       this.tweens.add({
         targets: spark,
         x: x + Math.cos(angle) * dist,
@@ -1342,7 +1422,9 @@ export class RotationScene extends Phaser.Scene {
     if (!this.comboText) return;
     if (this.combo >= 2) {
       const label =
-        this.combo >= 5 ? `🔥 ${this.combo} x COMBO!` : `🔥 Combo x${this.combo}`;
+        this.combo >= 5
+          ? `🔥 ${this.combo} x COMBO!`
+          : `🔥 Combo x${this.combo}`;
       this.comboText.setText(label);
       this.comboText.setAlpha(1);
       this.comboText.setScale(1 + Math.min(0.3, this.combo * 0.03));
@@ -1408,11 +1490,22 @@ export class RotationScene extends Phaser.Scene {
     const northern = this.hemisphere === 'northern';
     const color = northern ? '#7fd4ff' : '#ffd166';
 
-    this.hemiNameText.setText(northern ? 'NORTHERN HEMISPHERE' : 'SOUTHERN HEMISPHERE');
+    this.hemiNameText.setText(
+      northern ? 'NORTHERN HEMISPHERE' : 'SOUTHERN HEMISPHERE'
+    );
     this.hemiNameText.setColor(color);
-    this.hemiDirText.setText(northern ? 'SPIN CCW ↺' : 'SPIN CW ↻');
+    // Spell out the full direction + a finger hint so CW vs CCW is unambiguous:
+    // Northern = counter-clockwise (drag LEFT) · Southern = clockwise (drag RIGHT)
+    this.hemiDirText.setText(
+      northern
+        ? '↺ COUNTER-CLOCKWISE  (drag LEFT)'
+        : '↻ CLOCKWISE  (drag RIGHT)'
+    );
     this.hemiDirText.setColor(color);
-    this.hemiStormText.setPosition(this.HEMI_CX, this.HEMI_CY + (northern ? -26 : 26));
+    this.hemiStormText.setPosition(
+      this.HEMI_CX,
+      this.HEMI_CY + (northern ? -26 : 26)
+    );
 
     this.drawHemisphereMap();
     this.drawHemiArrows();
@@ -1432,7 +1525,9 @@ export class RotationScene extends Phaser.Scene {
     const g = this.hemiMapGfx;
     if (!g) return;
     const northern = this.hemisphere === 'northern';
-    const cx = this.HEMI_CX, cy = this.HEMI_CY, r = this.HEMI_R;
+    const cx = this.HEMI_CX,
+      cy = this.HEMI_CY,
+      r = this.HEMI_R;
     g.clear();
 
     // Ocean base + abstract landmasses
@@ -1467,7 +1562,9 @@ export class RotationScene extends Phaser.Scene {
     const g = this.hemiArrowGfx;
     if (!g) return;
     const northern = this.hemisphere === 'northern';
-    const cx = this.HEMI_CX, cy = this.HEMI_CY, R = this.HEMI_RING;
+    const cx = this.HEMI_CX,
+      cy = this.HEMI_CY,
+      R = this.HEMI_RING;
     const color = northern ? 0x7fd4ff : 0xffd166;
     const dirSign = northern ? -1 : 1; // -1 = angle decreases = CCW on screen
     g.clear();
@@ -1477,7 +1574,14 @@ export class RotationScene extends Phaser.Scene {
       const end = base + 46 * dirSign;
       g.lineStyle(4, color, 0.9);
       g.beginPath();
-      g.arc(cx, cy, R, Phaser.Math.DegToRad(Math.min(base, end)), Phaser.Math.DegToRad(Math.max(base, end)), false);
+      g.arc(
+        cx,
+        cy,
+        R,
+        Phaser.Math.DegToRad(Math.min(base, end)),
+        Phaser.Math.DegToRad(Math.max(base, end)),
+        false
+      );
       g.strokePath();
 
       // Arrowhead at the leading end, pointing along the spin direction
@@ -1486,13 +1590,18 @@ export class RotationScene extends Phaser.Scene {
       const tipY = cy + Math.sin(tipA) * R;
       const tx = -Math.sin(tipA) * dirSign;
       const ty = Math.cos(tipA) * dirSign;
-      const bx = tipX - tx * 5, by = tipY - ty * 5;
-      const px = -ty, py = tx;
+      const bx = tipX - tx * 5,
+        by = tipY - ty * 5;
+      const px = -ty,
+        py = tx;
       g.fillStyle(color, 0.95);
       g.fillTriangle(
-        tipX + tx * 11, tipY + ty * 11,
-        bx + px * 7, by + py * 7,
-        bx - px * 7, by - py * 7
+        tipX + tx * 11,
+        tipY + ty * 11,
+        bx + px * 7,
+        by + py * 7,
+        bx - px * 7,
+        by - py * 7
       );
     }
   }
@@ -1791,7 +1900,7 @@ export class RotationScene extends Phaser.Scene {
     const askNorthern = Math.random() > 0.5;
     this.quizGesture = askNorthern ? 'cw' : 'ccw';
 
-      this.quizText = this.add
+    this.quizText = this.add
       .text(GAME_WIDTH / 2, this.centerY - 160, '', {
         fontFamily: FONTS.DISPLAY,
         fontSize: '22px',
@@ -1836,8 +1945,12 @@ export class RotationScene extends Phaser.Scene {
   private updateQuizText() {
     if (!this.quizText) return;
     const asked = this.quizGesture === 'cw' ? 'NORTHERN' : 'SOUTHERN';
-    this.quizText.setText(`🌍 ${asked} hemisphere: which way does wind deflect?`);
-    this.quizSubText?.setText('Spin CW = ➡ RIGHT   ·   Spin CCW = ⬅ LEFT');
+    this.quizText.setText(
+      `🌍 ${asked} hemisphere: which way does wind deflect?`
+    );
+    this.quizSubText?.setText(
+      'Clockwise (CW) = spin RIGHT ➡   ·   Counter-clockwise (CCW) = spin LEFT ⬅'
+    );
   }
 
   private resolveQuiz(correct: boolean) {
@@ -1929,10 +2042,10 @@ export class RotationScene extends Phaser.Scene {
     ];
     const colors = ['#6DB3E6', '#FFD166', '#FF6B6B'];
     const hemi =
-      round === 2 ? '🌍 SOUTHERN — SPIN CLOCKWISE ↻' : '🌎 NORTHERN — SPIN COUNTER-CLOCKWISE ↺';
-    this.roundBanner.setText(
-      `${titles[round - 1]}\n${hemi}`
-    );
+      round === 2
+        ? '🌍 SOUTHERN — SPIN CLOCKWISE ↻'
+        : '🌎 NORTHERN — SPIN COUNTER-CLOCKWISE ↺';
+    this.roundBanner.setText(`${titles[round - 1]}\n${hemi}`);
     this.roundBanner.setColor(colors[round - 1]);
     this.roundBanner.setAlpha(0);
     this.roundBanner.setScale(0.6);
@@ -2122,7 +2235,9 @@ export class RotationScene extends Phaser.Scene {
     const ctx = this.getAudioCtx();
     if (!ctx) return;
     const notes = [523, 659, 784, 1047];
-    notes.forEach((n, i) => this.tone(ctx, n, 0.28, 'triangle', 0.16, i * 0.13));
+    notes.forEach((n, i) =>
+      this.tone(ctx, n, 0.28, 'triangle', 0.16, i * 0.13)
+    );
   }
 
   private playFailJingle() {
@@ -2147,7 +2262,7 @@ export class RotationScene extends Phaser.Scene {
   //  GAME LOOP
   // ═══════════════════════════════════════════════
 
-    private didWin = false;
+  private didWin = false;
 
   private onContinue = () => {
     this.game.events.off(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
@@ -2273,8 +2388,7 @@ export class RotationScene extends Phaser.Scene {
     // ── Hemisphere Quiz: spin the gesture to answer (CW = Right, CCW = Left) ──
     if (this.quizActive && Math.abs(delta) > 0.02) {
       const gestureCw = delta > 0;
-      const answersGesture =
-        this.quizGesture === 'cw' ? gestureCw : !gestureCw;
+      const answersGesture = this.quizGesture === 'cw' ? gestureCw : !gestureCw;
       if (answersGesture) {
         this.quizAccum += deltaDeg;
         if (this.quizAccum >= 180) this.resolveQuiz(true);
@@ -2295,7 +2409,11 @@ export class RotationScene extends Phaser.Scene {
     this.updateUI();
     this.updateVortex();
     this.spawnVortexParticle(pointer.x, pointer.y);
-    this.spawnSpinTrail(pointer.x, pointer.y, Math.abs(delta) > 0.05 ? Math.abs(delta) : 0);
+    this.spawnSpinTrail(
+      pointer.x,
+      pointer.y,
+      Math.abs(delta) > 0.05 ? Math.abs(delta) : 0
+    );
 
     this.rotationProgress = Math.min(
       1,
@@ -2446,7 +2564,7 @@ export class RotationScene extends Phaser.Scene {
       this.combo * 25;
     const stars = GameManager.getStars(score, 3600);
 
-        this.didWin = true;
+    this.didWin = true;
     GameManager.getInstance().completeLevel(
       'rotation',
       score,
@@ -2506,12 +2624,11 @@ export class RotationScene extends Phaser.Scene {
       this.quizBonus +
       this.roundBonus +
       this.comboBonus;
-    const bonusSummary = totalBonus > 0
-      ? `\n💰 Bonus: +${totalBonus} pts`
-      : '';
-    const comboLine = this.combo >= 2
-      ? `\n🔥 Best combo: x${this.combo} (+${this.combo * 25})`
-      : '';
+    const bonusSummary = totalBonus > 0 ? `\n💰 Bonus: +${totalBonus} pts` : '';
+    const comboLine =
+      this.combo >= 2
+        ? `\n🔥 Best combo: x${this.combo} (+${this.combo * 25})`
+        : '';
     const victoryText = this.add
       .text(
         GAME_WIDTH / 2,
@@ -2530,7 +2647,9 @@ export class RotationScene extends Phaser.Scene {
       .setDepth(DEPTH.OVERLAY)
       .setAlpha(0);
     this.tweens.add({
-      targets: victoryText, alpha: 1, duration: 500
+      targets: victoryText,
+      alpha: 1,
+      duration: 500
     });
 
     this.game.events.emit(GAME_EVENTS.HUD_RESULT, {

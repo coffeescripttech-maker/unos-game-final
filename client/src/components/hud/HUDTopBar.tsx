@@ -2,7 +2,12 @@ import { useState, useCallback } from 'react';
 import { usePhaserEvent } from '../../hooks/usePhaserEvent';
 import { useGameContext } from '../../contexts/GameContext';
 import { GAME_EVENTS } from '@shared/events';
-import type { HUDTimerPayload, HUDScorePayload, HUDLevelInfoPayload } from '@shared/events';
+import type {
+  HUDTimerPayload,
+  HUDScorePayload,
+  HUDLevelInfoPayload
+} from '@shared/events';
+import { SCENES } from '@shared/constants';
 import { useFullscreen } from '../../hooks/useFullscreen';
 import { Maximize2, Minimize2 } from 'lucide-react';
 
@@ -33,7 +38,8 @@ export default function HUDTopBar() {
 
   const handleExit = useCallback(() => {
     if (game) {
-      game.events.emit(GAME_EVENTS.NAVIGATE_HOME);
+      // Go straight to the Level Selection screen (World Map) instead of the home menu.
+      game.scene.start(SCENES.WORLD_MAP);
     }
   }, [game]);
 
@@ -59,19 +65,26 @@ export default function HUDTopBar() {
     <div className="hud-topbar absolute top-0 left-0 right-0 z-30 grid grid-cols-3 items-center px-5 py-3 bg-storm-dark/90 border-b-3 border-black shadow-lg shadow-black/30 pointer-events-none">
       {/* Left: Level name */}
       <div className="flex items-center min-w-0">
-        <span className="font-display text-base lg:text-lg text-accent-yellow truncate drop-shadow-[2px_2px_0_rgba(0,0,0,0.5)] max-w-[140px] lg:max-w-[240px]">{levelName}</span>
+        <span className="font-display text-base lg:text-lg text-accent-yellow truncate drop-shadow-[2px_2px_0_rgba(0,0,0,0.5)] max-w-[140px] lg:max-w-[240px]">
+          {levelName}
+        </span>
       </div>
 
       {/* Center: Score */}
       <div className="flex items-center justify-center gap-1.5 lg:gap-2">
-        <span className="hidden md:inline font-display text-sm text-white/60 uppercase tracking-wider">{label}</span>
-        <span className="font-display text-xl lg:text-2xl text-accent-yellow tabular-nums drop-shadow-[2px_2px_0_rgba(0,0,0,0.5)]">{score.toLocaleString()}</span>
+        <span className="hidden md:inline font-display text-sm text-white/60 uppercase tracking-wider">
+          {label}
+        </span>
+        <span className="font-display text-xl lg:text-2xl text-accent-yellow tabular-nums drop-shadow-[2px_2px_0_rgba(0,0,0,0.5)]">
+          {score.toLocaleString()}
+        </span>
       </div>
 
       {/* Right: Timer → Exit → Fullscreen */}
       <div className="flex items-center justify-end gap-2">
         {showTimer && (
-          <div className={`hud-timer flex items-center gap-2 px-2 py-1 rounded-md ${isUrgent ? 'bg-warning-red/20 animate-pulse' : 'bg-white/5'}`}>
+          <div
+            className={`hud-timer flex items-center gap-2 px-2 py-1 rounded-md ${isUrgent ? 'bg-warning-red/20 animate-pulse' : 'bg-white/5'}`}>
             <div className="w-16 lg:w-20 h-3.5 lg:h-4 bg-ui-black/50 rounded-full overflow-hidden border border-white/10">
               <div
                 className={`h-full transition-all duration-500 rounded-full ${
@@ -82,9 +95,12 @@ export default function HUDTopBar() {
             </div>
             <span
               className={`font-display text-lg lg:text-2xl tabular-nums min-w-[48px] lg:min-w-[64px] text-center drop-shadow-[2px_2px_0_rgba(0,0,0,0.5)] ${
-                remaining <= 0 ? 'text-warning-red' : isUrgent ? 'text-warning-red' : 'text-white'
-              }`}
-            >
+                remaining <= 0
+                  ? 'text-warning-red'
+                  : isUrgent
+                    ? 'text-warning-red'
+                    : 'text-white'
+              }`}>
               {timeStr}
             </span>
           </div>
@@ -94,17 +110,15 @@ export default function HUDTopBar() {
           onClick={handleShowIntro}
           className="flex h-8 w-8 lg:h-9 lg:w-9 items-center justify-center rounded-md border-2 border-black bg-ocean-surface/90 text-white shadow-retro transition-transform hover:bg-ocean-surface active:scale-95 pointer-events-auto text-sm"
           title="Show instructions"
-          aria-label="Show instructions"
-        >
+          aria-label="Show instructions">
           📖
         </button>
 
         <button
           onClick={handleExit}
           className="hud-back flex h-8 w-8 lg:h-9 lg:w-9 items-center justify-center rounded-md border-2 border-black bg-warning-red/90 text-white shadow-retro transition-transform hover:bg-warning-red active:scale-95 pointer-events-auto"
-          title="Exit to menu"
-          aria-label="Exit to menu"
-        >
+          title="Exit to level selection"
+          aria-label="Exit to level selection">
           ✕
         </button>
 
@@ -113,8 +127,7 @@ export default function HUDTopBar() {
             onClick={toggle}
             className="flex h-8 w-8 lg:h-9 lg:w-9 items-center justify-center rounded-md border-2 border-black bg-storm-mid text-white shadow-retro transition-transform hover:bg-storm-light active:scale-95 pointer-events-auto"
             title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-          >
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}>
             {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </button>
         )}
