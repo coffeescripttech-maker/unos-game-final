@@ -52,6 +52,7 @@ export class RotationScene extends Phaser.Scene {
   private hemiDirText!: Phaser.GameObjects.Text;
   private hemiStormText!: Phaser.GameObjects.Text;
   private hemiArrowAngle = 0;
+  private isMobile = false;
   // Hemisphere map widget geometry (bottom-left corner)
   private readonly HEMI_CX = 115;
   private readonly HEMI_CY = 605;
@@ -153,6 +154,7 @@ export class RotationScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(0x0a0a1a);
     this.isComplete = false;
     this.gameStarted = false;
+    this.isMobile = !this.sys.game.device.os.desktop;
     this.rotationProgress = 0;
     this.timeRemaining = 30;
     this.totalTime = 30;
@@ -294,10 +296,10 @@ export class RotationScene extends Phaser.Scene {
     this.hemiDirText = this.add
       .text(205, this.HEMI_CY + 14, '', {
         fontFamily: FONTS.DISPLAY,
-        fontSize: '22px',
+        fontSize: this.isMobile ? '12px' : '16px',
         color: '#7fd4ff',
         stroke: '#000000',
-        strokeThickness: 4
+        strokeThickness: this.isMobile ? 2 : 3
       })
       .setOrigin(0, 0.5)
       .setDepth(6);
@@ -1496,12 +1498,14 @@ export class RotationScene extends Phaser.Scene {
     this.hemiNameText.setColor(color);
     // Spell out the full direction + a finger hint so CW vs CCW is unambiguous:
     // Northern = counter-clockwise (drag LEFT) · Southern = clockwise (drag RIGHT)
-    this.hemiDirText.setText(
-      northern
-        ? '↺ COUNTER-CLOCKWISE  (drag LEFT)'
-        : '↻ CLOCKWISE  (drag RIGHT)'
-    );
-    this.hemiDirText.setColor(color);
+    this.hemiDirText
+      .setText(
+        northern
+          ? '↺ COUNTER-CLOCKWISE  (drag LEFT)'
+          : '↻ CLOCKWISE  (drag RIGHT)'
+      )
+      .setColor(color)
+      .setFontSize(this.isMobile ? 12 : 16);
     this.hemiStormText.setPosition(
       this.HEMI_CX,
       this.HEMI_CY + (northern ? -26 : 26)

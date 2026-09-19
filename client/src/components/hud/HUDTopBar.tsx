@@ -38,7 +38,11 @@ export default function HUDTopBar() {
 
   const handleExit = useCallback(() => {
     if (game) {
-      // Go straight to the Level Selection screen (World Map) instead of the home menu.
+      // Stop the currently running level scene so it doesn't overlap the world map,
+      // then start the World Map (level selection) scene.
+      game.scene.getScenes(true).forEach(s => {
+        if (s.scene.key !== SCENES.WORLD_MAP) game.scene.stop(s.scene.key);
+      });
       game.scene.start(SCENES.WORLD_MAP);
     }
   }, [game]);
