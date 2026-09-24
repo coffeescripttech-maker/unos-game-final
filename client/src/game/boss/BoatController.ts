@@ -111,17 +111,27 @@ export function useBoatController({
     };
   }, []);
 
-  // Touch joystick (mobile fallback)
+  // Touch steering — only for touches that start on the game/play area, not on
+  // HUD buttons, modals, or the virtual joystick (those manage their own input).
+  // Ignoring UI touches also stops preventDefault() from killing tap/click on
+  // buttons like the intro DEPLOY button on phones.
+  const isUiTouchTarget = (target: EventTarget | null) =>
+    target instanceof Element &&
+    !!target.closest(
+      'button, a, input, [data-ui], [data-joystick], .boss-hud, .modal-card, .boss-overlay, .virtual-joystick'
+    );
+
   useEffect(() => {
     const onTouchStart = (e: TouchEvent) => {
+      if (isUiTouchTarget(e.target)) return;
       e.preventDefault();
       const t = e.touches[0];
       touchStartRef.current = { x: t.clientX, y: t.clientY };
       touchCurrentRef.current = { x: t.clientX, y: t.clientY };
     };
     const onTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
       if (!touchStartRef.current) return;
+      e.preventDefault();
       const t = e.touches[0];
       touchCurrentRef.current = { x: t.clientX, y: t.clientY };
     };

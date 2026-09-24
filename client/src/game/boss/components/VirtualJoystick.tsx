@@ -71,6 +71,7 @@ export default function VirtualJoystick({ onChange, disabled }: VirtualJoystickP
   return (
     <div
       ref={baseRef}
+      data-joystick="true"
       className={`fixed bottom-6 left-6 w-28 h-28 rounded-full border-2 border-white/20 bg-black/25 backdrop-blur-sm touch-none select-none z-50 ${disabled ? 'opacity-40' : 'opacity-100'}`}
       onPointerDown={(e) => startDrag(e.clientX, e.clientY)}
       style={{ touchAction: 'none' }}

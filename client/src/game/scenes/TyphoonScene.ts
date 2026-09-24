@@ -525,7 +525,7 @@ export class TyphoonScene extends Phaser.Scene {
   }
 
   private updateStorm() {
-    if (!this.gameStarted) return;
+    if (!this.gameStarted || this.gateQuizActive) return;
 
     // Sequential unlock gates: hold the newest element in its GREEN zone for
     // ~1.2s → its science quiz opens → answering correctly unlocks the next slider

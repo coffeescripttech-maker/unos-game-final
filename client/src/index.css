@@ -21,9 +21,10 @@
   }
 
   body {
-    /* Prevent pull-to-refresh and overscroll on mobile */
+    /* Prevent pull-to-refresh and overscroll on mobile.
+       touch-action is scoped to #game-container below so DOM overlays
+       (intro/quiz/result modals) stay touch-scrollable on phones. */
     overscroll-behavior: none;
-    touch-action: none;
     -webkit-overflow-scrolling: auto;
   }
 
@@ -47,6 +48,7 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
+    touch-action: none;
   }
 
   #game-container canvas {

@@ -96,7 +96,7 @@ export default function TyphoonQuizOverlay() {
 
   return (
     <div className="absolute inset-0 z-[65] flex items-center justify-center bg-black/80 p-2">
-      <div className="retro-card modal-card !bg-storm-dark border-accent-yellow/50 shadow-[0_0_20px_rgba(255,215,0,0.25)] w-full max-w-lg flex flex-col gap-4 pointer-events-auto">
+      <div className="retro-card modal-card !bg-storm-dark border-accent-yellow/50 shadow-[0_0_20px_rgba(255,215,0,0.25)] w-full max-w-lg max-h-[95vh] overflow-y-auto custom-scrollbar flex flex-col gap-4 pointer-events-auto">
 
         {/* Header */}
         <div className="flex items-center justify-between">
