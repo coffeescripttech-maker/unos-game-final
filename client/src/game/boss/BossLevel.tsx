@@ -402,10 +402,12 @@ function EyeMarker({
 /** Main BossLevel component */
 export default function BossLevel({
   onComplete,
-  onExit
+  onExit,
+  onLeaderboard
 }: {
   onComplete?: () => void;
   onExit?: () => void;
+  onLeaderboard?: () => void;
 }) {
   const [mission, setMission] = useState<MissionState>(
     createDefaultMissionState()
@@ -1054,6 +1056,11 @@ export default function BossLevel({
             <p className="font-body text-sm text-white/80 leading-relaxed">
               {resultMessage}
             </p>
+            <p
+              className="font-display text-sm text-accent-green text-center"
+              style={{ textShadow: '1px 1px 0px #000' }}>
+              🌤️ You are on the FIRST STEP in BECOMING a METEOROLOGIST!
+            </p>
             <div className="bg-black/25 border-2 border-black/40 rounded-lg p-3 font-body text-xs text-storm-light space-y-1 text-left w-full">
               <div>
                 ⏱️ Time: {Math.floor(elapsedTime / 60)}m{' '}
@@ -1079,6 +1086,11 @@ export default function BossLevel({
                 onClick={() => onComplete?.()}
                 className="retro-btn bg-storm-mid">
                 Back to Map
+              </button>
+              <button
+                onClick={onLeaderboard}
+                className="retro-btn bg-accent-yellow text-storm-dark">
+                🏆 Leaderboard
               </button>
             </div>
           </BossModal>

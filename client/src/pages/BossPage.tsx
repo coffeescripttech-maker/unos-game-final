@@ -15,9 +15,17 @@ export default function BossPage() {
     navigate('/game');
   };
 
+  const handleLeaderboard = () => {
+    navigate('/leaderboard');
+  };
+
   return (
     <div className="absolute inset-0 bg-[#060a1a]">
-      <BossLevel onComplete={handleComplete} onExit={handleExit} />
+      <BossLevel
+        onComplete={handleComplete}
+        onExit={handleExit}
+        onLeaderboard={handleLeaderboard}
+      />
     </div>
   );
 }
