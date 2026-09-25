@@ -5,7 +5,7 @@ const TEAM = [
   'Estephany Marie M. Anselmo',
   'Francine Abby B. Bautista',
   'Lea N. Orosco',
-  'Ardon B. San Joaquin',
+  'Ardon B. San Joaquin'
 ];
 
 export default function CreditsPage() {
@@ -35,15 +35,22 @@ export default function CreditsPage() {
               style={{ textShadow: '3px 3px 0px #000000' }}>
               UNOS
             </div>
-            <p className="font-display text-base text-ocean-surface">Birth of the Typhoon</p>
+            <p className="font-display text-base text-ocean-surface">
+              Birth of the Typhoon
+            </p>
           </div>
 
           {/* Team card */}
           <div className="retro-card !bg-ocean-mid">
             <div className="flex items-center justify-center gap-2 mb-3">
               <Users size={18} className="text-accent-yellow" />
-              <h2 className="font-display text-base text-white">Meet the Team</h2>
-              <Sparkles size={18} className="text-accent-yellow animate-pulse" />
+              <h2 className="font-display text-base text-white">
+                Meet the Team
+              </h2>
+              <Sparkles
+                size={18}
+                className="text-accent-yellow animate-pulse"
+              />
             </div>
             <div className="space-y-2 sm:space-y-3">
               {TEAM.map((name, index) => (
@@ -54,7 +61,10 @@ export default function CreditsPage() {
                   <span className="credits-avatar">
                     {name
                       .split(' ')
-                      .filter(word => word.length > 1 && word[0] === word[0].toUpperCase())
+                      .filter(
+                        word =>
+                          word.length > 1 && word[0] === word[0].toUpperCase()
+                      )
                       .slice(0, 2)
                       .map(word => word[0])
                       .join('')}
@@ -66,12 +76,16 @@ export default function CreditsPage() {
           </div>
 
           {/* Footer card */}
-          <div className="retro-card !bg-storm-dark text-center animate-fade-in-up" style={{ animationDelay: '0.5s' }}>
+          <div
+            className="retro-card !bg-storm-dark text-center animate-fade-in-up"
+            style={{ animationDelay: '0.5s' }}>
             <p className="font-body text-xs text-storm-light">
               A Capstone Project — {new Date().getFullYear()}
             </p>
             <p className="font-body text-xs text-storm-light mt-1 flex items-center justify-center gap-1">
-              Built with <Heart size={12} className="text-warning-red animate-pulse" /> for science education
+              Built with{' '}
+              <Heart size={12} className="text-warning-red animate-pulse" /> for
+              science education!
             </p>
           </div>
         </div>
