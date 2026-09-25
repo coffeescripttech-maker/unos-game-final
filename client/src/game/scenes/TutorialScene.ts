@@ -62,7 +62,6 @@ export class TutorialScene extends Phaser.Scene {
 
   // ── Ambient ──
   private indoorGlow!: Phaser.GameObjects.Arc;
-  private windowGlow!: Phaser.GameObjects.Rectangle;
 
   // ── Step indicator ──
 
@@ -138,9 +137,6 @@ export class TutorialScene extends Phaser.Scene {
       ease: 'Sine.easeInOut'
     });
 
-    // ── Depth 2: Observation Window (right side) ──
-    this.buildWindow();
-
     // ── Depth 3: Research Desk ──
     this.buildDesk();
 
@@ -149,35 +145,6 @@ export class TutorialScene extends Phaser.Scene {
 
     // ── Container for UI ──
     this.uiContainer = this.add.container(0, 0).setDepth(10);
-  }
-
-  private buildWindow() {
-    const wx = GAME_WIDTH - 240;
-    const wy = 200;
-    const ww = 200;
-    const wh = 280;
-
-    // Ocean view behind window (gradient-like)
-    const oceanView = this.add.graphics().setDepth(2);
-    oceanView.fillGradientStyle(0x3a87c4, 0x6db3e6, 0x0a2472, 0x1e5aa0);
-    oceanView.fillRect(wx - ww / 2, wy - wh / 2, ww, wh);
-
-    // Window frame
-    // this.add
-    //   .rectangle(wx, wy, ww + 8, wh + 8, 0x2d3047, 0.9)
-    //   .setStrokeStyle(4, 0x000000, 1)
-    //   .setDepth(2);
-
-    // Cross bars
-    const crossH = this.add
-      .rectangle(wx, wy, ww - 10, 3, 0x2d3047, 0.7)
-      .setDepth(2);
-    const crossV = this.add
-      .rectangle(wx, wy, 3, wh - 10, 0x2d3047, 0.7)
-      .setDepth(2);
-
-    // Subtle blue glow from the window
-    this.add.rectangle(wx - 80, wy, 80, wh, 0x6db3e6, 0.04).setDepth(1);
   }
 
   private buildDesk() {

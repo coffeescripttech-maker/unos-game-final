@@ -30,6 +30,18 @@ export class WorldMapScene extends Phaser.Scene {
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.45)
       .setDepth(1);
 
+    // DEBUG quick-jump: /game?level=<id> starts that level directly, so
+    // developers can test any stage without unlocking the previous ones.
+    const params = new URLSearchParams(window.location.search);
+    const quickLevel = params.get('level');
+    if (quickLevel) {
+      // Consume once — strip the param so returning to the map doesn't re-jump.
+      window.history.replaceState({}, '', window.location.pathname);
+      const levelId = quickLevel as LevelId;
+      this.time.delayedCall(150, () => this.navigateToLevel(levelId));
+      return;
+    }
+
     // Signal React that we're on the world map (triggers level select overlay + header)
     this.game.events.emit(GAME_EVENTS.HUD_LEVEL_INFO, {
       name: 'World Map',

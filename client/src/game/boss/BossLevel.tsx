@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import DamageFlash from './components/DamageFlash';
 import VirtualJoystick from './components/VirtualJoystick';
 import WindIndicator from './components/WindIndicator';
@@ -106,6 +106,117 @@ const COLLECTIBLE_DATA: CollectibleData[] = [
     collected: false
   }
 ];
+
+// ── Target waypoint: points toward the current objective from the boat ──
+type TargetWaypointData = {
+  position: THREE.Vector3;
+  icon: string;
+  label: string;
+  distance: number;
+};
+
+type ElementRef<T> = { current: T | null };
+
+// Runs INSIDE the R3F Canvas (so it can project via the camera) but draws
+// by imperatively updating DOM overlay elements that live OUTSIDE the Canvas.
+// R3F components may only return THREE objects, so this returns null.
+type TargetProjectorProps = {
+  target: THREE.Vector3 | null;
+  icon: string;
+  label: string;
+  distance: number;
+  arrowRef: ElementRef<HTMLDivElement>;
+  rotorRef: ElementRef<HTMLSpanElement>;
+  onScreenRef: ElementRef<HTMLDivElement>;
+};
+
+function TargetProjector({
+  target,
+  icon,
+  label,
+  distance,
+  arrowRef,
+  rotorRef,
+  onScreenRef
+}: TargetProjectorProps) {
+  const { camera, size } = useThree();
+  const v = useMemo(() => new THREE.Vector3(), []);
+  const frame = useRef(0);
+
+  useFrame(() => {
+    frame.current += 1;
+    // Throttle projection to ~every 4th frame to avoid layout thrash.
+    if (frame.current % 4 !== 0) return;
+
+    const arrowEl = arrowRef.current;
+    const rotorEl = rotorRef.current;
+    const chevronEl = onScreenRef.current;
+    if (!arrowEl || !rotorEl || !chevronEl) return;
+
+    if (!target) {
+      arrowEl.style.display = 'none';
+      chevronEl.style.display = 'none';
+      return;
+    }
+
+    v.copy(target).project(camera);
+
+    const x = (v.x * 0.5 + 0.5) * size.width;
+    const y = (-v.y * 0.5 + 0.5) * size.height;
+    const behind = v.z > 1;
+
+    const onScreen =
+      !behind &&
+      x >= 12 && x <= size.width - 12 &&
+      y >= 110 && y <= size.height - 66;
+
+    const d = distance;
+    const pillText = `${icon} ${label} · ${d >= 1000 ? `${(d / 1000).toFixed(1)} km` : `${Math.round(d)} m`}`;
+
+    const setPill = (el: HTMLElement) => {
+      const lbl = el.querySelector('[data-arrow-label]') as HTMLElement | null;
+      if (lbl && lbl.textContent !== pillText) lbl.textContent = pillText;
+    };
+
+    if (onScreen) {
+      if (arrowEl.style.display !== 'none') arrowEl.style.display = 'none';
+      if (chevronEl.style.display !== 'flex') chevronEl.style.display = 'flex';
+      chevronEl.style.left = `${x}px`;
+      chevronEl.style.top = `${y - 48}px`;
+      setPill(chevronEl);
+      return;
+    }
+
+    // Off-screen: clamp to a margin rect so the arrow stays visible at edges.
+    if (chevronEl.style.display !== 'none') chevronEl.style.display = 'none';
+    if (arrowEl.style.display !== 'flex') arrowEl.style.display = 'flex';
+
+    const cx = size.width / 2;
+    const cy = size.height / 2;
+    const dx = x - cx;
+    const dy = y - cy;
+    const halfW = Math.max(1, size.width / 2 - 70);
+    const halfTop = Math.max(1, size.height / 2 - 118);
+    const halfBottom = Math.max(1, size.height / 2 - 96);
+    const ax = Math.abs(dx);
+    const ay = Math.abs(dy);
+    let k = 1;
+    if (ax > halfW) k = Math.min(k, halfW / ax);
+    if (ay > 0) k = Math.min(k, (dy <= 0 ? halfTop : halfBottom) / ay);
+    k = Math.max(k, 0);
+
+    const px = cx + dx * k;
+    const py = cy + dy * k;
+    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+    arrowEl.style.left = `${px}px`;
+    arrowEl.style.top = `${py}px`;
+    rotorEl.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+    setPill(arrowEl);
+  });
+
+  return null;
+}
 
 // All data that must be collected before the mission can be completed.
 const REQUIRED_FOR_COMPLETION: ObjectiveId[] = [
@@ -452,6 +563,9 @@ export default function BossLevel({
   const prevBoatPosRef = useRef(new THREE.Vector3(0, 0, 120));
   const containerRef = useRef<HTMLDivElement>(null);
   const landNotifiedRef = useRef(false);
+  const targetArrowRef = useRef<HTMLDivElement | null>(null);
+  const targetRotorRef = useRef<HTMLSpanElement | null>(null);
+  const targetChevronRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     audioRef.current = new AudioManager();
@@ -855,6 +969,31 @@ export default function BossLevel({
     setShowEducation(true);
   }, []);
 
+  // Where to draw the target arrow. Hidden whenever an overlay/portal is on top,
+  // and never drawn for the Space-key deploy step.
+  const waypoint = useMemo((): TargetWaypointData | null => {
+    const occluded = showIntro || showQuiz || showResult || showFailed || isPaused || showEducation;
+    if (occluded) return null;
+    const id = mission.currentObjective;
+    if (id === 'reach_eye') {
+      return {
+        position: EYE_POSITION,
+        icon: '👁️',
+        label: 'EYE OF THE STORM',
+        distance: boatPos.distanceTo(EYE_POSITION)
+      };
+    }
+    if (id === 'deploy_buoy' || id === 'complete') return null;
+    const coll = COLLECTIBLE_DATA.find(d => d.id === id);
+    if (!coll || coll.collected) return null;
+    return {
+      position: coll.position,
+      icon: coll.icon,
+      label: coll.label.toUpperCase(),
+      distance: boatPos.distanceTo(coll.position)
+    };
+  }, [showIntro, showQuiz, showResult, showFailed, isPaused, showEducation, mission.currentObjective, boatPos]);
+
   return (
     <div
       ref={containerRef}
@@ -887,7 +1026,64 @@ export default function BossLevel({
           }
           joystickAxes={joystickAxes}
         />
+        <TargetProjector
+          target={waypoint?.position ?? null}
+          icon={waypoint?.icon ?? ''}
+          label={waypoint?.label ?? ''}
+          distance={waypoint?.distance ?? 0}
+          arrowRef={targetArrowRef}
+          rotorRef={targetRotorRef}
+          onScreenRef={targetChevronRef}
+        />
       </Canvas>
+
+      {/* ── Target waypoint overlay (DOM, driven by TargetProjector) ── */}
+      <div
+        ref={targetArrowRef}
+        className="pointer-events-none absolute z-40 hidden"
+        style={{ width: 0, height: 0 }}
+      >
+        <span
+          ref={targetRotorRef}
+          className="absolute block"
+          style={{
+            left: 0,
+            top: 0,
+            width: 34,
+            height: 34,
+            transform: 'translate(-50%, -50%) rotate(0deg)',
+            willChange: 'transform'
+          }}
+        >
+          <svg
+            width="34"
+            height="34"
+            viewBox="0 0 24 24"
+            className="drop-shadow-[0_2px_0_rgba(0,0,0,0.9)]"
+          >
+            <path d="M12 2 L21 13 L12 9 L3 13 Z" fill="#18b9e8" stroke="#000" strokeWidth="1.6" strokeLinejoin="round" />
+          </svg>
+        </span>
+        <span
+          data-arrow-label
+          className="absolute whitespace-nowrap rounded-md border-2 border-black bg-storm-dark/90 px-1.5 py-0.5 font-display text-[10px] text-accent-yellow shadow-retro"
+          style={{ left: 0, top: 22, transform: 'translate(-50%, 0)' }}
+        />
+      </div>
+
+      <div
+        ref={targetChevronRef}
+        className="pointer-events-none absolute z-40 hidden"
+        style={{ width: 0, height: 0 }}
+      >
+        <span className="absolute -translate-x-1/2 animate-bounce text-2xl leading-none text-accent-yellow drop-shadow-[0_2px_0_rgba(0,0,0,0.9)]">
+          ▼
+        </span>
+        <span
+          data-arrow-label
+          className="absolute top-5 -translate-x-1/2 whitespace-nowrap rounded-md border-2 border-black bg-storm-dark/90 px-1.5 py-0.5 font-display text-[10px] text-accent-yellow shadow-retro"
+        />
+      </div>
 
       {/* HUD */}
       <BossHUD

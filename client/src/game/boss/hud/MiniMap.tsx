@@ -16,6 +16,7 @@ interface MiniMapProps {
   currentObjective: ObjectiveId;
   deployedBuoy: boolean;
   isInEye: boolean;
+  size?: number;
 }
 
 /**
@@ -30,9 +31,9 @@ export default function MiniMap({
   currentObjective,
   deployedBuoy,
   isInEye,
+  size = 140,
 }: MiniMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const size = 140;
   const worldRadius = 200;
   const scale = size * 0.4 / worldRadius;
 

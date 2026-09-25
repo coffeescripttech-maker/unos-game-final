@@ -1,6 +1,5 @@
 import LoadingOverlay from './hud/LoadingOverlay';
 import HUDTopBar from './hud/HUDTopBar';
-import LevelLegend from './hud/LevelLegend';
 import HUDObjectiveBar from './hud/HUDObjectiveBar';
 import HUDHealth from './hud/HUDHealth';
 import LevelSelectCards from './hud/LevelSelectCards';
@@ -19,9 +18,6 @@ export default function GameHUD() {
     <>
             {/* ── Loading overlay (full-screen, hides when assets loaded) ── */}
       <LoadingOverlay />
-
-      {/* ── Science icon legend (top-left, hides on World Map) ── */}
-      <LevelLegend />
 
       {/* ── World map header: Back button + title ── */}
       <WorldMapHeader />

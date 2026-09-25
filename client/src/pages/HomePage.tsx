@@ -10,6 +10,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import FullscreenButton from '../components/FullscreenButton';
+import { LEVEL_ORDER, LEVEL_CONFIGS } from '@shared/constants';
 
 export default function HomePage() {
   return (
@@ -106,6 +107,24 @@ export default function HomePage() {
         {/* <p className="font-body text-xs text-storm-light/60 mt-6">
           A Capstone Project — Built with Phaser 3 + React
         </p> */}
+
+        {/* ── DEBUG: quick level jump (dev only) ── */}
+        {/* <div className="mt-6 w-full max-w-[340px]">
+          <p className="font-display text-[10px] uppercase tracking-widest text-white/40 text-center mb-2"
+            style={{ textShadow: '1px 1px 0px #000000' }}>
+            ⚠ Debug · Quick Level Jump
+          </p>
+          <div className="flex flex-wrap justify-center gap-1.5">
+            {LEVEL_ORDER.map(id => (
+              <Link
+                key={id}
+                to={id === 'boss' ? '/boss' : `/game?level=${id}`}
+                className="retro-btn bg-storm-mid text-white text-[10px] !px-2.5 !py-1">
+                {id === 'boss' ? '🏆 Final Mission' : LEVEL_CONFIGS[id]?.name ?? id}
+              </Link>
+            ))}
+          </div>
+        </div> */}
       </div>
     </div>
   );

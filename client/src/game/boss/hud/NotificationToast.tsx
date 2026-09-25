@@ -6,8 +6,11 @@ interface NotificationToastProps {
 }
 
 /**
- * Animated toast notification for collection events and mission updates.
- * Uses the game's retro card style.
+ * Compact animated toast for collection events and mission updates.
+ * Keyed strictly on the `notification` prop: whenever a new toast arrives
+ * the timer restarts and hides it after ~2.5s. Keeping the effect free of
+ * other state (and without sticky refs) makes it SafeMode/StrictMode-proof —
+ * the double-invoked cleanup can never eat the hide timer.
  */
 export default function NotificationToast({ notification }: NotificationToastProps) {
   const [visible, setVisible] = useState(false);
@@ -15,25 +18,23 @@ export default function NotificationToast({ notification }: NotificationToastPro
 
   useEffect(() => {
     if (!notification) return;
-    if (!current || notification.id !== current.id || notification.timestamp !== current.timestamp) {
-      setCurrent(notification);
-      setVisible(true);
-      const timer = setTimeout(() => setVisible(false), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [notification, current]);
+    setCurrent(notification);
+    setVisible(true);
+    const timer = setTimeout(() => setVisible(false), 2500);
+    return () => clearTimeout(timer);
+  }, [notification]);
 
   if (!visible || !current) return null;
 
   return (
     <div
-      className="absolute top-20 right-3 z-50 flex items-center gap-3 bg-ocean-deep/95 border-3 border-black shadow-retro px-4 py-2 pointer-events-none max-w-[320px] animate-fade-in-up"
-      style={{ borderColor: `${current.color}44` }}
+      className="absolute top-12 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 bg-ocean-deep/95 border-2 border-black shadow-retro px-3 py-1 pointer-events-none max-w-[90%] animate-fade-in-up"
+      style={{ borderColor: `${current.color}55` }}
     >
-      <span className="text-2xl">{current.icon}</span>
-      <div className="font-body text-sm text-white font-semibold">
+      <span className="text-sm leading-none">{current.icon}</span>
+      <span className="font-body text-xs text-white font-semibold truncate">
         {current.message}
-      </div>
+      </span>
     </div>
   );
 }
