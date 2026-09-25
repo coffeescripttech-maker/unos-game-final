@@ -25,6 +25,14 @@ export interface GlobalEntry {
   stars: number;
 }
 
+export interface LeaderboardPage<T> {
+  entries: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
 const API_BASE = '/api';
 const USER_ID_KEY = 'unos_leaderboard_id';
 const NAME_KEY = 'unos_leaderboard_name';
@@ -97,15 +105,24 @@ export function submitScore(
 }
 
 /** Global standings (scores summed across all levels). */
-export async function fetchLeaderboardGlobal(): Promise<GlobalEntry[] | null> {
-  const data = await request<{ entries: GlobalEntry[] }>('/leaderboard');
-  return data?.entries ?? null;
+export async function fetchLeaderboardGlobal(
+  page = 1,
+  limit = 20,
+): Promise<LeaderboardPage<GlobalEntry> | null> {
+  const data = await request<LeaderboardPage<GlobalEntry>>(
+    `/leaderboard?page=${page}&limit=${limit}`,
+  );
+  return data;
 }
 
 /** Standings for a single level. */
-export async function fetchLeaderboardLevel(levelId: string): Promise<LeaderboardEntry[] | null> {
-  const data = await request<{ entries: LeaderboardEntry[] }>(
-    `/leaderboard/${encodeURIComponent(levelId)}`,
+export async function fetchLeaderboardLevel(
+  levelId: string,
+  page = 1,
+  limit = 20,
+): Promise<LeaderboardPage<LeaderboardEntry> | null> {
+  const data = await request<LeaderboardPage<LeaderboardEntry>>(
+    `/leaderboard/${encodeURIComponent(levelId)}?page=${page}&limit=${limit}`,
   );
-  return data?.entries ?? null;
+  return data;
 }

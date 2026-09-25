@@ -37,20 +37,36 @@ leaderboardRouter.post('/submit', async (req, res) => {
   res.json({ submitted: true });
 });
 
-// GET /api/leaderboard/:levelId — get leaderboard for a level
+// GET /api/leaderboard/:levelId?page=1&limit=20 — get leaderboard for a level
 leaderboardRouter.get('/:levelId', async (req, res) => {
   const { levelId } = req.params;
   const limit = Math.min(
     parseInt((req.query.limit as string) ?? String(config.leaderboardPageSize), 10),
     100,
   );
+  const page = Math.max(parseInt((req.query.page as string) ?? '1', 10) || 1, 1);
+  const offset = (page - 1) * limit;
 
-  const entries = await getDataStore().getLevel(levelId, limit);
-  res.json({ levelId, entries });
+  const { entries, total } = await getDataStore().getLevel(levelId, limit, offset);
+  res.json({
+    levelId,
+    entries,
+    page,
+    pageSize: limit,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+  });
 });
 
-// GET /api/leaderboard — get global leaderboard (summed across levels)
-leaderboardRouter.get('/', async (_req, res) => {
-  const entries = await getDataStore().getGlobal(100);
-  res.json({ entries });
+// GET /api/leaderboard?page=1&limit=20 — get global leaderboard (summed across levels)
+leaderboardRouter.get('/', async (req, res) => {
+  const limit = Math.min(
+    parseInt((req.query.limit as string) ?? String(config.leaderboardPageSize), 10),
+    100,
+  );
+  const page = Math.max(parseInt((req.query.page as string) ?? '1', 10) || 1, 1);
+  const offset = (page - 1) * limit;
+
+  const { entries, total } = await getDataStore().getGlobal(limit, offset);
+  res.json({ entries, page, pageSize: limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) });
 });

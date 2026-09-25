@@ -28,6 +28,10 @@ interface LbRow extends RowDataPacket {
   achieved_at: Date | string;
 }
 
+interface CountRow extends RowDataPacket {
+  total: number;
+}
+
 interface GlobalRow extends RowDataPacket {
   user_id: string;
   display_name: string;
@@ -73,31 +77,50 @@ export async function submitScore(entry: LeaderboardEntry): Promise<void> {
   }
 }
 
-export async function getLevelScores(levelId: string, limit: number): Promise<LeaderboardEntry[]> {
-  const [rows] = await getPool().query<LbRow[]>(
+export async function getLevelScores(
+  levelId: string,
+  limit: number,
+  offset: number,
+): Promise<{ entries: LeaderboardEntry[]; total: number }> {
+  const pool = getPool();
+  const [countRows] = await pool.query<CountRow[]>(
+    'SELECT COUNT(*) AS total FROM leaderboard_entries WHERE level_id = ?',
+    [levelId],
+  );
+  const [rows] = await pool.query<LbRow[]>(
     `SELECT user_id, display_name, score, stars, level_id, time_seconds, achieved_at
        FROM leaderboard_entries
       WHERE level_id = ?
       ORDER BY score DESC, achieved_at ASC
-      LIMIT ?`,
-    [levelId, limit],
+      LIMIT ? OFFSET ?`,
+    [levelId, limit, offset],
   );
-  return rows.map(toEntry);
+  return { entries: rows.map(toEntry), total: countRows[0]?.total ?? 0 };
 }
 
-export async function getGlobalScores(limit: number): Promise<GlobalEntry[]> {
-  const [rows] = await getPool().query<GlobalRow[]>(
+export async function getGlobalScores(
+  limit: number,
+  offset: number,
+): Promise<{ entries: GlobalEntry[]; total: number }> {
+  const pool = getPool();
+  const [countRows] = await pool.query<CountRow[]>(
+    'SELECT COUNT(DISTINCT user_id) AS total FROM leaderboard_entries',
+  );
+  const [rows] = await pool.query<GlobalRow[]>(
     `SELECT user_id, MAX(display_name) AS display_name, SUM(score) AS score, SUM(stars) AS stars
        FROM leaderboard_entries
       GROUP BY user_id
       ORDER BY score DESC, user_id ASC
-      LIMIT ?`,
-    [limit],
+      LIMIT ? OFFSET ?`,
+    [limit, offset],
   );
-  return rows.map((r) => ({
-    userId: r.user_id,
-    displayName: r.display_name,
-    score: r.score,
-    stars: r.stars,
-  }));
+  return {
+    entries: rows.map((r) => ({
+      userId: r.user_id,
+      displayName: r.display_name,
+      score: r.score,
+      stars: r.stars,
+    })),
+    total: countRows[0]?.total ?? 0,
+  };
 }

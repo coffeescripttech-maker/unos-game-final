@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Medal, RefreshCw, WifiOff } from 'lucide-react';
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Medal,
+  RefreshCw,
+  WifiOff,
+} from 'lucide-react';
 import { LEVEL_ORDER, LEVEL_CONFIGS } from '@shared/constants';
 import type { LevelId } from '@shared/types';
 import {
@@ -11,12 +18,15 @@ import {
   getUserId,
   setPlayerName,
   type GlobalEntry,
-  type LeaderboardEntry
+  type LeaderboardEntry,
+  type LeaderboardPage as LbPage,
 } from '../services/leaderboard';
 
 type TabId = 'global' | LevelId;
 
 const TAB_ORDER: TabId[] = ['global', ...LEVEL_ORDER];
+
+const PAGE_SIZE = 20;
 
 const levelLabel = (id: TabId): string =>
   id === 'global' ? 'All Levels' : (LEVEL_CONFIGS[id]?.name ?? id);
@@ -45,30 +55,36 @@ function RankBadge({ rank }: { rank: number }) {
 
 export default function LeaderboardPage() {
   const [tab, setTab] = useState<TabId>('global');
-  const [globalEntries, setGlobalEntries] = useState<GlobalEntry[] | null>(
-    null
-  );
-  const [levelEntries, setLevelEntries] = useState<LeaderboardEntry[] | null>(
-    null
-  );
+  const [page, setPage] = useState(1);
+  const [globalData, setGlobalData] = useState<LbPage<GlobalEntry> | null>(null);
+  const [levelData, setLevelData] = useState<LbPage<LeaderboardEntry> | null>(null);
   const [loading, setLoading] = useState(false);
   const [nameInput, setNameInput] = useState(getPlayerName());
 
   const myId = useMemo(() => getUserId(), []);
 
-  const load = useCallback(async (target: TabId) => {
+  const load = useCallback(async (target: TabId, p: number) => {
     setLoading(true);
-    if (target === 'global') {
-      setGlobalEntries(await fetchLeaderboardGlobal());
-    } else {
-      setLevelEntries(await fetchLeaderboardLevel(target));
+    try {
+      if (target === 'global') {
+        setGlobalData(await fetchLeaderboardGlobal(p, PAGE_SIZE));
+      } else {
+        setLevelData(await fetchLeaderboardLevel(target, p, PAGE_SIZE));
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => {
-    void load(tab);
-  }, [tab, load]);
+    setPage(1);
+    setGlobalData(null);
+    setLevelData(null);
+  }, [tab]);
+
+  useEffect(() => {
+    void load(tab, page);
+  }, [tab, page, load]);
 
   useEffect(() => {
     setNameInput(getPlayerName());
@@ -76,16 +92,31 @@ export default function LeaderboardPage() {
 
   const saveName = useCallback(() => {
     setPlayerName(nameInput);
-    void load(tab);
+    void load(tab, page);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('leaderboard:name-updated'));
     }
-  }, [nameInput, tab, load]);
+  }, [nameInput, tab, page, load]);
 
-  const entries = tab === 'global' ? globalEntries : levelEntries;
+  const data = tab === 'global' ? globalData : levelData;
+  const entries = data?.entries ?? null;
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, data?.totalPages ?? 1);
+  const pageSize = data?.pageSize ?? PAGE_SIZE;
   const offline = !loading && entries === null;
 
   const highlightRow = (userId: string): boolean => userId === myId;
+
+  const pageWindow = useMemo(() => {
+    const nums: number[] = [];
+    for (let p = Math.max(1, page - 2); p <= Math.min(totalPages, page + 2); p++) {
+      nums.push(p);
+    }
+    return nums;
+  }, [page, totalPages]);
+
+  const shownStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const shownEnd = Math.min(page * pageSize, total);
 
   return (
     <div className="leaderboard-page w-full h-full flex flex-col bg-ocean-deep p-4 sm:p-6">
@@ -103,7 +134,7 @@ export default function LeaderboardPage() {
           <span className="truncate">Leaderboard</span>
         </h1>
         <button
-          onClick={() => void load(tab)}
+          onClick={() => void load(tab, page)}
           className="retro-btn bg-storm-mid text-white text-sm ml-2 flex items-center gap-1.5 shrink-0"
           title="Refresh">
           <RefreshCw size={14} />
@@ -183,8 +214,8 @@ export default function LeaderboardPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-1.5">
-              {loading && entries === null && (
-                <p className="font-body text-storm-light text-sm text-center py-6">
+              {loading && (
+                <p className="font-body text-storm-light text-xs text-center py-1">
                   Loading…
                 </p>
               )}
@@ -198,7 +229,7 @@ export default function LeaderboardPage() {
                         ? '!bg-accent-yellow/15 border-accent-yellow/50'
                         : '!bg-storm-dark/80 border-white/10'
                     }`}>
-                    <RankBadge rank={i + 1} />
+                    <RankBadge rank={(page - 1) * pageSize + i + 1} />
                     <div className="flex-1 min-w-0">
                       <p className="font-display text-sm text-white truncate flex items-center gap-1.5">
                         {entry.displayName}
@@ -229,6 +260,43 @@ export default function LeaderboardPage() {
           )}
         </div>
       </div>
+
+      {total > 0 && (
+        <p className="shrink-0 text-center font-body text-storm-light text-xs mt-2">
+          Showing {shownStart}–{shownEnd} of {total} scores
+        </p>
+      )}
+
+      {totalPages > 1 && (
+        <div className="shrink-0 mt-2 flex flex-wrap items-center justify-center gap-1.5">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="retro-btn bg-storm-mid text-white text-xs flex items-center gap-0.5 disabled:opacity-40 disabled:cursor-not-allowed">
+            <ChevronLeft size={14} />
+            Prev
+          </button>
+          {pageWindow.map(p => (
+            <button
+              key={p}
+              onClick={() => setPage(p)}
+              className={`retro-btn text-xs w-8 ${
+                p === page
+                  ? 'bg-accent-yellow text-black'
+                  : 'bg-storm-mid text-white'
+              }`}>
+              {p}
+            </button>
+          ))}
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            className="retro-btn bg-storm-mid text-white text-xs flex items-center gap-0.5 disabled:opacity-40 disabled:cursor-not-allowed">
+            Next
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -29,10 +29,20 @@ export interface ProgressServerBest {
   time: number;
 }
 
+export interface LeaderboardResult {
+  entries: LeaderboardEntry[];
+  total: number;
+}
+
+export interface GlobalResult {
+  entries: GlobalEntry[];
+  total: number;
+}
+
 export interface DataStore {
   submitScore(entry: LeaderboardEntry): Promise<void>;
-  getLevel(levelId: string, limit: number): Promise<LeaderboardEntry[]>;
-  getGlobal(limit: number): Promise<GlobalEntry[]>;
+  getLevel(levelId: string, limit: number, offset: number): Promise<LeaderboardResult>;
+  getGlobal(limit: number, offset: number): Promise<GlobalResult>;
   syncProgress(body: SyncProgressBody): Promise<ProgressServerBest>;
   getUserProgress(userId: string): Promise<Record<string, SyncProgressBody>>;
 }
@@ -63,14 +73,17 @@ function makeFileStore(): DataStore {
       }
     },
 
-    async getLevel(levelId, limit) {
+    async getLevel(levelId, limit, offset) {
       const entries = Object.values(
         store.get<Record<string, LeaderboardEntry>>(`lb_${levelId}`) ?? {},
-      );
-      return entries.sort((a, b) => b.score - a.score).slice(0, limit);
+      ).sort((a, b) => b.score - a.score);
+      return {
+        entries: entries.slice(offset, offset + limit),
+        total: entries.length,
+      };
     },
 
-    async getGlobal(limit) {
+    async getGlobal(limit, offset) {
       const lbKeys = store.list<Record<string, LeaderboardEntry>>('lb_');
       const totals = new Map<string, { displayName: string; score: number; stars: number }>();
       for (const { value: levelEntries } of lbKeys) {
@@ -85,10 +98,13 @@ function makeFileStore(): DataStore {
           totals.set(entry.userId, existing);
         }
       }
-      return [...totals.entries()]
+      const sorted = [...totals.entries()]
         .map(([userId, data]) => ({ userId, ...data }))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, limit);
+        .sort((a, b) => b.score - a.score);
+      return {
+        entries: sorted.slice(offset, offset + limit),
+        total: sorted.length,
+      };
     },
 
     async syncProgress(body) {
@@ -116,12 +132,12 @@ function makeDbStore(): DataStore {
       await dbSubmitScore(entry);
     },
 
-    async getLevel(levelId, limit) {
-      return dbGetLevelScores(levelId, limit);
+    async getLevel(levelId, limit, offset) {
+      return dbGetLevelScores(levelId, limit, offset);
     },
 
-    async getGlobal(limit) {
-      return dbGetGlobalScores(limit);
+    async getGlobal(limit, offset) {
+      return dbGetGlobalScores(limit, offset);
     },
 
     async syncProgress(body) {
