@@ -25,6 +25,7 @@ import WeatherBuoy from './components/WeatherBuoy';
 import BossHUD from './hud/BossHUD';
 import QuizModal from './hud/QuizModal';
 import { telemetry } from '../../services/telemetry';
+import { submitScore } from '../../services/leaderboard';
 
 // Boss level_start logs once per page load (React StrictMode double-fires effects)
 let bossStartLogged = false;
@@ -916,6 +917,7 @@ export default function BossLevel({
 
     const updated = { ...allProgress, boss: next };
     localStorage.setItem('unos_progress', JSON.stringify(updated));
+    submitScore('boss', score, next.stars, elapsedTime);
     progressSavedRef.current = true;
   }, [showResult, elapsedTime, mission.boatIntegrity]);
 

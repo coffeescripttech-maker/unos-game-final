@@ -746,6 +746,29 @@
       height: 28px !important;
     }
 
+    /* Keep icons inside leaderboard buttons small on phones */
+    .leaderboard-page .retro-btn {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 0.375rem !important;
+      white-space: nowrap !important;
+    }
+
+    .leaderboard-page .retro-btn svg {
+      width: 14px !important;
+      height: 14px !important;
+    }
+
+    /* Leaderboard name row: tighten for short screens */
+    .leaderboard-page .lboard-name-row {
+      gap: 0.375rem !important;
+    }
+
+    .leaderboard-page .lboard-name-row input {
+      flex: 1 1 8rem !important;
+      min-width: 0 !important;
+    }
+
     /* Uniform compact buttons across all app pages */
     .settings-page .retro-btn,
     .credits-page .retro-btn,

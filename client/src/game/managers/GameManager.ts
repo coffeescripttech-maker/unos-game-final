@@ -2,6 +2,7 @@ import { GAME_EVENTS, type LevelCompletePayload, type LevelFailPayload } from '@
 import type { LevelId, LevelProgress, GameState, WeatherParams, GamePhase } from '@shared/types';
 import { SCENES, LEVEL_ORDER, LEVEL_CONFIGS, LEVEL_TO_SCENE } from '@shared/constants';
 import { telemetry } from '../../services/telemetry';
+import { submitScore } from '../../services/leaderboard';
 
 /**
  * Central orchestrator singleton for game state.
@@ -84,6 +85,7 @@ export class GameManager {
   completeLevel(level: LevelId, score: number, stars: number, time: number) {
     const payload: LevelCompletePayload = { level, score, stars, time };
     telemetry.log('level_complete', { level, score, stars, timeSpent: time });
+    submitScore(level, score, stars, time);
     this.state.phase = 'results';
     // Emit for React to pick up
     if (typeof window !== 'undefined') {

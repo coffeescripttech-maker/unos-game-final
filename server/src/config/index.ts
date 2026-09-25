@@ -14,6 +14,17 @@ export const config = {
     privateKey: (process.env.FIREBASE_PRIVATE_KEY ?? '').replace(/\\n/g, '\n'),
   },
 
+  // MySQL (production persistence). Auto-detects DATABASE_URL or the DB_* vars.
+  db: {
+    url: process.env.DATABASE_URL ?? '',
+    host: process.env.DB_HOST ?? '',
+    port: parseInt(process.env.DB_PORT ?? '3306', 10),
+    name: process.env.DB_NAME ?? '',
+    user: process.env.DB_USER ?? '',
+    password: process.env.DB_PASSWORD ?? '',
+    connectionLimit: parseInt(process.env.DB_POOL_LIMIT ?? '10', 10),
+  },
+
   // Leaderboard
   leaderboardPageSize: parseInt(process.env.LEADERBOARD_PAGE_SIZE ?? '20', 10),
 } as const;

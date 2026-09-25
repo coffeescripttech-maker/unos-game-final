@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { store } from '../services/store.js';
+import { getDataStore } from '../services/dataStore.js';
 
 export const progressRouter = Router();
 
@@ -19,44 +19,32 @@ export interface SyncProgressResponse {
 }
 
 // POST /api/progress/sync — save or sync progress
-progressRouter.post('/sync', (req, res) => {
+progressRouter.post('/sync', async (req, res) => {
   const body = req.body as SyncProgressBody;
   if (!body.userId || !body.levelId) {
     res.status(400).json({ error: 'userId and levelId are required' });
     return;
   }
 
-  const key = `progress_${body.userId}_${body.levelId}`;
-  const existing = store.get<SyncProgressBody>(key);
-  const merged: SyncProgressBody = existing
-    ? {
-        ...existing,
-        score: Math.max(existing.score, body.score),
-        stars: Math.max(existing.stars, body.stars),
-        time: Math.min(existing.time, body.time),
-        completed: existing.completed || body.completed,
-        factsUnlocked: [
-          ...new Set([...existing.factsUnlocked, ...body.factsUnlocked]),
-        ],
-      }
-    : body;
-
-  store.set(key, merged);
+  const serverBest = await getDataStore().syncProgress({
+    userId: body.userId,
+    levelId: String(body.levelId).slice(0, 32),
+    score: body.score ?? 0,
+    stars: body.stars ?? 0,
+    time: body.time ?? 0,
+    completed: body.completed ?? false,
+    factsUnlocked: Array.isArray(body.factsUnlocked) ? body.factsUnlocked : [],
+  });
 
   res.json({
     synced: true,
-    serverBest: { score: merged.score, stars: merged.stars, time: merged.time },
+    serverBest,
   } satisfies SyncProgressResponse);
 });
 
 // GET /api/progress/:userId — get all progress for a user
-progressRouter.get('/:userId', (req, res) => {
+progressRouter.get('/:userId', async (req, res) => {
   const { userId } = req.params;
-  const entries = store.list<SyncProgressBody>(`progress_${userId}`);
-  const progress: Record<string, SyncProgressBody> = {};
-  for (const e of entries) {
-    const levelId = e.key.replace(`progress_${userId}_`, '');
-    progress[levelId] = e.value;
-  }
+  const progress = await getDataStore().getUserProgress(userId);
   res.json({ userId, progress });
 });
