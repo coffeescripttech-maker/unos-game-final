@@ -207,28 +207,30 @@ export function useBoatController({
     }
 
     // ── TOUCH / JOYSTICK INPUT ──
+    // Joystick takes priority so a stray play-area drag can't fight it.
     let touchSteer = 0;
     let touchThrottle = 0;
-    if (touchStartRef.current && touchCurrentRef.current) {
+    if (joystickRef.current.x !== 0 || joystickRef.current.y !== 0) {
+      touchSteer = THREE.MathUtils.clamp(joystickRef.current.x, -1, 1);
+      touchThrottle = THREE.MathUtils.clamp(joystickRef.current.y, -1, 1);
+    } else if (touchStartRef.current && touchCurrentRef.current) {
       const dx = touchCurrentRef.current.x - touchStartRef.current.x;
       const dy = touchCurrentRef.current.y - touchStartRef.current.y;
       const maxDrag = 80;
       touchSteer = THREE.MathUtils.clamp(dx / maxDrag, -1, 1);
       touchThrottle = THREE.MathUtils.clamp(-dy / maxDrag, -1, 1);
-    } else if (joystickRef.current.x !== 0 || joystickRef.current.y !== 0) {
-      touchSteer = THREE.MathUtils.clamp(joystickRef.current.x, -1, 1);
-      touchThrottle = THREE.MathUtils.clamp(joystickRef.current.y, -1, 1);
     }
 
     // ── THROTTLE ──
+    // Small deadzone stops thumb jitter from making the boat crawl/spin in
+    // the storm; any real push gives FULL throttle (same feel as holding W).
+    const THROTTLE_DEADZONE = 0.05;
+    const STEER_DEADZONE = 0.08;
     let targetSpeed = 0;
     if (keys.has('KeyW') || keys.has('ArrowUp')) targetSpeed = MAX_SPEED;
     else if (keys.has('KeyS') || keys.has('ArrowDown')) targetSpeed = -MAX_REVERSE;
-    else if (touchThrottle !== 0) {
-      targetSpeed = touchThrottle > 0
-        ? touchThrottle * MAX_SPEED
-        : touchThrottle * MAX_REVERSE;
-    }
+    else if (touchThrottle > THROTTLE_DEADZONE) targetSpeed = MAX_SPEED;
+    else if (touchThrottle < -THROTTLE_DEADZONE) targetSpeed = -MAX_REVERSE;
 
     boostRef.current = keys.has('ShiftLeft') || keys.has('ShiftRight');
     const boost = boostRef.current ? 1.6 : 1;
@@ -248,7 +250,7 @@ export function useBoatController({
     if (keys.has('KeyD') || keys.has('ArrowRight')) {
       yawRef.current -= turnSpeed * dt * (velocityRef.current >= 0 ? 1 : -0.4);
     }
-    if (touchSteer !== 0) {
+    if (Math.abs(touchSteer) > STEER_DEADZONE) {
       yawRef.current -= touchSteer * turnSpeed * dt;
     }
 

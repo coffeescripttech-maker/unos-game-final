@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import {
   Gamepad2,
   LayoutDashboard,
@@ -10,9 +11,27 @@ import {
   HelpCircle
 } from 'lucide-react';
 import FullscreenButton from '../components/FullscreenButton';
-import { LEVEL_ORDER, LEVEL_CONFIGS } from '@shared/constants';
+import { getPlayerName, setPlayerName } from '../services/leaderboard';
 
 export default function HomePage() {
+  const [showNamePrompt, setShowNamePrompt] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const navigate = useNavigate();
+
+  const handleStart = () => {
+    if (getPlayerName()) {
+      navigate('/game');
+    } else {
+      setNameInput('');
+      setShowNamePrompt(true);
+    }
+  };
+
+  const startGame = (name?: string) => {
+    if (name) setPlayerName(name);
+    setShowNamePrompt(false);
+    navigate('/game');
+  };
   return (
     <div
       className="home-page w-full h-full flex flex-col items-center justify-center relative overflow-hidden px-4"
@@ -49,12 +68,12 @@ export default function HomePage() {
 
         {/* Main actions */}
         <div className="home-main-actions flex flex-col gap-3 w-full max-w-[260px] mx-auto mt-8">
-          <Link
-            to="/game"
-            className="retro-btn-primary text-center text-base sm:text-lg flex items-center justify-center gap-2">
+          <button
+            onClick={handleStart}
+            className="retro-btn-primary text-center text-base sm:text-lg flex items-center justify-center gap-2 cursor-pointer">
             <Gamepad2 size={22} className="sm:w-[26px] sm:h-[26px]" />
             Start Game
-          </Link>
+          </button>
           <Link
             to="/dashboard"
             className="retro-btn bg-ocean-mid text-white text-center text-base sm:text-lg flex items-center justify-center gap-2">
@@ -126,6 +145,46 @@ export default function HomePage() {
           </div>
         </div> */}
       </div>
+
+      {/* ── Name prompt before starting ── */}
+      {showNamePrompt && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+          <div className="retro-card !bg-storm-dark border-2 border-accent-yellow/50 w-full max-w-sm p-5 flex flex-col gap-3">
+            <h2
+              className="font-display text-xl text-accent-yellow"
+              style={{ textShadow: '2px 2px 0px #000000' }}>
+              What's your name, Sailor?
+            </h2>
+            <p className="font-body text-xs text-storm-light">
+              This is the name that shows up on the leaderboard when you play.
+            </p>
+            <input
+              autoFocus
+              value={nameInput}
+              maxLength={20}
+              onChange={e => setNameInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && nameInput.trim()) startGame(nameInput.trim());
+              }}
+              placeholder="Your name (e.g. Pia)"
+              className="retro-input font-body text-sm !py-2"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => startGame(nameInput.trim())}
+                disabled={!nameInput.trim()}
+                className="retro-btn-primary flex-1 text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                Save &amp; Start
+              </button>
+              <button
+                onClick={() => startGame()}
+                className="retro-btn bg-storm-mid text-white text-sm shrink-0">
+                Skip
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
