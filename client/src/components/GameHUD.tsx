@@ -12,6 +12,8 @@ import PatternReviewOverlay from './hud/PatternReviewOverlay';
 import PressureControls from './hud/PressureControls';
 import TyphoonControls from './hud/TyphoonControls';
 import TyphoonQuizOverlay from './hud/TyphoonQuizOverlay';
+import AnatomyOverlay from './hud/AnatomyOverlay';
+import TrackingOverlay from './hud/TrackingOverlay';
 
 export default function GameHUD() {
   return (
@@ -57,6 +59,12 @@ export default function GameHUD() {
 
       {/* ── Typhoon Quiz (science questions after successful formation) ── */}
       <TyphoonQuizOverlay />
+
+      {/* ── Typhoon Anatomy (labeled parts review, before the final quiz) ── */}
+      <AnatomyOverlay />
+
+      {/* ── Typhoon Tracking (plot-the-track forecasting challenge) ── */}
+      <TrackingOverlay />
     </>
   );
 }

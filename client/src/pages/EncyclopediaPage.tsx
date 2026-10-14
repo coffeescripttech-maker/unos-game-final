@@ -9,6 +9,8 @@ const LEVEL_TITLES: Record<string, string> = {
   fact_pressure: 'Pressure Systems & Wind',
   fact_rotation: 'The Coriolis Effect',
   fact_typhoon: 'Typhoon Anatomy',
+  fact_anatomy: 'Anatomy of a Typhoon',
+  fact_tracking: 'Tracking a Typhoon (PAGASA)',
   fact_boss: 'Category 5 Storms',
 };
 

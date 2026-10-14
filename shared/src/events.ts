@@ -53,6 +53,14 @@ export const GAME_EVENTS = {
   HUD_TYPHOON_QUIZ: 'HUD:TYPHOON_QUIZ',
   HUD_TYPHOON_QUIZ_COMPLETE: 'HUD:TYPHOON_QUIZ_COMPLETE',
 
+  // Typhoon Anatomy — React shows a labeled parts-of-a-typhoon review
+  HUD_ANATOMY_REVIEW: 'HUD:ANATOMY_REVIEW',
+  HUD_ANATOMY_DISMISS: 'HUD:ANATOMY_DISMISS',
+
+  // Typhoon Tracking — React shows a "plot the storm track" forecasting challenge
+  HUD_TRACKING_ALERT: 'HUD:TRACKING_ALERT',
+  HUD_TRACKING_COMPLETE: 'HUD:TRACKING_COMPLETE',
+
   // Loading screen — React overlay for asset loading progress
   HUD_LOADING: 'HUD:LOADING',
 } as const;
@@ -242,6 +250,25 @@ export interface TyphoonQuizCompletePayload {
   total: number;
 }
 
+// ────────────────────────── Typhoon Anatomy Payloads ──────────────────────────
+
+export interface AnatomyReviewPayload {
+  /** Optional part id to open first; defaults to the eye. */
+  focus?: string;
+}
+
+// ────────────────────────── Typhoon Tracking Payloads ──────────────────────────
+
+/** Sent back to Phaser once the player finishes plotting the storm track. */
+export interface TrackingCompletePayload {
+  /** Correct taps on the first try. */
+  correct: number;
+  /** Total track points to plot. */
+  total: number;
+  /** Score bonus earned for the forecasting challenge. */
+  bonus: number;
+}
+
 // ────────────────────────── Loading Payloads ──────────────────────────
 
 export interface HUDLoadingPayload {
@@ -286,6 +313,10 @@ export type GameEventPayloads = {
   [GAME_EVENTS.HUD_TYPHOON_SLIDER_UNLOCK]: TyphoonSliderUnlockPayload;
   [GAME_EVENTS.HUD_TYPHOON_QUIZ]: TyphoonQuizPayload;
   [GAME_EVENTS.HUD_TYPHOON_QUIZ_COMPLETE]: TyphoonQuizCompletePayload;
+  [GAME_EVENTS.HUD_ANATOMY_REVIEW]: AnatomyReviewPayload;
+  [GAME_EVENTS.HUD_ANATOMY_DISMISS]: undefined;
+  [GAME_EVENTS.HUD_TRACKING_ALERT]: undefined;
+  [GAME_EVENTS.HUD_TRACKING_COMPLETE]: TrackingCompletePayload;
   [GAME_EVENTS.HUD_LOADING]: HUDLoadingPayload;
 };
 

@@ -209,6 +209,18 @@ export const EDUCATIONAL_FACTS: EducationalFact[] = [
     source: 'World Meteorological Organization',
   },
   {
+    id: 'fact_anatomy',
+    levelId: 'typhoon',
+    text: 'Typhoon anatomy: the eye is the calm, lowest-pressure center; the eyewall is the ring of towering clouds with the strongest winds and heaviest rain; spiral rainbands curve inward; and the outer feeder bands are the first to reach land. Northern-Hemisphere typhoons spin counter-clockwise.',
+    source: 'PAGASA / WMO',
+  },
+  {
+    id: 'fact_tracking',
+    levelId: 'typhoon',
+    text: 'PAGASA tracks a bagyo once it enters the Philippine Area of Responsibility (PAR), plotting its position across successive bulletins and projecting a widening "forecast cone". The expected wind speed per area sets the Tropical Cyclone Wind Signal (TCWS) number, from No. 1 to No. 5.',
+    source: 'PAGASA',
+  },
+  {
     id: 'fact_boss',
     levelId: 'boss',
     text: 'Typhoons can reach Category 5 with sustained winds over 252 km/h — powerful enough to cause catastrophic damage.',

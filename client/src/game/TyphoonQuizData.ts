@@ -84,6 +84,58 @@ export const TYPHOON_QUIZ_QUESTIONS: TyphoonQuizQuestion[] = [
     fact: "The Philippines sits in the Western North Pacific — the most active tropical cyclone basin on Earth, producing about 30% of the world's annual typhoons.",
     topic: 'general',
   },
+  {
+    q: 'Which part of a typhoon has the calmest weather and the lowest air pressure?',
+    options: ['The eye', 'The eyewall', 'The spiral rainbands', 'The outer bands'],
+    answer: 0,
+    fact: 'The eye is the calm center where air sinks and spreads outward — giving light winds and clear skies, yet holding the lowest pressure in the entire storm.',
+    topic: 'anatomy',
+  },
+  {
+    q: "Where are a typhoon's strongest winds and heaviest rain concentrated?",
+    options: ['The eye', 'The eyewall', 'The outer edge', 'The dry air outside the storm'],
+    answer: 1,
+    fact: 'The eyewall is the ring of towering clouds wrapped around the eye. Peak winds and the heaviest downpours occur here — it is the most dangerous part of a typhoon.',
+    topic: 'anatomy',
+  },
+  {
+    q: 'What are the long, curved bands of thunderstorms that spiral into a typhoon called?',
+    options: ['Trade winds', 'Spiral rainbands', 'Jet streams', 'Sea breeze'],
+    answer: 1,
+    fact: 'Spiral rainbands wind inward toward the eyewall, bringing heavy rain and gusty winds long before the center arrives. They rotate counter-clockwise in the Northern Hemisphere.',
+    topic: 'anatomy',
+  },
+  {
+    q: 'In which general direction do most typhoons travel after forming in the Western North Pacific?',
+    options: [
+      'West or northwest',
+      'Straight north',
+      'East or southeast',
+      'They stay in one place'
+    ],
+    answer: 0,
+    fact: 'Steered by the subtropical ridge, WNP typhoons usually move west or northwest toward the Philippines and East Asia — which is why tracking their path is critical for warnings.',
+    topic: 'tracking',
+  },
+  {
+    q: "On a PAGASA track chart, what does the widening 'forecast cone' show?",
+    options: [
+      'Areas that will stay dry',
+      'The growing uncertainty in the storm\u2019s future position',
+      'The exact path the storm will take',
+      'The storm\u2019s current wind speed'
+    ],
+    answer: 1,
+    fact: 'The forecast cone widens with time because the storm\u2019s exact future path becomes less certain. The center could be anywhere inside the cone, so communities should prepare based on the closest approach.',
+    topic: 'tracking',
+  },
+  {
+    q: 'PAGASA raises Tropical Cyclone Wind Signal (TCWS) No. 3 for an area expecting winds of about…',
+    options: ['30\u201360 km/h', '61\u2013120 km/h', '121\u2013184 km/h', '185+ km/h'],
+    answer: 2,
+    fact: 'TCWS No. 3 means winds of about 121\u2013184 km/h are expected within 36 hours — strong enough to uproot trees and damage structures. Signals are issued per area based on the expected wind speed.',
+    topic: 'tracking',
+  },
 ];
 
 /**

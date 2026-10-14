@@ -22,6 +22,7 @@ import {
   TYPHOON_QUIZ_QUESTIONS,
   TYPHOON_GATE_TOPICS
 } from '../TyphoonQuizData';
+import type { TyphoonQuizQuestion } from '../TyphoonQuizData';
 
 // Used to emit configs to React. Matches shared TyphoonSliderConfig but with
 // Phaser-specific color as number (converted to hex string for React).
@@ -55,6 +56,7 @@ export class TyphoonScene extends Phaser.Scene {
   private gameStarted = false;
   private stormTime = 0;
   private lastQuizBonus = 0;
+  private trackingBonus = 0;
   // Sequential unlock gates — each slider's topic quiz unlocks the next slider
   private gatesPassed = 0;
   private gateQuizActive = false;
@@ -103,6 +105,7 @@ export class TyphoonScene extends Phaser.Scene {
     this.lastStage = 0;
     this.lightningBoltPool = [];
     this.lastQuizBonus = 0;
+    this.trackingBonus = 0;
     this.gatesPassed = 0;
     this.gateQuizActive = false;
     this.zoneHoldTime = 0;
@@ -327,6 +330,15 @@ export class TyphoonScene extends Phaser.Scene {
       this.onQuizComplete
     );
 
+    // Anatomy review dismissed → proceed to the final science quiz
+    this.game.events.on(GAME_EVENTS.HUD_ANATOMY_DISMISS, this.onAnatomyDismiss);
+
+    // Tracking challenge finished → add bonus and show results
+    this.game.events.on(
+      GAME_EVENTS.HUD_TRACKING_COMPLETE,
+      this.onTrackingComplete
+    );
+
     // Show intro overlay
     this.showIntroOverlay();
   }
@@ -513,8 +525,74 @@ export class TyphoonScene extends Phaser.Scene {
       onComplete: () => bonusText.destroy()
     });
 
+    // Final quiz done → run the tracking challenge before showing results.
+    this.game.events.emit(GAME_EVENTS.HUD_TRACKING_ALERT);
+  };
+
+  /** Anatomy review dismissed → emit the final science quiz. */
+  private onAnatomyDismiss = () => {
+    if (!this.isComplete) return;
+    this.game.events.emit(GAME_EVENTS.HUD_TYPHOON_QUIZ, {
+      topic: 'Typhoon Science',
+      questions: this.pickFinalQuiz()
+    });
+  };
+
+  /** Tracking challenge finished → record its bonus and finalize the level. */
+  private onTrackingComplete = (result: { correct: number; total: number; bonus: number }) => {
+    if (this.trackingBonus === 0 && result.bonus > 0) {
+      this.trackingBonus = result.bonus;
+      const text = this.add
+        .text(
+          this.centerX,
+          this.centerY + 58,
+          `Tracking Bonus: +${result.bonus}`,
+          {
+            fontFamily: FONTS.DISPLAY,
+            fontSize: '15px',
+            color: '#06D6A0',
+            stroke: '#000000',
+            strokeThickness: 2
+          }
+        )
+        .setOrigin(0.5)
+        .setDepth(DEPTH.OVERLAY + 2)
+        .setAlpha(0);
+      this.tweens.add({
+        targets: text,
+        alpha: 1,
+        y: text.y - 15,
+        duration: 600,
+        ease: 'Back.easeOut'
+      });
+    }
     this.finalizeCompletion();
   };
+
+  /**
+   * Choose the final science-quiz questions. Always includes one anatomy and one
+   * tracking question (the new competencies) plus one reinforcing question drawn
+   * from the remaining non-gate pool (land weakening / ocean basin).
+   */
+  private pickFinalQuiz(): TyphoonQuizQuestion[] {
+    const randomOf = (topic: string): TyphoonQuizQuestion | undefined => {
+      const pool = TYPHOON_QUIZ_QUESTIONS.filter(q => q.topic === topic);
+      return pool.length ? pool[Math.floor(Math.random() * pool.length)] : undefined;
+    };
+    const picked: TyphoonQuizQuestion[] = [];
+    const anatomy = randomOf('anatomy');
+    const tracking = randomOf('tracking');
+    if (anatomy) picked.push(anatomy);
+    if (tracking) picked.push(tracking);
+
+    const gateSet = TYPHOON_GATE_TOPICS as readonly string[];
+    const others = TYPHOON_QUIZ_QUESTIONS.filter(
+      q => !gateSet.includes(q.topic) && q.topic !== 'anatomy' && q.topic !== 'tracking'
+    ).sort(() => Math.random() - 0.5);
+    if (others[0]) picked.push(others[0]);
+
+    return picked.slice(0, 3);
+  }
 
   private emitObjective() {
     this.game.events.emit(GAME_EVENTS.HUD_OBJECTIVE, {
@@ -1508,31 +1586,16 @@ export class TyphoonScene extends Phaser.Scene {
       6
     );
 
-    // Delay the final quiz 4 seconds so the player can see the typhoon category before quiz questions appear.
-    const gateSet = TYPHOON_GATE_TOPICS as readonly string[];
-    const quizPick = () => {
-      const nonGate = TYPHOON_QUIZ_QUESTIONS.filter(
-        q => !gateSet.includes(q.topic)
-      );
-      const gatePool = TYPHOON_QUIZ_QUESTIONS.filter(q =>
-        gateSet.includes(q.topic)
-      ).sort(() => Math.random() - 0.5);
-      return [...nonGate, ...gatePool].slice(0, 3);
-    };
-
+    // Delay the final sequence 4 seconds so the player can see the typhoon
+    // category before the anatomy review + quiz appear.
     // Pause timer during the wait (gateQuizActive blocks timer decrements)
     this.gateQuizActive = true;
     this.time.delayedCall(4000, () => {
       this.gateQuizActive = false;
       if (this.isComplete) {
-        const pick = quizPick();
-        // Emit quiz to React — result is shown AFTER the quiz.
-        // Prefer questions NOT used as unlock gates (land weakening, ocean basin)
-        // plus a random gate question, so the final quiz stays fresh.
-        this.game.events.emit(GAME_EVENTS.HUD_TYPHOON_QUIZ, {
-          topic: 'Typhoon Science',
-          questions: pick
-        });
+        // Show the parts-of-a-typhoon anatomy review first; dismissing it
+        // (HUD_ANATOMY_DISMISS) triggers the final science quiz.
+        this.game.events.emit(GAME_EVENTS.HUD_ANATOMY_REVIEW, {});
       }
     });
   }
@@ -1545,7 +1608,7 @@ export class TyphoonScene extends Phaser.Scene {
     const matchBonus = this.matches * 250;
     const timeBonus = Math.round((this.timeRemaining / this.totalTime) * 300);
     const baseScore = 1500 + intensityBonus + matchBonus + timeBonus;
-    const finalScore = baseScore + this.lastQuizBonus;
+    const finalScore = baseScore + this.lastQuizBonus + this.trackingBonus;
     const stars = GameManager.getStars(finalScore, 3500);
 
     this.didWin = true;
@@ -1567,7 +1630,7 @@ export class TyphoonScene extends Phaser.Scene {
       ),
       stars: Math.max(existing.stars ?? 0, stars),
       attempts: (existing.attempts ?? 0) + 1,
-      factsUnlocked: ['fact_typhoon']
+      factsUnlocked: ['fact_typhoon', 'fact_anatomy', 'fact_tracking']
     };
     localStorage.setItem('unos_progress', JSON.stringify(progress));
 
@@ -1576,7 +1639,7 @@ export class TyphoonScene extends Phaser.Scene {
       .text(
         this.centerX,
         this.centerY + 18,
-        `Intensity: +${intensityBonus}  |  Balance: +${matchBonus}  |  Time: +${timeBonus}${this.lastQuizBonus > 0 ? `  |  Science: +${this.lastQuizBonus}` : ''}`,
+        `Intensity: +${intensityBonus}  |  Balance: +${matchBonus}  |  Time: +${timeBonus}${this.lastQuizBonus > 0 ? `  |  Science: +${this.lastQuizBonus}` : ''}${this.trackingBonus > 0 ? `  |  Tracking: +${this.trackingBonus}` : ''}`,
         {
           fontFamily: FONTS.BODY,
           fontSize: '9px',
@@ -1597,7 +1660,7 @@ export class TyphoonScene extends Phaser.Scene {
       stars,
       levelId: 'typhoon',
       timeUsed: this.totalTime - this.timeRemaining,
-      factsUnlocked: ['fact_typhoon']
+      factsUnlocked: ['fact_typhoon', 'fact_anatomy', 'fact_tracking']
     });
   }
 
@@ -1647,6 +1710,11 @@ export class TyphoonScene extends Phaser.Scene {
     this.game.events.off(
       GAME_EVENTS.HUD_TYPHOON_QUIZ_COMPLETE,
       this.onQuizComplete
+    );
+    this.game.events.off(GAME_EVENTS.HUD_ANATOMY_DISMISS, this.onAnatomyDismiss);
+    this.game.events.off(
+      GAME_EVENTS.HUD_TRACKING_COMPLETE,
+      this.onTrackingComplete
     );
 
     // Clean up active effects
