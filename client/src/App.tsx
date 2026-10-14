@@ -1,18 +1,31 @@
 import { Routes, Route, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import HomePage from './pages/HomePage';
-import GamePage from './pages/GamePage';
-import DashboardPage from './pages/DashboardPage';
-import AchievementsPage from './pages/AchievementsPage';
-import LeaderboardPage from './pages/LeaderboardPage';
-import SettingsPage from './pages/SettingsPage';
-import EncyclopediaPage from './pages/EncyclopediaPage';
-import CreditsPage from './pages/CreditsPage';
-import BossPage from './pages/BossPage';
-import WalkthroughPage from './pages/WalkthroughPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import { audioService } from './services/audio';
 import { loadSettings, applySettings } from './services/settings';
+
+// Route-level code splitting: pages (and the Phaser/Three.js engines behind
+// them) load only when their route is opened, keeping the first screen fast.
+const GamePage = lazy(() => import('./pages/GamePage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const AchievementsPage = lazy(() => import('./pages/AchievementsPage'));
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const EncyclopediaPage = lazy(() => import('./pages/EncyclopediaPage'));
+const CreditsPage = lazy(() => import('./pages/CreditsPage'));
+const BossPage = lazy(() => import('./pages/BossPage'));
+const WalkthroughPage = lazy(() => import('./pages/WalkthroughPage'));
+
+function PageLoader() {
+  return (
+    <div className="w-full h-full flex items-center justify-center bg-ocean-deep">
+      <p className="font-display text-accent-yellow text-lg animate-pulse">
+        Loading…
+      </p>
+    </div>
+  );
+}
 
 export default function App() {
   const location = useLocation();
@@ -64,18 +77,20 @@ export default function App() {
   return (
     <ErrorBoundary>
       <div className="w-full h-full bg-ocean-deep overflow-hidden">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/game" element={<GamePage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/achievements" element={<AchievementsPage />} />
-          <Route path="/encyclopedia" element={<EncyclopediaPage />} />
-          <Route path="/leaderboard" element={<LeaderboardPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/credits" element={<CreditsPage />} />
-          <Route path="/boss" element={<BossPage />} />
-          <Route path="/walkthrough" element={<WalkthroughPage />} />
-        </Routes>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/game" element={<GamePage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/achievements" element={<AchievementsPage />} />
+            <Route path="/encyclopedia" element={<EncyclopediaPage />} />
+            <Route path="/leaderboard" element={<LeaderboardPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/credits" element={<CreditsPage />} />
+            <Route path="/boss" element={<BossPage />} />
+            <Route path="/walkthrough" element={<WalkthroughPage />} />
+          </Routes>
+        </Suspense>
       </div>
     </ErrorBoundary>
   );

@@ -11,7 +11,7 @@ interface SoundDef {
 const SOUND_MAP: Record<SoundId, SoundDef> = {
   click: { src: '/assets/audio/button-click.mp3', volume: 0.6 },
   bgm_menu: { src: '/assets/audio/menu-theme.mp3', volume: 0.35, loop: true },
-  bgm_level: { src: '/assets/audio/all-level-background-music.wav', volume: 0.3, loop: true },
+  bgm_level: { src: '/assets/audio/all-level-background-music.mp3', volume: 0.3, loop: true },
 };
 
 class AudioService {
@@ -33,7 +33,7 @@ class AudioService {
         src: [def.src],
         volume: def.volume ?? 1,
         loop: def.loop ?? false,
-        preload: def.loop ?? false,
+        preload: false,
         html5: true,
         onloaderror: (_id: number, err: unknown) => {
           console.warn(`[Audio] Failed to load "${id}":`, err);

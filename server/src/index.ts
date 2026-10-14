@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -23,6 +24,7 @@ const httpServer = createServer(app);
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: config.corsOrigin }));
 app.use(express.json({ limit: '1mb' }));
+app.use(compression());
 
 // ── REST Routes ──────────────────────────────────────────────
 
@@ -42,8 +44,23 @@ function setupStaticHosting() {
     console.log('[static] client/dist not found — serving API only (dev mode).');
     return;
   }
-  app.use(express.static(clientDist, { index: 'index.html' }));
+  app.use(
+    express.static(clientDist, {
+      index: 'index.html',
+      maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
+      setHeaders: (res, filePath) => {
+        // Vite emits content-hashed assets — cache them forever.
+        if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else if (filePath.endsWith('.html')) {
+          // index.html must revalidate so new deploys aren't masked by cache.
+          res.setHeader('Cache-Control', 'no-store');
+        }
+      },
+    }),
+  );
   app.get(/^\/(?!api|socket\.io).*/, (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     res.sendFile(path.join(clientDist, 'index.html'));
   });
   console.log(`[static] Serving client from ${clientDist}`);
