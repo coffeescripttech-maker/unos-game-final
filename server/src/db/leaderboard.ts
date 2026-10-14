@@ -65,8 +65,8 @@ export async function submitScore(entry: LeaderboardEntry): Promise<void> {
          (level_id, user_id, display_name, score, stars, time_seconds, achieved_at)
        VALUES (?, ?, ?, ?, ?, ?, NOW())
        ON DUPLICATE KEY UPDATE
+         display_name = VALUES(display_name),
          score        = IF(VALUES(score) > score, VALUES(score), score),
-         display_name = IF(VALUES(score) > score, VALUES(display_name), display_name),
          stars        = IF(VALUES(score) > score, VALUES(stars), stars),
          time_seconds = IF(VALUES(score) > score, VALUES(time_seconds), time_seconds),
          achieved_at  = IF(VALUES(score) > score, NOW(), achieved_at)`,

@@ -67,10 +67,17 @@ function makeFileStore(): DataStore {
       const key = `lb_${entry.levelId}`;
       const existing = store.get<Record<string, LeaderboardEntry>>(key) ?? {};
       const prev = existing[entry.userId];
-      if (!prev || entry.score > prev.score) {
+      if (!prev) {
         existing[entry.userId] = entry;
-        store.set(key, existing);
+      } else {
+        // Always adopt the latest submitted name while keeping the best
+        // score/time, so renaming is reflected even without beating a record.
+        existing[entry.userId] = {
+          ...(entry.score > prev.score ? entry : prev),
+          displayName: entry.displayName,
+        };
       }
+      store.set(key, existing);
     },
 
     async getLevel(levelId, limit, offset) {

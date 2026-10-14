@@ -98,6 +98,8 @@ export default function LeaderboardPage() {
     }
   }, [nameInput, tab, page, load]);
 
+  const myName = getPlayerName().trim();
+
   const data = tab === 'global' ? globalData : levelData;
   const entries = data?.entries ?? null;
   const total = data?.total ?? 0;
@@ -232,7 +234,7 @@ export default function LeaderboardPage() {
                     <RankBadge rank={(page - 1) * pageSize + i + 1} />
                     <div className="flex-1 min-w-0">
                       <p className="font-display text-sm text-white truncate flex items-center gap-1.5">
-                        {entry.displayName}
+                        {mine && myName ? myName : entry.displayName}
                         {mine && (
                           <span className="font-body text-[10px] text-accent-yellow border border-accent-yellow/50 px-1 rounded">
                             YOU
