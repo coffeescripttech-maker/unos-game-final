@@ -77,7 +77,7 @@ export default function TutorialStepOverlay() {
           <div className="h-px bg-gradient-to-r from-transparent via-[#06d6a0]/50 to-transparent mx-2 mb-4" />
 
           {/* Description */}
-          <p className="font-body text-xs text-white/40 text-center px-4 leading-relaxed">
+          <p className="font-body text-sm text-white/40 text-center px-4 leading-relaxed">
             You've completed the research base briefing.
             <br />
             Head to the World Map to begin your fieldwork!
@@ -86,7 +86,7 @@ export default function TutorialStepOverlay() {
           {/* Continue button */}
           <button
             onClick={handleContinue}
-            className="retro-btn retro-btn-primary w-full mt-6 text-sm animate-pulse-subtle"
+            className="retro-btn retro-btn-primary w-full mt-6 text-base animate-pulse-subtle"
           >
             ▶  Continue to World Map
           </button>
@@ -133,7 +133,7 @@ export default function TutorialStepOverlay() {
                 />
                 {/* Label below dot */}
                 {isCurrent && (
-                  <span className="text-[10px] font-semibold text-white/50 mt-1.5 whitespace-nowrap absolute top-full left-1/2 -translate-x-1/2">
+                  <span className="text-xs sm:text-sm font-semibold text-white/50 mt-1.5 whitespace-nowrap absolute top-full left-1/2 -translate-x-1/2">
                     {STEP_LABELS[i]}
                   </span>
                 )}
@@ -146,13 +146,13 @@ export default function TutorialStepOverlay() {
       {/* ── Task + instruction ── */}
       <div className="relative text-center mt-6 px-6 pointer-events-auto animate-in fade-in slide-in-from-top-2 duration-300">
         <h2
-          className="font-display text-xl text-accent-yellow"
+          className="font-display text-2xl sm:text-3xl text-accent-yellow"
           style={{ textShadow: '2px 2px 0px #000000' }}
         >
           {task}
         </h2>
         <p
-          className="font-body text-sm text-white/90 mt-1 max-w-md mx-auto"
+          className="font-body text-base sm:text-lg text-white/90 mt-1 max-w-xl mx-auto"
           style={{ textShadow: '1px 1px 0px rgba(0,0,0,0.8)' }}
         >
           {instruction}
@@ -163,7 +163,7 @@ export default function TutorialStepOverlay() {
       <div className="absolute top-4 right-5 pointer-events-auto">
         <button
           onClick={handleSkip}
-          className="retro-btn bg-storm-mid text-gray-400 hover:text-white text-sm px-4 py-1.5"
+          className="retro-btn bg-storm-mid text-gray-400 hover:text-white text-base px-4 py-1.5"
         >
           Skip →
         </button>

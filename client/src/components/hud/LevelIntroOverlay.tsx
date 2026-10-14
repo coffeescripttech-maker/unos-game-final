@@ -102,7 +102,7 @@ export default function LevelIntroOverlay() {
       <div className="retro-card modal-card max-w-md w-[95%] max-h-[95vh] overflow-y-auto !bg-storm-dark animate-in zoom-in-95 duration-300">
         {/* ── Level badge ── */}
         <div className="flex justify-center -mt-1">
-          <span className="retro-badge bg-warning-red text-white text-xs px-6 py-1 -translate-y-1/2">
+          <span className="retro-badge bg-warning-red text-white text-sm px-6 py-1 -translate-y-1/2">
             {intro.badge}
           </span>
         </div>
@@ -117,7 +117,7 @@ export default function LevelIntroOverlay() {
 
         {/* ── Subtitle ── */}
         <div
-          className="font-body text-sm text-white/60 text-center mt-1 mb-4"
+          className="font-body text-base text-white/60 text-center mt-1 mb-4"
           style={{ textShadow: '1px 1px 0px rgba(0,0,0,0.8)' }}
         >
           {intro.subtitle}
@@ -136,9 +136,9 @@ export default function LevelIntroOverlay() {
                 key={i}
                 className={`flex items-center gap-3 p-2.5 rounded-sm bg-black/20 border-l-3 ${barColor}`}
               >
-                <span className="text-lg shrink-0 w-6 text-center">{m.icon}</span>
+                <span className="text-xl shrink-0 w-7 text-center">{m.icon}</span>
                 <span
-                  className={`font-body text-sm ${textColor}`}
+                  className={`font-body text-base ${textColor}`}
                   style={{ textShadow: '1px 1px 0px rgba(0,0,0,0.9)' }}
                 >
                   {m.text}
@@ -151,7 +151,7 @@ export default function LevelIntroOverlay() {
         {/* ── Start button ── */}
         <button
           onClick={handleDismiss}
-          className="retro-btn retro-btn-primary w-full mt-6 text-sm animate-pulse-subtle"
+          className="retro-btn retro-btn-primary w-full mt-6 text-base animate-pulse-subtle"
         >
           ▶  Click to continue
         </button>

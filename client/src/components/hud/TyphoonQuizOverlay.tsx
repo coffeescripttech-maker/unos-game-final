@@ -100,10 +100,10 @@ export default function TyphoonQuizOverlay() {
 
         {/* Header */}
         <div className="flex items-center justify-between">
-          <span className={`font-display text-xs uppercase tracking-widest text-accent-yellow ${LABEL_SHADOW}`}>
+          <span className={`font-display text-sm uppercase tracking-widest text-accent-yellow ${LABEL_SHADOW}`}>
             {isGate ? `🔒 ${payload.topic} — Unlock Challenge` : `🌀 ${payload.topic}`}
           </span>
-          <span className={`font-body text-[10px] uppercase tracking-wider text-storm-light ${LABEL_SHADOW}`}>
+          <span className={`font-body text-xs uppercase tracking-wider text-storm-light ${LABEL_SHADOW}`}>
             {index + 1} / {payload.questions.length}
           </span>
         </div>
