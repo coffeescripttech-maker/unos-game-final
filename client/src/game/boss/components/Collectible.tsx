@@ -14,13 +14,13 @@ const COLLECT_DISTANCE = 5;
 const MARKER_SCALE = 4;
 
 const MARKER_PATHS: Record<ObjectiveId, string> = {
-  collect_temperature: '/assets/boss/marker_temperature.png',
-  collect_humidity: '/assets/boss/marker_humidity.png',
-  collect_pressure: '/assets/boss/marker_swirl.png',
-  collect_windspeed: '/assets/boss/marker_wind.png',
-  deploy_buoy: '/assets/boss/marker.png',
-  reach_eye: '/assets/boss/marker_eye.png',
-  complete: '/assets/boss/marker_eye.png',
+  collect_temperature: '/assets/boss/marker_temperature.webp',
+  collect_humidity: '/assets/boss/marker_humidity.webp',
+  collect_pressure: '/assets/boss/marker_swirl.webp',
+  collect_windspeed: '/assets/boss/marker_wind.webp',
+  deploy_buoy: '/assets/boss/marker.webp',
+  reach_eye: '/assets/boss/marker_eye.webp',
+  complete: '/assets/boss/marker_eye.webp',
 };
 
 /**
@@ -36,7 +36,7 @@ export default function Collectible({ data, onCollect, boatPosition }: Collectib
   const collectedRef = useRef(false);
   const vanishRef = useRef(0);
 
-  const markerPath = MARKER_PATHS[data.id] ?? '/assets/boss/marker.png';
+  const markerPath = MARKER_PATHS[data.id] ?? '/assets/boss/marker.webp';
   const fallbackFactory = useCallback(
     () => createCollectibleTexture(data.color, data.icon),
     [data.color, data.icon],

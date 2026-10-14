@@ -22,7 +22,7 @@ export default function Storm({ storm, isInEye }: StormProps) {
   const cloudRef = useRef<THREE.Group>(null);
   const rotationRef = useRef(0);
   const pulseRef = useRef(0);
-  const cloudTexture = useBossTexture('/assets/boss/cloud.png', createCloudTexture);
+  const cloudTexture = useBossTexture('/assets/boss/cloud.webp', createCloudTexture);
 
   useEffect(() => {
     cloudTexture.magFilter = THREE.LinearFilter;

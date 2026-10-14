@@ -60,167 +60,167 @@ export class PreloadScene extends Phaser.Scene {
     });
 
     // Load external assets
-    this.load.image('main_menu_bg', 'images/Main Menu BG.png');
-    this.load.image('world_map2', 'World Map2.png');
-    this.load.image('world_map_bg', 'images/Main Menu BG.png');
+    this.load.image('main_menu_bg', 'images/Main Menu BG.webp');
+    this.load.image('world_map2', 'images/World Map BG.webp');
+    this.load.image('world_map_bg', 'images/Main Menu BG.webp');
 
     // Tutorial â€” Research Base
-    this.load.image('tutorial_bg', 'images/Tutorial BG.png');
+    this.load.image('tutorial_bg', 'images/Tutorial BG.webp');
 
     // Stage 1 â€” Evaporation assets
-    this.load.image('evap_sky', 'images/Stage 1/sky.png');
-    this.load.image('evap_sun', 'images/Stage 1/sun.png');
-    this.load.image('evap_clouds', 'images/Stage 1/clouds.png');
-    this.load.image('evap_island', 'images/Stage 1/island.png');
-    this.load.image('evap_ocean', 'images/Stage 1/ocean.png');
+    this.load.image('evap_sky', 'images/Stage 1/sky.webp');
+    this.load.image('evap_sun', 'images/Stage 1/sun.webp');
+    this.load.image('evap_clouds', 'images/Stage 1/clouds.webp');
+    this.load.image('evap_island', 'images/Stage 1/island.webp');
+    this.load.image('evap_ocean', 'images/Stage 1/ocean.webp');
     this.load.image('evap_vapor', 'images/Stage 1/water vapor.jpg');
 
     // Stage 2 â€” Condensation assets (actual PNG files)
     this.load.image(
       'condensation_sky',
-      'images/Stage 2/backgrounds/background.png'
+      'images/Stage 2/backgrounds/background.webp'
     );
     this.load.image(
       'pressure_condensation_bg',
-      'images/Stage 2/backgrounds/background.png'
+      'images/Stage 2/backgrounds/background.webp'
     );
     this.load.image(
       'ocean_strip',
-      'images/Stage 2/environment/ocean_strip.png'
+      'images/Stage 2/environment/ocean_strip.webp'
     );
-    this.load.image('cloud_small', 'images/Stage 2/sprites/cloud_small.png');
+    this.load.image('cloud_small', 'images/Stage 2/sprites/cloud_small.webp');
     this.load.image(
       'vapor_particle',
-      'images/Stage 2/gameplay/vapor_particle.png'
+      'images/Stage 2/gameplay/vapor_particle.webp'
     );
-    this.load.image('cool_zone', 'images/Stage 2/gameplay/cool_zone.png');
-    this.load.image('wind_stream', 'images/Stage 2/gameplay/wind_stream.png');
+    this.load.image('cool_zone', 'images/Stage 2/gameplay/cool_zone.webp');
+    this.load.image('wind_stream', 'images/Stage 2/gameplay/wind_stream.webp');
     this.load.image(
       'condensation_effect',
-      'images/Stage 2/gameplay/condensation_effect.png'
+      'images/Stage 2/gameplay/condensation_effect.webp'
     );
-    this.load.image('cloud_glow', 'images/Stage 2/gameplay/cloud_glow.png');
-    this.load.image('mist_layer', 'images/Stage 2/gameplay/Mist Layer.png');
+    this.load.image('cloud_glow', 'images/Stage 2/gameplay/cloud_glow.webp');
+    this.load.image('mist_layer', 'images/Stage 2/gameplay/Mist Layer.webp');
     this.load.image(
       'temperature_layer_overlay',
-      'images/Stage 2/gameplay/temperature_layer_overlay.png'
+      'images/Stage 2/gameplay/temperature_layer_overlay.webp'
     );
 
     // Stage 3 â€” Air Pressure assets
     this.load.image(
       'pressure_island_bg',
-      'images/Stage 3/backgrounds/pressure_island.png'
+      'images/Stage 3/backgrounds/pressure_island.webp'
     );
     this.load.image(
       'clouds_front',
-      'images/Stage 3/backgrounds/clouds_front.png'
+      'images/Stage 3/backgrounds/clouds_front.webp'
     );
     this.load.image(
       'airflow_overlay',
-      'images/Stage 3/backgrounds/airflow_overlay.png'
+      'images/Stage 3/backgrounds/airflow_overlay.webp'
     );
-    this.load.image('stage3_ocean', 'images/Stage 3/backgrounds/ocean.png');
+    this.load.image('stage3_ocean', 'images/Stage 3/backgrounds/ocean.webp');
     this.load.image(
       'clouds_back',
-      'images/Stage 3/backgrounds/clouds_back.png'
+      'images/Stage 3/backgrounds/clouds_back.webp'
     );
     this.load.image(
       'high_pressure_marker',
-      'images/Stage 3/gameplay/high_pressure.png'
+      'images/Stage 3/gameplay/high_pressure.webp'
     );
     this.load.image(
       'low_pressure_marker',
-      'images/Stage 3/gameplay/low_pressure.png'
+      'images/Stage 3/gameplay/low_pressure.webp'
     );
     this.load.image(
       'pressure_node_slot',
-      'images/Stage 3/gameplay/pressure_node.png'
+      'images/Stage 3/gameplay/pressure_node.webp'
     );
-    this.load.image('target_zone', 'images/Stage 3/gameplay/target_zone.png');
-    this.load.image('wind_arrow_s3', 'images/Stage 3/gameplay/wind_arrow.png');
+    this.load.image('target_zone', 'images/Stage 3/gameplay/target_zone.webp');
+    this.load.image('wind_arrow_s3', 'images/Stage 3/gameplay/wind_arrow.webp');
     this.load.image(
       'pressure_wave',
-      'images/Stage 3/gameplay/pressure_wave.png'
+      'images/Stage 3/gameplay/pressure_wave.webp'
     );
     this.load.image(
       'wind_stream_s3',
-      'images/Stage 3/gameplay/wind_stream.png'
+      'images/Stage 3/gameplay/wind_stream.webp'
     );
-    this.load.image('wind_meter_ui', 'images/Stage 3/wind_meter.png');
-    this.load.image('air_energy', 'images/Stage 3/air_energy.png');
-    this.load.image('wind_gust_effect', 'images/Stage 3/effects/wind_gust.png');
+    this.load.image('wind_meter_ui', 'images/Stage 3/wind_meter.webp');
+    this.load.image('air_energy', 'images/Stage 3/air_energy.webp');
+    this.load.image('wind_gust_effect', 'images/Stage 3/effects/wind_gust.webp');
     this.load.image(
       'wind_particles',
-      'images/Stage 3/effects/wind_particles.png'
+      'images/Stage 3/effects/wind_particles.webp'
     );
-    this.load.image('cloud_glow_s3', 'images/Stage 3/gameplay/cloud_glow.png');
+    this.load.image('cloud_glow_s3', 'images/Stage 3/gameplay/cloud_glow.webp');
 
     // Stage 4 â€” Rotation / Coriolis assets
-    this.load.image('rotation_bg', 'images/Stage 4/backgrounds/background.png');
+    this.load.image('rotation_bg', 'images/Stage 4/backgrounds/background.webp');
     // Stage 5 — Typhoon assets
     this.load.image(
       'typhoon_bg',
-      'images/Stage 5/backgrounds/Stage 5 — Typhoon BG.png'
+      'images/Stage 5/backgrounds/Stage 5 - Typhoon BG.webp'
     );
     // Stage 6 — Ride the Storm
-    this.load.image('boss_bg', 'images/Stage 6/background/boss_background.png');
+    this.load.image('boss_bg', 'images/Stage 6/background/boss_background.webp');
     this.load.image(
       'boss_cloud_overlay',
-      'images/Stage 6/overlays/cloud_overlay.png'
+      'images/Stage 6/overlays/cloud_overlay.webp'
     );
     this.load.image(
       'boss_rain_overlay',
-      'images/Stage 6/overlays/rain_overlay.png'
+      'images/Stage 6/overlays/rain_overlay.webp'
     );
     this.load.image(
       'boss_wind_overlay',
-      'images/Stage 6/overlays/wind_overlay.png'
+      'images/Stage 6/overlays/wind_overlay.webp'
     );
     this.load.image(
       'boss_fog_overlay',
-      'images/Stage 6/overlays/fog_overlay.png'
+      'images/Stage 6/overlays/fog_overlay.webp'
     );
-    this.load.image('sun_rays', 'images/Stage 6/overlays/sun_rays.png');
+    this.load.image('sun_rays', 'images/Stage 6/overlays/sun_rays.webp');
 
     // Player
-    this.load.image('boss_boat', 'images/Stage 6/player/research_boat.png');
-    this.load.image('boat_wake', 'images/Stage 6/player/boat_wake.png');
+    this.load.image('boss_boat', 'images/Stage 6/player/research_boat.webp');
+    this.load.image('boat_wake', 'images/Stage 6/player/boat_wake.webp');
 
     // Checkpoints — keys match BUOY_DEFS
     this.load.image(
       'buoy_temp',
-      'images/Stage 6/checkpoints/temperature_buoy.png'
+      'images/Stage 6/checkpoints/temperature_buoy.webp'
     );
     this.load.image(
       'buoy_humidity',
-      'images/Stage 6/checkpoints/humidity_buoy.png'
+      'images/Stage 6/checkpoints/humidity_buoy.webp'
     );
     this.load.image(
       'buoy_pressure',
-      'images/Stage 6/checkpoints/pressure_buoy.png'
+      'images/Stage 6/checkpoints/pressure_buoy.webp'
     );
-    this.load.image('buoy_wind', 'images/Stage 6/checkpoints/wind_buoy.png');
+    this.load.image('buoy_wind', 'images/Stage 6/checkpoints/wind_buoy.webp');
     this.load.image(
       'finish_beacon',
-      'images/Stage 6/checkpoints/finish_beacon.png'
+      'images/Stage 6/checkpoints/finish_beacon.webp'
     );
 
     // Hazards
-    this.load.image('boss_wave_small', 'images/Stage 6/hazards/wave_small.png');
-    this.load.image('boss_wave_large', 'images/Stage 6/hazards/wave_large.png');
+    this.load.image('boss_wave_small', 'images/Stage 6/hazards/wave_small.webp');
+    this.load.image('boss_wave_large', 'images/Stage 6/hazards/wave_large.webp');
     this.load.image(
       'boss_lightning_strike',
-      'images/Stage 6/hazards/lightning_strike.png'
+      'images/Stage 6/hazards/lightning_strike.webp'
     );
     this.load.image(
       'lightning_warning',
-      'images/Stage 6/hazards/lightning_warning.png'
+      'images/Stage 6/hazards/lightning_warning.webp'
     );
     // Debris — generated via Phaser graphics, no PNGs
 
     // Effects
-    this.load.image('boss_splash', 'images/Stage 6/effects/splash.png');
-    this.load.image('foam', 'images/Stage 6/effects/foam.png');
+    this.load.image('boss_splash', 'images/Stage 6/effects/splash.webp');
+    this.load.image('foam', 'images/Stage 6/effects/foam.webp');
 
     // Generate placeholder textures
     this.generatePlaceholderAssets();

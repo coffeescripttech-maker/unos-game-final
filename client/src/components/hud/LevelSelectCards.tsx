@@ -47,7 +47,7 @@ const CARD_META: Record<
       'Learn the basics of navigation and interaction at the research base.',
     theme: 'Research Base',
     emoji: '🔬',
-    bgImage: '/images/Tutorial BG.png'
+    bgImage: '/images/Tutorial BG.webp'
   },
   evaporation: {
     stage: 'Level 1',
@@ -55,14 +55,14 @@ const CARD_META: Record<
       'Raise ocean temperature to trigger evaporation and fuel the storm.',
     theme: 'Evaporation',
     emoji: '🌊',
-    bgImage: '/images/Stage 1 — Evaporation BG.png'
+    bgImage: '/images/Stage 1 - Evaporation BG.webp'
   },
   condensation: {
     stage: 'Level 2',
     description: 'Guide vapor particles into cloud formations high above.',
     theme: 'Condensation',
     emoji: '☁️',
-    bgImage: '/images/Stage 2 — Condensation BG.png'
+    bgImage: '/images/Stage 2 - Condensation BG.webp'
   },
   pressure: {
     stage: 'Level 3',
@@ -70,21 +70,21 @@ const CARD_META: Record<
       'Place low and high pressure systems to create powerful winds.',
     theme: 'Air Pressure',
     emoji: '🌬️',
-    bgImage: '/images/Stage 3 — Pressure BG.png'
+    bgImage: '/images/Stage 3 - Pressure BG.webp'
   },
   rotation: {
     stage: 'Level 4',
     description: 'Apply the Coriolis effect to create cyclonic rotation.',
     theme: 'Coriolis Effect',
     emoji: '🌀',
-    bgImage: '/images/Stage 4 — Rotation BG.png'
+    bgImage: '/images/Stage 4 - Rotation BG.webp'
   },
   typhoon: {
     stage: 'Level 5',
     description: 'Combine all elements to form a complete typhoon.',
     theme: 'Typhoon Formation',
     emoji: '⚡',
-    bgImage: '/images/Stage 5 — Typhoon BG.png'
+    bgImage: '/images/Stage 5 - Typhoon BG.webp'
   },
   boss: {
     stage: 'Final Mission',
@@ -92,7 +92,7 @@ const CARD_META: Record<
       'Survive the typhoon in your research vessel through the storm. Ride the Storm — Navigate your research vessel through the typhoon to collect weather data!',
     theme: 'Survival',
     emoji: '🏆',
-    bgImage: '/images/Stage 6 — Boss BG.png'
+    bgImage: '/images/Stage 6 - Boss BG.webp'
   }
 };
 

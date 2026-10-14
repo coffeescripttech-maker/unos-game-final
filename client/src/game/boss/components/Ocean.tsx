@@ -20,7 +20,7 @@ export default function Ocean({ storm, isInEye }: OceanProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const timeRef = useRef(0);
 
-  const waterTexture = useBossTexture('/assets/boss/water.png', createWaterTileTexture);
+  const waterTexture = useBossTexture('/assets/boss/water.webp', createWaterTileTexture);
 
   useEffect(() => {
     waterTexture.wrapS = THREE.RepeatWrapping;

@@ -20,7 +20,7 @@ export default function Boat({ boatRef, integrity }: BoatProps) {
   const spriteRef = useRef<THREE.Mesh>(null);
   const propRef = useRef<THREE.Mesh>(null);
 
-  const texture = useBossTexture('/assets/boss/boat.png', createBoatTexture);
+  const texture = useBossTexture('/assets/boss/boat.webp', createBoatTexture);
   const planeGeo = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
 
   // Tint the whole sprite when damaged

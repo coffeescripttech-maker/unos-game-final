@@ -27,7 +27,7 @@ interface Cloud {
 export default function StormClouds({ storm, isInEye, boatPosition }: StormCloudsProps) {
   const groupRef = useRef<THREE.Group>(null);
   const timeRef = useRef(0);
-  const cloudTex = useBossTexture('/assets/boss/cloud.png', createCloudTexture);
+  const cloudTex = useBossTexture('/assets/boss/cloud.webp', createCloudTexture);
 
   const clouds = useMemo<Cloud[]>(() => {
     return Array.from({ length: CLOUD_COUNT }, () => ({

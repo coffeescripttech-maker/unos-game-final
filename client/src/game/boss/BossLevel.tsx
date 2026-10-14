@@ -474,7 +474,7 @@ function EyeMarker({
   const meshRef = useRef<THREE.Mesh>(null);
   const planeGeo = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
   const texture = useBossTexture(
-    '/assets/boss/marker_eye.png',
+    '/assets/boss/marker_eye.webp',
     createEyeMarkerTexture
   );
 

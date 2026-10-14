@@ -51,7 +51,7 @@ export const ISLANDS: IslandDef[] = [
  */
 export default function Philippines() {
   const planeGeo = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
-  const islandTexture = useBossTexture('/assets/boss/island.png', createIslandTexture);
+  const islandTexture = useBossTexture('/assets/boss/island.webp', createIslandTexture);
 
   // Keep the texture crisp for pixel-art style assets
   useEffect(() => {

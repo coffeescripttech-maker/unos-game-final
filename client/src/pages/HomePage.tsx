@@ -36,7 +36,7 @@ export default function HomePage() {
     <div
       className="home-page w-full h-full flex flex-col items-center justify-center relative overflow-hidden px-4"
       style={{
-        backgroundImage: `url(${new URL('/images/Main Menu BG.png', window.location.origin).href})`,
+        backgroundImage: `url(${new URL('/images/Main Menu BG.webp', window.location.origin).href})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center'
       }}>
