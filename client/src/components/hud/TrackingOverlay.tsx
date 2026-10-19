@@ -106,7 +106,7 @@ export default function TrackingOverlay() {
 
   return (
     <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/80 p-2">
-      <div className="retro-card modal-card !bg-storm-dark border-accent-yellow/50 shadow-[0_0_20px_rgba(255,215,0,0.25)] w-full max-w-lg max-h-[95vh] overflow-y-auto custom-scrollbar flex flex-col gap-3 pointer-events-auto">
+      <div className="retro-card modal-card tracking-modal !bg-storm-dark border-accent-yellow/50 shadow-[0_0_20px_rgba(255,215,0,0.25)] w-full max-w-2xl max-h-[95vh] overflow-y-auto custom-scrollbar flex flex-col gap-3 pointer-events-auto">
 
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -131,13 +131,9 @@ export default function TrackingOverlay() {
 
         {/* ── Step 1: Track ── */}
         {phase === 'track' && (
-          <>
-            <p className={`text-center font-body text-sm text-storm-light/90 ${LABEL_SHADOW}`}>
-              The storm was monitored for 3 days. Where will it go next? Tap the most likely next position.
-            </p>
-
-            <div className="flex justify-center">
-              <svg viewBox="0 0 400 300" className="w-full max-w-[380px] h-auto select-none" role="img" aria-label="Typhoon tracking chart">
+            <div className="flex flex-col landscape:flex-row landscape:items-center gap-3">
+              <div className="flex justify-center w-full landscape:flex-[1.15]">
+                <svg viewBox="0 0 400 300" className="w-full max-w-[520px] h-auto select-none" role="img" aria-label="Typhoon tracking chart">
                 <rect x="0" y="0" width="400" height="300" rx="10" fill="#0b1d33" opacity="0.7" />
                 {/* grid */}
                 {Array.from({ length: 7 }).map((_, i) => (
@@ -199,8 +195,22 @@ export default function TrackingOverlay() {
                   );
                 })}
               </svg>
+              </div>
+              <div className="flex flex-col gap-2 w-full landscape:flex-1">
+                <p className={`text-center landscape:text-left font-body text-sm text-storm-light/90 ${LABEL_SHADOW}`}>
+                  The storm was monitored for 3 days. Where will it go next? Tap the most likely next position.
+                </p>
+                {announce && (
+                  <div className={`text-center landscape:text-left font-body text-sm rounded-md p-2 border ${
+                    announce.startsWith('✅')
+                      ? 'text-accent-green bg-accent-green/10 border-accent-green/40'
+                      : 'text-warning-red bg-warning-red/10 border-warning-red/40'
+                  }`}>
+                    {announce}
+                  </div>
+                )}
+              </div>
             </div>
-          </>
         )}
 
         {/* ── Step 2: Wind Signal ── */}
@@ -263,17 +273,6 @@ export default function TrackingOverlay() {
             <button onClick={handleFinish} className="retro-btn-primary w-full font-display text-base animate-pulse-subtle">
               ▶ Finish Mission
             </button>
-          </div>
-        )}
-
-        {/* Feedback banner (track step) */}
-        {phase === 'track' && announce && (
-          <div className={`text-center font-body text-sm rounded-md p-2 border ${
-            announce.startsWith('✅')
-              ? 'text-accent-green bg-accent-green/10 border-accent-green/40'
-              : 'text-warning-red bg-warning-red/10 border-warning-red/40'
-          }`}>
-            {announce}
           </div>
         )}
       </div>

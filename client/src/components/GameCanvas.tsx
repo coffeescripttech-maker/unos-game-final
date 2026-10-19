@@ -31,7 +31,9 @@ export default function GameCanvas() {
       parent: containerRef.current,
       backgroundColor: '#0A2472',
       scale: {
-        mode: Phaser.Scale.FIT,
+        // ENVELOP: scale to COVER the viewport (no letterbox bars) like the
+        // Boss (R3F) level. Keeps the 1280x720 design and crops the overflow.
+        mode: Phaser.Scale.ENVELOP,
         autoCenter: Phaser.Scale.CENTER_BOTH
       },
       scene: [

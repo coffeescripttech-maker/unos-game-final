@@ -13,7 +13,8 @@ import type {
   TyphoonSliderConfig,
   TyphoonSliderUpdatePayload,
   TyphoonSliderUnlockPayload,
-  TyphoonQuizPayload
+  TyphoonQuizPayload,
+  AnatomyReviewPayload
 } from '@shared/events';
 import { COLORS, FONTS, GAME_WIDTH, GAME_HEIGHT, DEPTH } from '../constants';
 import { GameManager } from '../managers/GameManager';
@@ -397,8 +398,19 @@ export class TyphoonScene extends Phaser.Scene {
       ]
     } satisfies HUDLevelIntroPayload);
 
-    this.game.events.once(GAME_EVENTS.HUD_INTRO_DISMISS, this.startGame);
+    this.game.events.once(GAME_EVENTS.HUD_INTRO_DISMISS, this.onIntroDismiss);
   }
+
+  /**
+   * Level intro dismissed → teach the parts of a typhoon FIRST (the "Anatomy
+   * flash"), before the atmospheric-process gameplay begins. Dismissing the
+   * anatomy review starts the level.
+   */
+  private onIntroDismiss = () => {
+    this.game.events.emit(GAME_EVENTS.HUD_ANATOMY_REVIEW, {
+      cta: '▶ Start the Game'
+    } satisfies AnatomyReviewPayload);
+  };
 
   private startGame = () => {
     this.gameStarted = true;
@@ -529,13 +541,11 @@ export class TyphoonScene extends Phaser.Scene {
     this.game.events.emit(GAME_EVENTS.HUD_TRACKING_ALERT);
   };
 
-  /** Anatomy review dismissed → emit the final science quiz. */
+  /** Anatomy review dismissed → begin the atmospheric-process gameplay. */
   private onAnatomyDismiss = () => {
-    if (!this.isComplete) return;
-    this.game.events.emit(GAME_EVENTS.HUD_TYPHOON_QUIZ, {
-      topic: 'Typhoon Science',
-      questions: this.pickFinalQuiz()
-    });
+    // Anatomy is shown once, as the intro. Ignore any stray late dismiss.
+    if (this.gameStarted) return;
+    this.startGame();
   };
 
   /** Tracking challenge finished → record its bonus and finalize the level. */
@@ -1587,15 +1597,18 @@ export class TyphoonScene extends Phaser.Scene {
     );
 
     // Delay the final sequence 4 seconds so the player can see the typhoon
-    // category before the anatomy review + quiz appear.
+    // category before the final science quiz appears.
     // Pause timer during the wait (gateQuizActive blocks timer decrements)
     this.gateQuizActive = true;
     this.time.delayedCall(4000, () => {
       this.gateQuizActive = false;
       if (this.isComplete) {
-        // Show the parts-of-a-typhoon anatomy review first; dismissing it
-        // (HUD_ANATOMY_DISMISS) triggers the final science quiz.
-        this.game.events.emit(GAME_EVENTS.HUD_ANATOMY_REVIEW, {});
+        // Anatomy was already shown at the start; go straight to the final
+        // science quiz (HUD_TYPHOON_QUIZ_COMPLETE then triggers the tracking challenge).
+        this.game.events.emit(GAME_EVENTS.HUD_TYPHOON_QUIZ, {
+          topic: 'Typhoon Science',
+          questions: this.pickFinalQuiz()
+        });
       }
     });
   }
@@ -1702,7 +1715,7 @@ export class TyphoonScene extends Phaser.Scene {
 
   shutdown() {
     this.game.events.off(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
-    this.game.events.off(GAME_EVENTS.HUD_INTRO_DISMISS, this.startGame);
+    this.game.events.off(GAME_EVENTS.HUD_INTRO_DISMISS, this.onIntroDismiss);
     this.game.events.off(
       GAME_EVENTS.HUD_TYPHOON_SLIDER_UPDATE,
       this.onSliderUpdate

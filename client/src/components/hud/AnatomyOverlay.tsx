@@ -46,16 +46,19 @@ function arrowHead(angleDeg: number, radius: number) {
 
 /**
  * Typhoon Anatomy review — a labeled, tappable diagram of a mature tropical
- * cyclone (eye, eyewall, spiral rainbands, outer bands, rotation). Shown after
- * the typhoon is successfully formed, before the final science quiz.
+ * cyclone (eye, eyewall, spiral rainbands, outer bands, rotation). Shown at the
+ * start of the level to prime the player before the atmospheric-process
+ * gameplay (and referenced later by the final science quiz).
  */
 export default function AnatomyOverlay() {
   const { game } = useGameContext();
   const [visible, setVisible] = useState(false);
   const [activeId, setActiveId] = useState(DEFAULT_ANATOMY_PART);
+  const [cta, setCta] = useState('▶ Continue');
 
   usePhaserEvent(GAME_EVENTS.HUD_ANATOMY_REVIEW, (payload: AnatomyReviewPayload) => {
     setActiveId(payload?.focus ?? DEFAULT_ANATOMY_PART);
+    setCta(payload?.cta ?? '▶ Continue');
     setVisible(true);
   });
 
@@ -72,7 +75,7 @@ export default function AnatomyOverlay() {
 
   return (
     <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/80 p-2">
-      <div className="retro-card modal-card !bg-storm-dark border-accent-yellow/50 shadow-[0_0_20px_rgba(255,215,0,0.25)] w-full max-w-lg max-h-[95vh] overflow-y-auto custom-scrollbar flex flex-col gap-3 pointer-events-auto">
+      <div className="retro-card modal-card anatomy-modal !bg-storm-dark border-accent-yellow/50 shadow-[0_0_20px_rgba(255,215,0,0.25)] w-full max-w-2xl max-h-[95vh] overflow-y-auto custom-scrollbar flex flex-col gap-3 pointer-events-auto">
 
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -88,11 +91,12 @@ export default function AnatomyOverlay() {
           Know the parts of a bagyo — this is what your research vessel is sailing into!
         </p>
 
-        {/* Diagram */}
-        <div className="flex justify-center">
-          <svg
-            viewBox="0 0 400 300"
-            className="w-full max-w-[380px] h-auto select-none"
+        {/* Diagram + details (side-by-side on wide/landscape screens) */}
+        <div className="flex flex-col landscape:flex-row landscape:items-start gap-3">
+          <div className="flex justify-center w-full landscape:flex-[1.1]">
+            <svg
+              viewBox="0 0 400 300"
+              className="w-full max-w-[520px] h-auto select-none"
             role="img"
             aria-label="Labeled diagram of a typhoon"
           >
@@ -177,8 +181,9 @@ export default function AnatomyOverlay() {
             {/* Compass hint */}
             <text x="24" y="286" fill="rgba(255,255,255,0.35)" fontSize="11" fontFamily="monospace">W ← storm track · rotation ⁝</text>
           </svg>
-        </div>
+          </div>
 
+          <div className="flex flex-col gap-2 w-full landscape:flex-1">
         {/* Part chips */}
         <div className="flex flex-wrap gap-1.5 justify-center">
           {TYPHOON_ANATOMY_PARTS.map(part => (
@@ -209,13 +214,15 @@ export default function AnatomyOverlay() {
           </div>
           <p className="font-body text-sm text-white/85 leading-relaxed mt-1.5">{active.fact}</p>
         </div>
+          </div>
+        </div>
 
         {/* Continue */}
         <button
           onClick={handleDismiss}
           className="retro-btn-primary w-full font-display text-base animate-pulse-subtle"
         >
-          ▶ Continue to Science Quiz
+          {cta}
         </button>
       </div>
     </div>

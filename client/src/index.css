@@ -65,10 +65,10 @@
     touch-action: none;
   }
 
+  /* Canvas uses Scale.ENVELOP: it may be larger than the viewport so the
+     clipped overflow is intentional — do NOT clamp it to 100%. */
   #game-container canvas {
     display: block;
-    max-width: 100%;
-    max-height: 100%;
   }
 
   /* Mobile landscape: keep overlays compact and prevent any body scroll */
@@ -132,6 +132,18 @@
     .modal-card svg,
     .modal-card .w-full.max-w-\[340px\] {
       max-height: 120px !important;
+    }
+
+    /* Typhoon Anatomy + Tracking: keep the map/diagram LARGE. These modals
+       are allowed to be much wider and their SVG is not capped to 120px. */
+    .anatomy-modal,
+    .tracking-modal {
+      max-width: min(94vw, 46rem) !important;
+    }
+
+    .anatomy-modal svg,
+    .tracking-modal svg {
+      max-height: min(300px, 62vh) !important;
     }
 
     /* Pressure controls: bottom-left, compact on mobile landscape */

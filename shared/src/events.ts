@@ -255,6 +255,8 @@ export interface TyphoonQuizCompletePayload {
 export interface AnatomyReviewPayload {
   /** Optional part id to open first; defaults to the eye. */
   focus?: string;
+  /** Optional call-to-action label for the dismiss button. */
+  cta?: string;
 }
 
 // ────────────────────────── Typhoon Tracking Payloads ──────────────────────────
