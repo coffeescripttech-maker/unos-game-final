@@ -61,6 +61,17 @@ export const GAME_EVENTS = {
   HUD_TRACKING_ALERT: 'HUD:TRACKING_ALERT',
   HUD_TRACKING_COMPLETE: 'HUD:TRACKING_COMPLETE',
 
+  // Core-learning pop-ups — short science facts that appear while playing
+  HUD_CORE_FACT: 'HUD:CORE_FACT',
+  HUD_CORE_FACT_DISMISS: 'HUD:CORE_FACT_DISMISS',
+
+  // Guided preview — animated "how this level works" walkthrough before play
+  HUD_GUIDED_PREVIEW: 'HUD:GUIDED_PREVIEW',
+  HUD_GUIDED_PREVIEW_DONE: 'HUD:GUIDED_PREVIEW_DONE',
+
+  // Hint button — asks the HUD for a contextual hint
+  HUD_HINT_REQUEST: 'HUD:HINT_REQUEST',
+
   // Loading screen — React overlay for asset loading progress
   HUD_LOADING: 'HUD:LOADING',
 } as const;
@@ -277,6 +288,33 @@ export interface HUDLoadingPayload {
   progress: number; // 0–1
 }
 
+// ────────────────────────── Core Learning Payloads ──────────────────────────
+
+/** A short "core learning" pop-up shown the moment a science idea happens. */
+export interface CoreFactPayload {
+  /** Stable id so the same fact isn't shown twice in a level. */
+  id: string;
+  icon: string;
+  title: string;
+  text: string;
+  /** Auto-dismiss delay in ms. 0 = stays until dismissed. Default 9000. */
+  duration?: number;
+}
+
+export interface GuidedPreviewStep {
+  icon: string;
+  text: string;
+}
+
+/** Animated preview that runs after the intro and before gameplay starts. */
+export interface GuidedPreviewPayload {
+  levelId: string;
+  title: string;
+  subtitle?: string;
+  steps: GuidedPreviewStep[];
+  cta?: string;
+}
+
 export type GameEventPayloads = {
   [GAME_EVENTS.SCORE_UPDATE]: ScoreUpdatePayload;
   [GAME_EVENTS.LEVEL_COMPLETE]: LevelCompletePayload;
@@ -319,6 +357,11 @@ export type GameEventPayloads = {
   [GAME_EVENTS.HUD_ANATOMY_DISMISS]: undefined;
   [GAME_EVENTS.HUD_TRACKING_ALERT]: undefined;
   [GAME_EVENTS.HUD_TRACKING_COMPLETE]: TrackingCompletePayload;
+  [GAME_EVENTS.HUD_CORE_FACT]: CoreFactPayload;
+  [GAME_EVENTS.HUD_CORE_FACT_DISMISS]: undefined;
+  [GAME_EVENTS.HUD_GUIDED_PREVIEW]: GuidedPreviewPayload;
+  [GAME_EVENTS.HUD_GUIDED_PREVIEW_DONE]: undefined;
+  [GAME_EVENTS.HUD_HINT_REQUEST]: undefined;
   [GAME_EVENTS.HUD_LOADING]: HUDLoadingPayload;
 };
 

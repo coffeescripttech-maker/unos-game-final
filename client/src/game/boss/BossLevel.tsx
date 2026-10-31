@@ -26,6 +26,7 @@ import BossHUD from './hud/BossHUD';
 import QuizModal from './hud/QuizModal';
 import { telemetry } from '../../services/telemetry';
 import { submitScore } from '../../services/leaderboard';
+import { speak, speakPraise } from '../../services/speech';
 
 // Boss level_start logs once per page load (React StrictMode double-fires effects)
 let bossStartLogged = false;
@@ -290,10 +291,19 @@ function SceneContent({
   const [boatPos, setBoatPos] = useState(new THREE.Vector3(0, 0, 120));
   const [engineRunning, setEngineRunning] = useState(false);
   const [buoyPosition, setBuoyPosition] = useState<THREE.Vector3 | null>(null);
-  const [buoyDeployed, setBuoyDeployed] = useState(false);
+  // Derived from mission state so an auto-deploy (e.g. at the eye) is reflected.
+  const buoyDeployed = mission.collectedData.includes('deploy_buoy');
   const [boatYaw, setBoatYaw] = useState(0);
   const [boatSpeedLocal, setBoatSpeedLocal] = useState(0);
   const damageFlashRef = useRef<DamageFlashHandle | null>(null);
+
+  // If the buoy was auto-deployed (mission state) without a local position,
+  // drop it at the boat's current spot so it appears on the map.
+  useEffect(() => {
+    if (buoyDeployed && !buoyPosition && boatRef.current) {
+      setBuoyPosition(boatRef.current.position.clone());
+    }
+  }, [buoyDeployed, buoyPosition, boatRef]);
 
   const { yaw, setJoystickAxes } = useBoatController({
     boatRef,
@@ -312,7 +322,6 @@ function SceneContent({
         const pos =
           boatRef.current?.position.clone() || new THREE.Vector3(0, 0, 120);
         setBuoyPosition(pos);
-        setBuoyDeployed(true);
         onDeployBuoy();
       }
     },
@@ -684,6 +693,7 @@ export default function BossLevel({
       });
 
       audioRef.current?.playCollect();
+      speak(`${coll.label} collected. Good job!`);
 
       // Trigger a cumulative science quiz for the newly-collected data
       startQuiz(
@@ -711,6 +721,7 @@ export default function BossLevel({
       };
     });
     audioRef.current?.playCollect();
+    speak('Weather buoy deployed!');
 
     // Quiz the player on buoy science after deploying
     startQuiz(
@@ -828,16 +839,29 @@ export default function BossLevel({
           landProximity
         };
 
+        // The eye can be completed without a separate buoy step — if the player
+        // arrives first, the buoy is deployed right there so Enter/Space never
+        // appears "broken" at the eye (R7).
+        const REQUIRED_BEFORE_EYE = REQUIRED_FOR_COMPLETION.filter(
+          id => id !== 'deploy_buoy'
+        );
         if (
           inside &&
           !prev.collectedData.includes('reach_eye') &&
-          REQUIRED_FOR_COMPLETION.every(d =>
+          REQUIRED_BEFORE_EYE.every(d =>
             prev.collectedData.includes(d as ObjectiveId)
           )
         ) {
-          const collected = [...prev.collectedData, 'reach_eye' as ObjectiveId];
+          const missingBuoy = !prev.collectedData.includes('deploy_buoy');
+          const collected = [
+            ...prev.collectedData,
+            ...(missingBuoy ? ['deploy_buoy' as ObjectiveId] : []),
+            'reach_eye' as ObjectiveId
+          ];
           const objectives = prev.objectives.map(o =>
-            o.id === 'reach_eye' ? { ...o, completed: true } : o
+            o.id === 'reach_eye' || (missingBuoy && o.id === 'deploy_buoy')
+              ? { ...o, completed: true }
+              : o
           );
           return {
             ...updated,
@@ -847,7 +871,9 @@ export default function BossLevel({
             status: 'eye',
             lastNotification: notify(
               '👁️',
-              'You reached the Eye of the Typhoon!',
+              missingBuoy
+                ? 'Buoy deployed in the eye — you reached the Eye of the Typhoon!'
+                : 'You reached the Eye of the Typhoon!',
               '#ffeaa7'
             )
           };
@@ -877,6 +903,7 @@ export default function BossLevel({
     if (mission.status === 'eye' && !showResult && !showFailed) {
       const timer = setTimeout(() => {
         audioRef.current?.playComplete();
+        speakPraise('You reached the Eye of the Typhoon!');
         setResultMessage(
           'You successfully investigated the typhoon, collected meteorological data, and reached the calm Eye of the Typhoon.'
         );
@@ -1198,7 +1225,7 @@ export default function BossLevel({
               />
               <MechCard
                 icon="⛵"
-                text="Reach the EYE of the storm to collect the final data point"
+                text="Reach the EYE of the storm to collect the final data point — the buoy auto-deploys if needed"
               />
               <MechCard
                 icon="🏝️"
@@ -1208,8 +1235,8 @@ export default function BossLevel({
 
             <div className="w-full flex flex-col gap-1 mt-2">
               <div className="font-body text-[11px] text-storm-light">
-                WASD / Arrows — Steer · Shift — Boost · Space — Deploy Buoy · E
-                — Interact
+                WASD / Arrows — Steer · Shift — Boost · Space — Deploy Buoy ·
+                E / Enter — Collect data
               </div>
             </div>
 

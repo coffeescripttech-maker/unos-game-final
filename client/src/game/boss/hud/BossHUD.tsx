@@ -246,6 +246,16 @@ export default function BossHUD({
         </span>
       </div>
 
+      {/* Deploy prompt — Space deploys the buoy anywhere; make it obvious (R7) */}
+      {mission.currentObjective === 'deploy_buoy' && !buoyDeployed && (
+        <div className="boss-deploy-prompt absolute bottom-9 left-1/2 -translate-x-1/2 flex items-center gap-1.5 retro-card !px-2 !py-0.5 pointer-events-auto border-2 border-accent-yellow/60 animate-pulse-subtle">
+          <span className="text-[11px]" aria-hidden>🛟️</span>
+          <span className={`font-display text-[11px] text-accent-yellow ${TITLE_SHADOW}`}>
+            Press SPACE to deploy the buoy
+          </span>
+        </div>
+      )}
+
       {/* Interaction prompt */}
       <InteractionPrompt
         text={mission.interactionPrompt || ''}

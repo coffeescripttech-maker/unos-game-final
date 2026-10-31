@@ -7,7 +7,8 @@ import type {
   HUDObjectivePayload,
   HUDLevelInfoPayload,
   HUDWeatherPayload,
-  HUDLevelIntroPayload
+  HUDLevelIntroPayload,
+  CoreFactPayload
 } from '@shared/events';
 import { COLORS, FONTS, GAME_WIDTH, GAME_HEIGHT, DEPTH } from '../constants';
 import { GameManager } from '../managers/GameManager';
@@ -28,6 +29,8 @@ export class EvaporationScene extends Phaser.Scene {
   private totalTime = 60;
   private isComplete = false;
   private overheatCount = 0;
+  /** Core-learning facts already shown this run (prevents duplicates). */
+  private shownFacts = new Set<string>();
 
   // Combo
   private lastClickTime = 0;
@@ -79,6 +82,7 @@ export class EvaporationScene extends Phaser.Scene {
     this.windDirection = 0;
     this.isClouded = false;
     this.cloudHp = 0;
+    this.shownFacts.clear();
 
     this.buildScene();
     this.showIntroOverlay();
@@ -97,16 +101,23 @@ export class EvaporationScene extends Phaser.Scene {
       title: 'Evaporation',
       subtitle: 'Heat the sun, collect vapor, fuel the storm!',
       mechanics: [
-        { icon: '☀️', text: 'Click the sun to heat the ocean' },
-        { icon: '💧', text: 'Click vapor bubbles to collect them' },
-        { icon: '☁️', text: 'Click storm clouds to clear them away' },
-        { icon: '🌡️', text: 'Keep the steam pressure from exploding!' },
-        { icon: '💨', text: 'Wind pushes bubbles — adapt!' }
+        { icon: '☀️', text: 'TAP the Sun to add heat — the ocean gets warmer' },
+        { icon: '🌡️', text: 'At 26.5 °C the ocean starts evaporating' },
+        { icon: '💧', text: 'TAP rising vapor bubbles to collect them (goal: 30)' },
+        { icon: '☁️', text: 'TAP a storm cloud to clear it — it blocks the Sun' },
+        { icon: '💨', text: 'Watch the wind: it pushes bubbles sideways' }
       ]
     } satisfies HUDLevelIntroPayload);
 
     // Wait for dismiss before starting game
     this.game.events.once(GAME_EVENTS.HUD_INTRO_DISMISS, this.startGame);
+  }
+
+  /** Show a core-learning pop-up once per run. */
+  private emitFact(fact: CoreFactPayload) {
+    if (this.shownFacts.has(fact.id)) return;
+    this.shownFacts.add(fact.id);
+    this.game.events.emit(GAME_EVENTS.HUD_CORE_FACT, fact);
   }
 
   private startGame = () => {
@@ -262,6 +273,13 @@ export class EvaporationScene extends Phaser.Scene {
     this.sunHeat = Math.min(100, this.sunHeat + 10);
     this.updateSunVisual();
 
+    this.emitFact({
+      id: 'sun_heats_ocean',
+      icon: '☀️',
+      title: 'The Sun heats the ocean',
+      text: "The Sun's heat warms the ocean water. Warm water turns into water vapor — that's called evaporation!"
+    });
+
     // Sun bounce
     this.tweens.add({
       targets: this.sunImg,
@@ -277,6 +295,12 @@ export class EvaporationScene extends Phaser.Scene {
     // ── Vapor ──
     if (this.sunHeat >= 60) {
       this.spawnVaporBubbles();
+      this.emitFact({
+        id: 'ocean_hot_enough',
+        icon: '🌡️',
+        title: '26.5 °C — evaporation starts!',
+        text: 'The ocean is warm enough now. Water molecules escape into the air as vapor bubbles!'
+      });
     }
 
     if (this.sunHeat >= 100) {
@@ -311,6 +335,12 @@ export class EvaporationScene extends Phaser.Scene {
     this.isClouded = true;
     this.cloudHp = CLOUD_HP;
     playWhoosh(this, 0.5);
+    this.emitFact({
+      id: 'cloud_blocks_sun',
+      icon: '☁️',
+      title: 'Clouds block the Sun',
+      text: 'A cloud over the Sun cools the ocean. Tap the cloud 5 times to clear it and heat the water again!'
+    });
 
     // Storm cloud image over the sun (tinted dark)
     this.cloudCover = this.add.image(SUN_X + 150, SUN_Y, 'evap_clouds')
@@ -541,6 +571,12 @@ export class EvaporationScene extends Phaser.Scene {
       // Sound + score + vapor count
       playPop(this, 'high');
       this.vaporCount++;
+      this.emitFact({
+        id: 'vapor_rises',
+        icon: '💧',
+        title: 'Water vapor rises',
+        text: 'Warm vapor is lighter than air, so it floats up into the sky where it will cool down and form clouds.'
+      });
       this.emitObjective();
       const score = Math.max(0, 2000 - this.overheatCount * 200);
       this.game.events.emit(GAME_EVENTS.HUD_SCORE, { score, label: 'Vapor' });

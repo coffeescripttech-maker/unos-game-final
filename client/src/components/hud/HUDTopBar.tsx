@@ -10,6 +10,7 @@ import type {
 import { SCENES } from '@shared/constants';
 import { useFullscreen } from '../../hooks/useFullscreen';
 import { Maximize2, Minimize2 } from 'lucide-react';
+import { isVoiceEnabled, toggleVoice, speak } from '../../services/speech';
 
 export default function HUDTopBar() {
   const { game } = useGameContext();
@@ -20,6 +21,7 @@ export default function HUDTopBar() {
   const [total, setTotal] = useState(0);
   const [levelName, setLevelName] = useState('');
   const [showTimer, setShowTimer] = useState(false);
+  const [voiceOn, setVoiceOn] = useState(isVoiceEnabled());
 
   usePhaserEvent(GAME_EVENTS.HUD_LEVEL_INFO, (payload: HUDLevelInfoPayload) => {
     setLevelName(payload.name);
@@ -53,6 +55,13 @@ export default function HUDTopBar() {
       game.events.emit(GAME_EVENTS.HUD_REQUEST_INTRO);
     }
   }, [game]);
+
+  // 🔊 Toggle the read-aloud voice
+  const handleToggleVoice = useCallback(() => {
+    const on = toggleVoice();
+    setVoiceOn(on);
+    if (on) speak('Voice on! I will read the instructions to you.');
+  }, []);
 
   const timerPct = total > 0 ? remaining / total : 0;
   const isUrgent = remaining <= 10 && remaining > 0;
@@ -109,6 +118,17 @@ export default function HUDTopBar() {
             </span>
           </div>
         )}
+
+        <button
+          onClick={handleToggleVoice}
+          className={`flex h-8 w-8 lg:h-9 lg:w-9 items-center justify-center rounded-md border-2 border-black shadow-retro transition-transform hover:brightness-110 active:scale-95 pointer-events-auto text-sm ${
+            voiceOn ? 'bg-accent-green/90 text-white' : 'bg-storm-mid text-white/60'
+          }`}
+          title={voiceOn ? 'Turn off read-aloud voice' : 'Turn on read-aloud voice'}
+          aria-label={voiceOn ? 'Turn off read-aloud voice' : 'Turn on read-aloud voice'}
+          aria-pressed={voiceOn}>
+          {voiceOn ? '🔊' : '🔇'}
+        </button>
 
         <button
           onClick={handleShowIntro}

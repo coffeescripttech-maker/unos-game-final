@@ -14,6 +14,9 @@ import TyphoonControls from './hud/TyphoonControls';
 import TyphoonQuizOverlay from './hud/TyphoonQuizOverlay';
 import AnatomyOverlay from './hud/AnatomyOverlay';
 import TrackingOverlay from './hud/TrackingOverlay';
+import CoreFactOverlay from './hud/CoreFactOverlay';
+import GuidedPreviewOverlay from './hud/GuidedPreviewOverlay';
+import HintButton from './hud/HintButton';
 
 export default function GameHUD() {
   return (
@@ -65,6 +68,15 @@ export default function GameHUD() {
 
       {/* ── Typhoon Tracking (plot-the-track forecasting challenge) ── */}
       <TrackingOverlay />
+
+      {/* ── Core-learning pop-ups (science facts while playing) ── */}
+      <CoreFactOverlay />
+
+      {/* ── Guided preview (animated how-to before the level starts) ── */}
+      <GuidedPreviewOverlay />
+
+      {/* ── Hint button (re-opens the instructions at any time) ── */}
+      <HintButton />
     </>
   );
 }

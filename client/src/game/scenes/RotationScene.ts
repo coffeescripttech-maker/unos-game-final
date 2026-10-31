@@ -9,7 +9,8 @@ import type {
   HUDLevelInfoPayload,
   HUDScorePayload,
   HUDWeatherPayload,
-  HUDLevelIntroPayload
+  HUDLevelIntroPayload,
+  CoreFactPayload
 } from '@shared/events';
 import { COLORS, FONTS, GAME_WIDTH, GAME_HEIGHT, DEPTH } from '../constants';
 import { GameManager } from '../managers/GameManager';
@@ -60,6 +61,8 @@ export class RotationScene extends Phaser.Scene {
   private readonly HEMI_RING = 68;
   private vortexParticles: Phaser.GameObjects.Arc[] = [];
   private gameStarted = false;
+  /** Core-learning facts already shown this run. */
+  private shownFacts = new Set<string>();
 
   // ── Wind Gust (headwind) ──
   private windGustTimer!: Phaser.Time.TimerEvent;
@@ -163,6 +166,7 @@ export class RotationScene extends Phaser.Scene {
     this.isDragging = false;
     this.vortexParticles = [];
     this.lastMilestone = 0;
+    this.shownFacts.clear();
     this.deflectionParticles = [];
     this.collectibleOrbs = [];
     this.deflectionScore = 0;
@@ -416,8 +420,21 @@ export class RotationScene extends Phaser.Scene {
     this.game.events.once(GAME_EVENTS.HUD_INTRO_DISMISS, this.startGame);
   }
 
+  /** Show a core-learning pop-up once per run. */
+  private emitFact(fact: CoreFactPayload) {
+    if (this.shownFacts.has(fact.id)) return;
+    this.shownFacts.add(fact.id);
+    this.game.events.emit(GAME_EVENTS.HUD_CORE_FACT, fact);
+  }
+
   private startGame = () => {
     this.gameStarted = true;
+    this.emitFact({
+      id: 'coriolis_bends',
+      icon: '🌀',
+      title: "Earth's spin bends the wind",
+      text: 'Because Earth rotates, moving air curves. This is the Coriolis effect — it gives typhoons their spin!'
+    });
 
     // Emit level info
     this.game.events.emit(GAME_EVENTS.HUD_LEVEL_INFO, {
@@ -1153,6 +1170,12 @@ export class RotationScene extends Phaser.Scene {
         orb.collected = true;
         this.orbBonusScore += orb.value;
         this.playCollectChime();
+        this.emitFact({
+          id: 'coriolis_deflect',
+          icon: '↩️',
+          title: 'Wind curves as it moves',
+          text: 'In the Northern Hemisphere wind bends to the RIGHT. In the Southern Hemisphere it bends to the LEFT.'
+        });
 
         for (let i = 0; i < 6; i++) {
           const a = (Math.PI * 2 * i) / 6;

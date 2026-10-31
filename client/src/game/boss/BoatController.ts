@@ -84,8 +84,14 @@ export function useBoatController({
       if (['KeyA', 'ArrowLeft'].includes(code) || ['a', 'A', 'ArrowLeft'].includes(key)) keysRef.current.add('KeyA');
       if (['KeyD', 'ArrowRight'].includes(code) || ['d', 'D', 'ArrowRight'].includes(key)) keysRef.current.add('KeyD');
 
-      if (code === 'Space' || key === ' ') onDeployBuoyRef.current?.();
-      if (code === 'KeyE' || key === 'e' || key === 'E') onInteractRef.current?.();
+      if (code === 'Space' || key === ' ') {
+        e.preventDefault();
+        onDeployBuoyRef.current?.();
+      }
+      if (code === 'KeyE' || key === 'e' || key === 'E' || code === 'Enter' || code === 'NumpadEnter' || key === 'Enter') {
+        e.preventDefault();
+        onInteractRef.current?.();
+      }
 
       if (IS_DEV) {
         // eslint-disable-next-line no-console

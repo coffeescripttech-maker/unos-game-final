@@ -1,8 +1,9 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { usePhaserEvent } from '../../hooks/usePhaserEvent';
 import { useGameContext } from '../../contexts/GameContext';
 import { GAME_EVENTS } from '@shared/events';
 import type { HUDLevelIntroPayload } from '@shared/events';
+import { speakSequence, speak, stopSpeaking } from '../../services/speech';
 
 const MECH_COLORS: Record<string, string> = {
   '☀️': 'text-accent-yellow',
@@ -88,12 +89,25 @@ export default function LevelIntroOverlay() {
   const handleDismiss = useCallback(() => {
     if (!game) return;
     introOpen.current = false;
+    stopSpeaking();
     // Scene-level listeners (e.g. startGame) fire on this event…
     game.events.emit(GAME_EVENTS.HUD_INTRO_DISMISS);
     setIntro(null);
     // …then unfreeze the scene so gameplay resumes cleanly.
     resumeScenes();
   }, [game, resumeScenes]);
+
+  // Read the level instructions aloud (auditory learners) whenever the card opens.
+  useEffect(() => {
+    if (!intro) return;
+    speakSequence([
+      intro.title,
+      intro.subtitle,
+      ...intro.mechanics.map(m => m.text),
+      'Tap Hint anytime if you need help.',
+    ]);
+    return () => stopSpeaking();
+  }, [intro]);
 
   if (!intro) return null;
 
@@ -148,13 +162,19 @@ export default function LevelIntroOverlay() {
           })}
         </div>
 
-        {/* ── Start button ── */}
-        <button
-          onClick={handleDismiss}
-          className="retro-btn retro-btn-primary w-full mt-6 text-base animate-pulse-subtle"
-        >
-          ▶  Click to continue
-        </button>
+        {/* ── Hint reminder + Start (sticky on short screens) ── */}
+        <div className="level-intro-cta">
+          <div className="mt-3 px-2 text-center font-body text-xs text-white/55">
+            💡 Stuck? Tap the <span className="text-accent-yellow font-bold">Hint</span> button anytime.
+          </div>
+
+          <button
+            onClick={handleDismiss}
+            className="retro-btn retro-btn-primary w-full mt-4 text-base animate-pulse-subtle"
+          >
+            ▶  Click to continue
+          </button>
+        </div>
       </div>
     </div>
   );

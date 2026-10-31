@@ -14,7 +14,8 @@ import type {
   TyphoonSliderUpdatePayload,
   TyphoonSliderUnlockPayload,
   TyphoonQuizPayload,
-  AnatomyReviewPayload
+  AnatomyReviewPayload,
+  CoreFactPayload
 } from '@shared/events';
 import { COLORS, FONTS, GAME_WIDTH, GAME_HEIGHT, DEPTH } from '../constants';
 import { GameManager } from '../managers/GameManager';
@@ -85,6 +86,8 @@ export class TyphoonScene extends Phaser.Scene {
   private heatWaveTime = 0;
   private spoutAngle = 0;
   private isMobile = false;
+  /** Core-learning facts already shown this run. */
+  private shownFacts = new Set<string>();
 
   constructor() {
     super({ key: SCENES.TYPHOON });
@@ -114,6 +117,7 @@ export class TyphoonScene extends Phaser.Scene {
     this.glowPulseValue = 0;
     this.glowPulseDirection = 1;
     this.isMobile = !this.sys.game.device.os.desktop;
+    this.shownFacts.clear();
 
     // Background (with slow zoom + drift animation)
     const bg = this.add
@@ -412,8 +416,21 @@ export class TyphoonScene extends Phaser.Scene {
     } satisfies AnatomyReviewPayload);
   };
 
+  /** Show a core-learning pop-up once per run. */
+  private emitFact(fact: CoreFactPayload) {
+    if (this.shownFacts.has(fact.id)) return;
+    this.shownFacts.add(fact.id);
+    this.game.events.emit(GAME_EVENTS.HUD_CORE_FACT, fact);
+  }
+
   private startGame = () => {
     this.gameStarted = true;
+    this.emitFact({
+      id: 'typhoon_fuel',
+      icon: '🌊',
+      title: 'Warm ocean = typhoon fuel',
+      text: 'A typhoon needs ocean water warmer than 26.5 °C. Warm, moist air rises and powers the storm!'
+    });
 
     // Emit level info
     this.game.events.emit(GAME_EVENTS.HUD_LEVEL_INFO, {

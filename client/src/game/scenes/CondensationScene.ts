@@ -8,7 +8,9 @@ import type {
   HUDLevelInfoPayload,
   HUDWeatherPayload,
   HUDLevelIntroPayload,
-  HUDScorePayload
+  HUDScorePayload,
+  CoreFactPayload,
+  GuidedPreviewPayload
 } from '@shared/events';
 import { COLORS, FONTS, GAME_WIDTH, GAME_HEIGHT, DEPTH } from '../constants';
 import { GameManager } from '../managers/GameManager';
@@ -39,6 +41,8 @@ type VaporType = 'heavy' | 'light' | 'normal';
 
 interface RisingVapor {
   sprite: Phaser.GameObjects.Text;
+  /** Colored glow that shows which layer this bubble belongs to. */
+  halo?: Phaser.GameObjects.Arc;
   id: number;
   active: boolean;
   vaporType: VaporType;
@@ -63,6 +67,8 @@ export class CondensationScene extends Phaser.Scene {
   private isComplete = false;
   private gameStarted = false;
   private nextVaporId = 0;
+  /** Core-learning facts already shown this run. */
+  private shownFacts = new Set<string>();
 
   private mistLayer!: Phaser.GameObjects.Image;
   private cloudGlow!: Phaser.GameObjects.Image;
@@ -105,6 +111,7 @@ export class CondensationScene extends Phaser.Scene {
     this.cloudProgress = 0;
     this.timeRemaining = this.TOTAL_TIME;
     this.nextVaporId = 0;
+    this.shownFacts.clear();
 
     this.buildScene();
     this.showIntroOverlay();
@@ -119,20 +126,44 @@ export class CondensationScene extends Phaser.Scene {
       levelId: 'condensation',
       badge: '☁️ LEVEL 2',
       title: 'Build the Clouds',
-      subtitle: 'Match vapor type to the right layer!',
+      subtitle: 'Match each vapor bubble to the right layer!',
       mechanics: [
-        { icon: '💧', text: 'Vapor rises from the ocean — catch it while it floats up!' },
-        { icon: '🔵', text: 'BLUE vapor (heavy) — cools down near the WARM ocean (bottom)' },
-        { icon: '⚪', text: 'WHITE vapor (light) — cools up in the COLD sky (top)' },
-        { icon: '✨', text: 'CLEAR vapor (normal) — cools anywhere (BONUS at the sweet spot!)' },
-        { icon: '✋', text: 'DRAG a zone ❄ to the right height, then CLICK it to release cold air' },
-        { icon: '⏱️', text: 'Each zone needs 3 seconds to recharge — rotate your clicks!' },
-        { icon: '💨', text: 'Wind gusts blow vapor sideways — reposition your zones!' },
-        { icon: '☁️', text: 'Grow the cloud to 100% before time runs out!' }
+        { icon: '💧', text: 'STEP 1 — Watch the bubbles rise from the ocean' },
+        { icon: '🔵', text: 'STEP 2 — Heavy BLUE bubble → drag a ❄ zone to the WARM bottom layer' },
+        { icon: '⚪', text: 'STEP 3 — Light WHITE bubble → drag a ❄ zone to the COLD top layer' },
+        { icon: '✨', text: 'STEP 4 — Normal YELLOW bubble → place the ❄ zone in the MIDDLE (sweet spot!)' },
+        { icon: '👆', text: 'STEP 5 — Tap the ❄ zone to release cold air and condense the bubble' },
+        { icon: '⏱️', text: 'Each zone rests for 3 seconds — use another zone while it recharges' },
+        { icon: '☁️', text: 'Goal: grow the cloud to 100% before time runs out!' }
       ]
     } satisfies HUDLevelIntroPayload);
 
-    this.game.events.once(GAME_EVENTS.HUD_INTRO_DISMISS, this.startGame);
+    // Intro → animated guided preview → gameplay
+    this.game.events.once(GAME_EVENTS.HUD_INTRO_DISMISS, this.onIntroDismiss);
+  }
+
+  private onIntroDismiss = () => {
+    const preview: GuidedPreviewPayload = {
+      levelId: 'condensation',
+      title: 'Where does each bubble go?',
+      subtitle: 'Watch the three bubbles find their layer.',
+      steps: [
+        { icon: '🔵', text: 'BLUE (heavy) vapor cools in the WARM layer near the ocean.' },
+        { icon: '✨', text: 'YELLOW (normal) vapor cools in the MIDDLE — the sweet spot.' },
+        { icon: '⚪', text: 'WHITE (light) vapor cools high in the COLD sky.' },
+        { icon: '👆', text: 'Drag a ❄ cold zone to a layer, then tap it to release cold air.' }
+      ],
+      cta: '▶ Start condensing'
+    };
+    this.game.events.once(GAME_EVENTS.HUD_GUIDED_PREVIEW_DONE, this.startGame);
+    this.game.events.emit(GAME_EVENTS.HUD_GUIDED_PREVIEW, preview);
+  };
+
+  /** Show a core-learning pop-up once per run. */
+  private emitFact(fact: CoreFactPayload) {
+    if (this.shownFacts.has(fact.id)) return;
+    this.shownFacts.add(fact.id);
+    this.game.events.emit(GAME_EVENTS.HUD_CORE_FACT, fact);
   }
 
   private startGame = () => {
@@ -246,6 +277,28 @@ export class CondensationScene extends Phaser.Scene {
       .setDepth(1.2)
       .setAlpha(0.4)
       .setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
+
+    // ── Layer labels + bubble-color legend (R2: make the layers obvious) ──
+    // Phones render the 1280×720 canvas scaled down, so bump text/halos on touch.
+    const touch = !this.sys.game.device.os.desktop;
+    const layerLabel = (y: number, text: string, color: string) =>
+      this.add
+        .text(touch ? 12 : 24, y, text, {
+          fontFamily: FONTS.DISPLAY,
+          fontSize: touch ? '18px' : '12px',
+          color,
+          stroke: '#000000',
+          strokeThickness: touch ? 4 : 3,
+          backgroundColor: 'rgba(0,0,0,0.35)',
+          padding: { x: 6, y: 3 }
+        })
+        .setOrigin(0, 0.5)
+        .setDepth(1.35)
+        .setAlpha(0.9);
+
+    layerLabel(238, '❄ COLD SKY → white vapor', '#E3F2FD');
+    layerLabel(350, '✨ MIDDLE → yellow vapor (sweet spot)', '#FFD166');
+    layerLabel(470, '🌊 WARM OCEAN AIR → blue vapor', '#90CAF9');
 
     // Sweet spot indicator (pulsing line that moves up)
     this.sweetSpotIndicator = this.add.graphics().setDepth(1.4).setAlpha(0);
@@ -578,6 +631,15 @@ export class CondensationScene extends Phaser.Scene {
         })
         .setOrigin(0.5)
         .setDepth(5);
+
+      if (hasWrongType) {
+        this.emitFact({
+          id: 'wrong_layer',
+          icon: '🎯',
+          title: 'Right bubble, right layer',
+          text: 'Match the bubble color to its layer: BLUE → warm bottom, YELLOW → middle, WHITE → cold top.'
+        });
+      }
       this.tweens.add({
         targets: missText,
         y: zy - 45,
@@ -693,18 +755,34 @@ export class CondensationScene extends Phaser.Scene {
     const roll = Math.random();
     const vaporType: VaporType = roll < 0.3 ? 'heavy' : roll < 0.6 ? 'light' : 'normal';
 
-      const emoji = vaporType === 'heavy' ? '💧' : vaporType === 'light' ? '❄️' : '✨';
+    const emoji = vaporType === 'heavy' ? '💧' : vaporType === 'light' ? '❄️' : '✨';
+    // Color = the layer this bubble must be condensed in:
+    // blue → warm bottom, yellow → middle sweet spot, white → cold top.
+    const haloColor = vaporType === 'heavy' ? 0x4fc3f7 : vaporType === 'light' ? 0xffffff : 0xffd166;
+    // Bigger halo + emoji on touch so the color coding stays readable on phones.
+    const touch = !this.sys.game.device.os.desktop;
+    const halo = this.add.circle(x, startY, touch ? 24 : 16, haloColor, 0.35).setDepth(1.9);
+    this.tweens.add({
+      targets: halo,
+      scale: 1.25,
+      alpha: 0.15,
+      duration: 700,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
     const sprite = this.add
       .text(x, startY, emoji, {
         fontFamily: FONTS.BODY,
-        fontSize: '20px'
+        fontSize: touch ? '28px' : '20px'
       })
       .setOrigin(0.5)
       .setDepth(2)
       .setAlpha(0.85);
 
     const id = this.nextVaporId++;
-    const vapor: RisingVapor = { sprite, id, active: true, vaporType };
+    const vapor: RisingVapor = { sprite, halo, id, active: true, vaporType };
     this.vapors.push(vapor);
 
     const targetX = x + Phaser.Math.Between(-100, 100);
@@ -712,7 +790,7 @@ export class CondensationScene extends Phaser.Scene {
 
     if (startY > ZONE_WARM_TOP) {
       segs.push({
-        targets: sprite,
+        targets: [sprite, halo],
         y: ZONE_WARM_TOP,
         x: Phaser.Math.Linear(x, targetX, 0.4),
         duration: Phaser.Math.Between(800, 1200),
@@ -725,7 +803,7 @@ export class CondensationScene extends Phaser.Scene {
       ZONE_COLD_TOP + 40
     );
     segs.push({
-      targets: sprite,
+      targets: [sprite, halo],
       y: midY,
       x: Phaser.Math.Linear(x, targetX, 0.7),
       duration: Phaser.Math.Between(1600, 2200),
@@ -733,7 +811,7 @@ export class CondensationScene extends Phaser.Scene {
     });
 
     segs.push({
-      targets: sprite,
+      targets: [sprite, halo],
       y: finalY,
       x: targetX,
       duration: Phaser.Math.Between(2500, 3500),
@@ -743,6 +821,7 @@ export class CondensationScene extends Phaser.Scene {
     const runSegments = (index: number) => {
       if (index >= segs.length) {
         sprite.destroy();
+        halo.destroy();
         vapor.active = false;
         const idx = this.vapors.indexOf(vapor);
         if (idx >= 0) this.vapors.splice(idx, 1);
@@ -813,6 +892,31 @@ export class CondensationScene extends Phaser.Scene {
       duration: 200,
       onComplete: () => vapor.sprite.destroy()
     });
+    if (vapor.halo) {
+      const halo = vapor.halo;
+      this.tweens.add({
+        targets: halo,
+        scale: 2,
+        alpha: 0,
+        duration: 250,
+        onComplete: () => halo.destroy()
+      });
+    }
+
+    this.emitFact({
+      id: 'vapor_condenses',
+      icon: '☁️',
+      title: 'Cooling makes droplets',
+      text: 'Cold air turns vapor back into tiny water droplets. Millions of droplets together make a cloud!'
+    });
+    if (inSweetSpot) {
+      this.emitFact({
+        id: 'sweet_spot',
+        icon: '✨',
+        title: 'Sweet spot bonus!',
+        text: 'The middle layer is the sweet spot — vapor condenses fastest there and the cloud grows more!'
+      });
+    }
 
     const effect = this.add
       .image(vx, vy, 'condensation_effect')
@@ -1130,7 +1234,9 @@ export class CondensationScene extends Phaser.Scene {
 
   shutdown() {
     this.game.events.off(GAME_EVENTS.HUD_CONTINUE, this.onContinue);
+    this.game.events.off(GAME_EVENTS.HUD_INTRO_DISMISS, this.onIntroDismiss);
     this.game.events.off(GAME_EVENTS.HUD_INTRO_DISMISS, this.startGame);
+    this.game.events.off(GAME_EVENTS.HUD_GUIDED_PREVIEW_DONE, this.startGame);
     if (this.windStreamTimer) this.windStreamTimer.destroy();
     if (this.windGustTimerEvent) this.windGustTimerEvent.destroy();
   }

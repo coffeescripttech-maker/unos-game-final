@@ -9,7 +9,8 @@ import type {
   HUDLevelIntroPayload,
   HUDResultPayload,
   HUDPatternReviewPayload,
-  HUDPressureSlotsPayload
+  HUDPressureSlotsPayload,
+  CoreFactPayload
 } from '@shared/events';
 import { FONTS, GAME_WIDTH, GAME_HEIGHT } from '../constants';
 import { GameManager } from '../managers/GameManager';
@@ -61,6 +62,8 @@ export class PressureScene extends Phaser.Scene {
   private round = 0;
   private targetArrow!: Phaser.GameObjects.Graphics;
   private windStreamTimer!: Phaser.Time.TimerEvent;
+  /** Core-learning facts already shown this run. */
+  private shownFacts = new Set<string>();
 
   constructor() {
     super({ key: SCENES.PRESSURE });
@@ -80,6 +83,7 @@ export class PressureScene extends Phaser.Scene {
     this.slots = [];
     this.windArrows = [];
     this.previewArrows = [];
+    this.shownFacts.clear();
 
     this.buildScene();
     this.showIntroOverlay();
@@ -911,6 +915,12 @@ export class PressureScene extends Phaser.Scene {
       this.showCombo();
       this.playCorrectTone(this.combo);
       this.cloudHop();
+      this.emitFact({
+        id: 'pressure_correct',
+        icon: '🌬️',
+        title: 'Wind blows High → Low',
+        text: 'Air always flows from HIGH pressure to LOW pressure. Six correct slots make a strong wind!'
+      });
 
       const ring = this.add
         .circle(slot.x, slot.y, 10, 0x000000, 0)
@@ -1457,6 +1467,13 @@ export class PressureScene extends Phaser.Scene {
   //  INTRO & FLOW
   // ─────────────────────────────────
 
+  /** Show a core-learning pop-up once per run. */
+  private emitFact(fact: CoreFactPayload) {
+    if (this.shownFacts.has(fact.id)) return;
+    this.shownFacts.add(fact.id);
+    this.game.events.emit(GAME_EVENTS.HUD_CORE_FACT, fact);
+  }
+
   private getIntroPayload() {
     return {
       levelId: 'pressure',
@@ -1484,6 +1501,12 @@ export class PressureScene extends Phaser.Scene {
   private startGame = () => {
     this.gameStarted = true;
     this.newRound();
+    this.emitFact({
+      id: 'pressure_makes_wind',
+      icon: '💨',
+      title: 'Air moves from High to Low',
+      text: 'High pressure pushes air toward low pressure. That moving air is what we call WIND!'
+    });
     this.game.events.emit(GAME_EVENTS.HUD_LEVEL_INFO, {
       name: 'Air Pressure',
       description: 'Match H/L with instant feedback — wind blows High → Low!'
